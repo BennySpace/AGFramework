@@ -87,8 +87,6 @@ Raw delegate payload: 10
 #include <tuple>
 
 
-#include "Exports.h"
-
 ///////////////////////////////////////////////////////////////
 //////////////////// DEFINES SECTION //////////////////////////
 ///////////////////////////////////////////////////////////////
@@ -207,7 +205,8 @@ public:
 
 	StaticDelegate(DelegateFunction function, Args2&&... args)
 		: m_Function(function), m_Payload(std::forward<Args2>(args)...)
-	{}
+	{
+	}
 	virtual RetVal Execute(Args&&... args) override
 	{
 		return Execute_Internal(std::forward<Args>(args)..., std::index_sequence_for<Args2...>());
@@ -234,7 +233,8 @@ public:
 
 	RawDelegate(T* pObject, DelegateFunction function, Args2&&... args)
 		: m_pObject(pObject), m_Function(function), m_Payload(std::forward<Args2>(args)...)
-	{}
+	{
+	}
 	virtual RetVal Execute(Args&&... args) override
 	{
 		return Execute_Internal(std::forward<Args>(args)..., std::index_sequence_for<Args2...>());
@@ -266,7 +266,8 @@ public:
 	explicit LambdaDelegate(TLambda&& lambda, Args2&&... args) :
 		m_Lambda(std::forward<TLambda>(lambda)),
 		m_Payload(std::forward<Args2>(args)...)
-	{}
+	{
+	}
 
 	RetVal Execute(Args&&... args) override
 	{
@@ -389,7 +390,7 @@ public:
 	constexpr static const unsigned int INVALID_ID = (unsigned int)~0;
 private:
 	unsigned int m_Id;
-	GAMEFRAMEWORK_API static unsigned int CURRENT_ID;
+	static unsigned int CURRENT_ID;
 
 	static int GetNewID()
 	{

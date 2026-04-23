@@ -1,17 +1,78 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="AGFrameworkApp.cpp" />
-    <ClCompile Include="d3dx12.cpp" />
-    <ClCompile Include="d3dApp.cpp" />
-    <ClCompile Include="d3dUtil.cpp" />
-    <ClCompile Include="GameTimer.cpp" />
-    <ClCompile Include="MathHelper.cpp" />
+    <Filter Include="Common">
+      <UniqueIdentifier>{a414c8b2-6bf8-4dee-b694-d1301b5afaa9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Input">
+      <UniqueIdentifier>{ff912449-13f5-4870-9773-9b9e3de211ca}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Utility">
+      <UniqueIdentifier>{049c784d-4d10-426f-adfb-9739992163dd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core">
+      <UniqueIdentifier>{ee8fce67-fb27-4bf1-a0de-e29a4e06555f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="d3dApp.h" />
-    <ClInclude Include="d3dUtil.h" />
-    <ClInclude Include="GameTimer.h" />
-    <ClInclude Include="MathHelper.h" />
+    <ClCompile Include="src\Common\d3dUtil.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Common\DDSTextureLoader.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Common\GameTimer.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Common\MathHelper.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Input\InputDevice.cpp">
+      <Filter>Input</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Utility\Delegates.cpp">
+      <Filter>Utility</Filter>
+    </ClCompile>
+    <ClCompile Include="WinMain.cpp" />
+    <ClCompile Include="AGFApp.cpp" />
+    <ClCompile Include="DirectX12App.cpp" />
+    <ClCompile Include="Window.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\Common\d3dUtil.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Common\d3dx12.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Common\DDSTextureLoader.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Common\GameTimer.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Common\MathHelper.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Input\InputDevice.h">
+      <Filter>Input</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Input\Keys.h">
+      <Filter>Input</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Utility\Delegates.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="AGFapp.h" />
+    <ClInclude Include="DirectX12App.h" />
+    <ClInclude Include="Window.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="src\Utility\Delegates.natvis">
+      <Filter>Utility</Filter>
+    </Natvis>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>

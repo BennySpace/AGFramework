@@ -19,20 +19,35 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\Common\d3dApp.cpp" />
-    <ClCompile Include="..\Common\d3dUtil.cpp" />
-    <ClCompile Include="..\Common\DDSTextureLoader.cpp" />
-    <ClCompile Include="..\Common\GameTimer.cpp" />
-    <ClCompile Include="..\Common\MathHelper.cpp" />
-    <ClCompile Include="AGFrameworkApp.cpp" />
+    <ClCompile Include="AGFApp.cpp" />
+    <ClCompile Include="DirectX12App.cpp" />
+    <ClCompile Include="src\Common\d3dUtil.cpp" />
+    <ClCompile Include="src\Common\DDSTextureLoader.cpp" />
+    <ClCompile Include="src\Common\GameTimer.cpp" />
+    <ClCompile Include="src\Common\MathHelper.cpp" />
+    <ClCompile Include="src\Input\InputDevice.cpp" />
+    <ClCompile Include="src\Utility\Delegates.cpp" />
+    <ClCompile Include="Window.cpp" />
+    <ClCompile Include="WinMain.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\Common\d3dApp.h" />
-    <ClInclude Include="..\Common\d3dUtil.h" />
-    <ClInclude Include="..\Common\d3dx12.h" />
-    <ClInclude Include="..\Common\DDSTextureLoader.h" />
-    <ClInclude Include="..\Common\GameTimer.h" />
-    <ClInclude Include="..\Common\MathHelper.h" />
+    <ClInclude Include="AGFapp.h" />
+    <ClInclude Include="DirectX12App.h" />
+    <ClInclude Include="src\Common\d3dUtil.h" />
+    <ClInclude Include="src\Common\d3dx12.h" />
+    <ClInclude Include="src\Common\DDSTextureLoader.h" />
+    <ClInclude Include="src\Common\GameTimer.h" />
+    <ClInclude Include="src\Common\MathHelper.h" />
+    <ClInclude Include="src\Input\InputDevice.h" />
+    <ClInclude Include="src\Input\Keys.h" />
+    <ClInclude Include="src\Utility\Delegates.h" />
+    <ClInclude Include="Window.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="src\Utility\Delegates.natvis" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>
@@ -144,5 +159,12 @@
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="packages\directxtk12_uwp.2026.4.1.1\build\native\directxtk12_uwp.targets" Condition="Exists('packages\directxtk12_uwp.2026.4.1.1\build\native\directxtk12_uwp.targets')" />
   </ImportGroup>
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('packages\directxtk12_uwp.2026.4.1.1\build\native\directxtk12_uwp.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\directxtk12_uwp.2026.4.1.1\build\native\directxtk12_uwp.targets'))" />
+  </Target>
 </Project>

@@ -1,9 +1,7 @@
 #pragma once
 
 enum class Keys : int {
-
 	None = 0,
-
 	LeftButton = 500,
 	RightButton = 501,
 	MiddleButton = 502,
@@ -12,7 +10,6 @@ enum class Keys : int {
 	MouseButtonX3 = 505,
 	WheelUp = 506,
 	WheelDown = 507,
-	
 	Back = 8,
 	Tab = 9,
 	Enter = 13,
@@ -173,5 +170,3 @@ enum class Keys : int {
 	Pa1 = 253,
 	OemClear = 254,
 };
-
-
