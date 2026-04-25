@@ -1,94 +1,178 @@
 #include "DirectX12App.h"
 
 using Microsoft::WRL::ComPtr;
-using namespace std;
 using namespace DirectX;
 
-DirectX12App::DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd) : m_hAppInst(mhAppInst), m_hMainWnd(mhMainWnd){}
+DirectX12App::DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd) : m_hAppInst(mhAppInst), m_hMainWnd(mhMainWnd)
+{
+	RECT r{};
+	GetClientRect(mhMainWnd, &r);
+	m_clientWidth = r.right - r.left;
+	m_clientHeight = r.bottom - r.top;
+}
 
 DirectX12App::~DirectX12App()
 {
-	if(m_device != nullptr)
-		FlushCommandQueue();
+	if (m_device) FlushCommandQueue();
 }
 
-bool  DirectX12App::Initialize()
+bool DirectX12App::Initialize()
 {
-#if defined(DEBUG) || defined(_DEBUG) 
-{
-	ComPtr<ID3D12Debug> debugController;
-	ThrowIfFailed(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)));
-	debugController->EnableDebugLayer();
-}
+#if defined(DEBUG) || defined(_DEBUG)
+	{
+		ComPtr<ID3D12Debug> debugController;
+		if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
+			debugController->EnableDebugLayer();
+	}
 #endif
 
 	ThrowIfFailed(CreateDXGIFactory1(IID_PPV_ARGS(&m_dxgiFactory)));
 
-	HRESULT hardwareResult = D3D12CreateDevice(
-		nullptr,
-		D3D_FEATURE_LEVEL_12_0,
-		IID_PPV_ARGS(&m_device));
-
-	if(FAILED(hardwareResult))
+	HRESULT hr = D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&m_device));
+	if (FAILED(hr))
 	{
-		ComPtr<IDXGIAdapter> pWarpAdapter;
-		ThrowIfFailed(m_dxgiFactory->EnumWarpAdapter(IID_PPV_ARGS(&pWarpAdapter)));
-
-		ThrowIfFailed(D3D12CreateDevice(
-			pWarpAdapter.Get(),
-			D3D_FEATURE_LEVEL_11_0,
-			IID_PPV_ARGS(&m_device)));
+		ComPtr<IDXGIAdapter> warpAdapter;
+		ThrowIfFailed(m_dxgiFactory->EnumWarpAdapter(IID_PPV_ARGS(&warpAdapter)));
+		ThrowIfFailed(D3D12CreateDevice(warpAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_device)));
 	}
 
-	ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE,
-		IID_PPV_ARGS(&m_fence)));
+	ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
 
 	m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	m_dsvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 	m_cbvSrvUavDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS msQualityLevels;
-	msQualityLevels.Format = m_backBufferFormat;
-	msQualityLevels.SampleCount = 4;
-	msQualityLevels.Flags = D3D12_MULTISAMPLE_QUALITY_LEVELS_FLAG_NONE;
-	msQualityLevels.NumQualityLevels = 0;
-	ThrowIfFailed(m_device->CheckFeatureSupport(
-		D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS,
-		&msQualityLevels,
-		sizeof(msQualityLevels)));
-
-    m4xMsaaQuality = msQualityLevels.NumQualityLevels;
-	assert(m4xMsaaQuality > 0 && "Unexpected MSAA quality level.");
-	
-#ifdef _DEBUG
-    LogAdapters();
-#endif
-
 	CreateCommandObjects();
-    CreateSwapChain();
-    CreateRtvAndDsvDescriptorHeaps();
+	CreateSwapChain();
+	CreateRtvAndDsvDescriptorHeaps();
+
+	OnResize(); // Initial setup
 
 	return true;
+}
+
+void DirectX12App::Update(const GameTimer& gt)
+{
+}
+
+void DirectX12App::Draw(const GameTimer& gt)
+{
+	ThrowIfFailed(m_commandAllocator->Reset());
+	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
+
+	auto transitionToRT = CD3DX12_RESOURCE_BARRIER::Transition(
+		CurrentBackBuffer(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	m_commandList->ResourceBarrier(1, &transitionToRT);
+
+	m_commandList->RSSetViewports(1, &m_viewport);
+	m_commandList->RSSetScissorRects(1, &m_scissorRect);
+
+	const float clearColor[] = { 0.2f, 0.4f, 0.8f, 1.0f }; // Nice blue
+	m_commandList->ClearRenderTargetView(CurrentBackBufferView(), clearColor, 0, nullptr);
+	m_commandList->ClearDepthStencilView(DepthStencilView(),
+		D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+
+	m_commandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
+
+	auto transitionToPresent = CD3DX12_RESOURCE_BARRIER::Transition(
+		CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+	m_commandList->ResourceBarrier(1, &transitionToPresent);
+
+	ThrowIfFailed(m_commandList->Close());
+
+	ID3D12CommandList* cmds[] = { m_commandList.Get() };
+	m_commandQueue->ExecuteCommandLists(_countof(cmds), cmds);
+
+	ThrowIfFailed(m_swapChain->Present(0, 0));
+	m_currBackBuffer = (m_currBackBuffer + 1) % SwapChainBufferCount;
+
+	FlushCommandQueue();
+}
+
+void DirectX12App::OnResize()
+{
+	assert(m_device);
+	assert(m_swapChain);
+	assert(m_commandAllocator);
+
+	FlushCommandQueue();
+
+	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
+
+	for (int i = 0; i < SwapChainBufferCount; ++i)
+		m_renderTargets[i].Reset();
+	m_depthStencilBuffer.Reset();
+
+	ThrowIfFailed(m_swapChain->ResizeBuffers(
+		SwapChainBufferCount, m_clientWidth, m_clientHeight,
+		m_backBufferFormat, DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH));
+
+	m_currBackBuffer = 0;
+
+	// Recreate RTVs
+	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHeapHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart());
+	for (UINT i = 0; i < SwapChainBufferCount; ++i)
+	{
+		ThrowIfFailed(m_swapChain->GetBuffer(i, IID_PPV_ARGS(&m_renderTargets[i])));
+		m_device->CreateRenderTargetView(m_renderTargets[i].Get(), nullptr, rtvHeapHandle);
+		rtvHeapHandle.Offset(1, m_rtvDescriptorSize);
+	}
+
+	// Recreate Depth Stencil
+	D3D12_RESOURCE_DESC depthStencilDesc = {};
+	depthStencilDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	depthStencilDesc.Width = m_clientWidth;
+	depthStencilDesc.Height = m_clientHeight;
+	depthStencilDesc.DepthOrArraySize = 1;
+	depthStencilDesc.MipLevels = 1;
+	depthStencilDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;
+	depthStencilDesc.SampleDesc.Count = 1;
+	depthStencilDesc.SampleDesc.Quality = 0;
+	depthStencilDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+	D3D12_CLEAR_VALUE optClear{};
+	optClear.Format = m_depthStencilFormat;
+	optClear.DepthStencil.Depth = 1.0f;
+	optClear.DepthStencil.Stencil = 0;
+
+	ThrowIfFailed(m_device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+		D3D12_HEAP_FLAG_NONE,
+		&depthStencilDesc,
+		D3D12_RESOURCE_STATE_COMMON,
+		&optClear,
+		IID_PPV_ARGS(m_depthStencilBuffer.GetAddressOf())));
+
+	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc{};
+	dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
+	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+	dsvDesc.Format = m_depthStencilFormat;
+	m_device->CreateDepthStencilView(m_depthStencilBuffer.Get(), &dsvDesc, DepthStencilView());
+
+	ThrowIfFailed(m_commandList->Close());
+	ID3D12CommandList* cmds[] = { m_commandList.Get() };
+	m_commandQueue->ExecuteCommandLists(_countof(cmds), cmds);
+	FlushCommandQueue();
+
+	m_viewport = { 0.0f, 0.0f, (float)m_clientWidth, (float)m_clientHeight, 0.0f, 1.0f };
+	m_scissorRect = { 0, 0, m_clientWidth, m_clientHeight };
+}
+
+void DirectX12App::OnWindowResize(int width, int height)
+{
+	if (width == m_clientWidth && height == m_clientHeight)
+		return;
+
+	m_clientWidth = width;
+	m_clientHeight = height;
+
+	if (m_device != nullptr)
+		OnResize();
 }
 
 float DirectX12App::AspectRatio()const
 {
 	return static_cast<float>(m_clientWidth) / m_clientHeight;
-}
-
-bool DirectX12App::Get4xMsaaState()const
-{
-	return m4xMsaaState;
-}
-
-void DirectX12App::Set4xMsaaState(bool value)
-{
-	if(m4xMsaaState != value)
-	{
-		m4xMsaaState = value;
-
-		CreateSwapChain();
-	}
 }
 
 void DirectX12App::CreateSwapChain()
@@ -114,7 +198,7 @@ void DirectX12App::CreateSwapChain()
 
 	ThrowIfFailed(m_dxgiFactory->CreateSwapChain(
 		m_commandQueue.Get(),
-		&sd, 
+		&sd,
 		m_swapChain.GetAddressOf()));
 }
 
@@ -124,7 +208,7 @@ void DirectX12App::FlushCommandQueue()
 
 	ThrowIfFailed(m_commandQueue->Signal(m_fence.Get(), m_fenceValue));
 
-	if(m_fence->GetCompletedValue() < m_fenceValue)
+	if (m_fence->GetCompletedValue() < m_fenceValue)
 	{
 		HANDLE eventHandle = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
 
@@ -151,97 +235,6 @@ D3D12_CPU_DESCRIPTOR_HANDLE DirectX12App::CurrentBackBufferView()const
 D3D12_CPU_DESCRIPTOR_HANDLE DirectX12App::DepthStencilView()const
 {
 	return m_dsvHeap->GetCPUDescriptorHandleForHeapStart();
-}
-
-void DirectX12App::Update(const GameTimer& gt)
-{
-}
-
-void DirectX12App::Draw(const GameTimer& gt)
-{
-}
-
-void DirectX12App::OnResize()
-{
-	assert(m_device);
-	assert(m_swapChain);
-	assert(m_commandAllocator);
-
-	FlushCommandQueue();
-
-	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
-
-	for (int i = 0; i < SwapChainBufferCount; ++i)
-		m_renderTargets[i].Reset();
-	m_depthStencilBuffer.Reset();
-
-	ThrowIfFailed(m_swapChain->ResizeBuffers(
-		SwapChainBufferCount, 
-		m_clientWidth, m_clientHeight, 
-		m_backBufferFormat, 
-		DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH));
-
-	m_currBackBuffer = 0;
-	 
-	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHeapHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart());
-	for (UINT i = 0; i < SwapChainBufferCount; i++)
-	{
-		ThrowIfFailed(m_swapChain->GetBuffer(i, IID_PPV_ARGS(&m_renderTargets[i])));
-		m_device->CreateRenderTargetView(m_renderTargets[i].Get(), nullptr, rtvHeapHandle);
-		rtvHeapHandle.Offset(1, m_rtvDescriptorSize);
-	}
-
-	D3D12_RESOURCE_DESC depthStencilDesc;
-	depthStencilDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	depthStencilDesc.Alignment = 0;
-	depthStencilDesc.Width = m_clientWidth;
-	depthStencilDesc.Height = m_clientHeight;
-	depthStencilDesc.DepthOrArraySize = 1;
-	depthStencilDesc.MipLevels = 1;
-
-	depthStencilDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;
-
-	depthStencilDesc.SampleDesc.Count = m4xMsaaState ? 4 : 1;
-	depthStencilDesc.SampleDesc.Quality = m4xMsaaState ? (m4xMsaaQuality - 1) : 0;
-	depthStencilDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-	depthStencilDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
-
-	D3D12_CLEAR_VALUE optClear;
-	optClear.Format = m_depthStencilFormat;
-	optClear.DepthStencil.Depth = 1.0f;
-	optClear.DepthStencil.Stencil = 0;
-	ThrowIfFailed(m_device->CreateCommittedResource(
-	    &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-		D3D12_HEAP_FLAG_NONE,
-	    &depthStencilDesc,
-		D3D12_RESOURCE_STATE_COMMON,
-	    &optClear,
-	    IID_PPV_ARGS(m_depthStencilBuffer.GetAddressOf())));
-
-	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc;
-	dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
-	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-	dsvDesc.Format = m_depthStencilFormat;
-	dsvDesc.Texture2D.MipSlice = 0;
-	m_device->CreateDepthStencilView(m_depthStencilBuffer.Get(), &dsvDesc, DepthStencilView());
-
-	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_depthStencilBuffer.Get(),
-		D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_DEPTH_WRITE));
-
-	ThrowIfFailed(m_commandList->Close());
-	ID3D12CommandList* cmdsLists[] = { m_commandList.Get() };
-	m_commandQueue->ExecuteCommandLists(_countof(cmdsLists), cmdsLists);
-
-	FlushCommandQueue();
-
-	m_viewport.TopLeftX = 0;
-	m_viewport.TopLeftY = 0;
-	m_viewport.Width    = static_cast<float>(m_clientWidth);
-	m_viewport.Height   = static_cast<float>(m_clientHeight);
-	m_viewport.MinDepth = 0.0f;
-	m_viewport.MaxDepth = 1.0f;
-
-	m_scissorRect = { 0, 0, m_clientWidth, m_clientHeight };
 }
 
 void DirectX12App::CreateRtvAndDsvDescriptorHeaps()
@@ -286,68 +279,68 @@ void DirectX12App::CreateCommandObjects()
 
 void DirectX12App::LogAdapters()
 {
-    UINT i = 0;
-    IDXGIAdapter* adapter = nullptr;
-    std::vector<IDXGIAdapter*> adapterList;
-    while(m_dxgiFactory->EnumAdapters(i, &adapter) !=
-    DXGI_ERROR_NOT_FOUND)
-    {
-        DXGI_ADAPTER_DESC desc;
-        adapter->GetDesc(&desc);
-        std::wstring text = L"***Adapter: ";
-        text += desc.Description;
-        text += L"\n";
-        OutputDebugString(text.c_str());
-        adapterList.push_back(adapter);
-        ++i;
-    }
-    for(size_t i = 0; i < adapterList.size(); ++i)
-    {
-        LogAdapterOutputs(adapterList[i]);
-        ReleaseCom(adapterList[i]);
-    }
+	UINT i = 0;
+	IDXGIAdapter* adapter = nullptr;
+	std::vector<IDXGIAdapter*> adapterList;
+	while (m_dxgiFactory->EnumAdapters(i, &adapter) !=
+		DXGI_ERROR_NOT_FOUND)
+	{
+		DXGI_ADAPTER_DESC desc;
+		adapter->GetDesc(&desc);
+		std::wstring text = L"***Adapter: ";
+		text += desc.Description;
+		text += L"\n";
+		OutputDebugString(text.c_str());
+		adapterList.push_back(adapter);
+		++i;
+	}
+	for (size_t i = 0; i < adapterList.size(); ++i)
+	{
+		LogAdapterOutputs(adapterList[i]);
+		ReleaseCom(adapterList[i]);
+	}
 }
 
 void DirectX12App::LogAdapterOutputs(IDXGIAdapter* adapter)
 {
-    UINT i = 0;
-    IDXGIOutput* output = nullptr;
-    while(adapter->EnumOutputs(i, &output) !=
-    DXGI_ERROR_NOT_FOUND)
-    {
-        DXGI_OUTPUT_DESC desc;
-        output->GetDesc(&desc);
-        std::wstring text = L"***Output: ";
-        text += desc.DeviceName;
-        text += L"\n";
-        OutputDebugString(text.c_str());
-        LogOutputDisplayModes(output,
-        DXGI_FORMAT_B8G8R8A8_UNORM);
-        ReleaseCom(output);
-        ++i;
-    }
+	UINT i = 0;
+	IDXGIOutput* output = nullptr;
+	while (adapter->EnumOutputs(i, &output) !=
+		DXGI_ERROR_NOT_FOUND)
+	{
+		DXGI_OUTPUT_DESC desc;
+		output->GetDesc(&desc);
+		std::wstring text = L"***Output: ";
+		text += desc.DeviceName;
+		text += L"\n";
+		OutputDebugString(text.c_str());
+		LogOutputDisplayModes(output,
+			DXGI_FORMAT_B8G8R8A8_UNORM);
+		ReleaseCom(output);
+		++i;
+	}
 }
 
 void DirectX12App::LogOutputDisplayModes(IDXGIOutput* output, DXGI_FORMAT format)
 {
-    UINT count = 0;
-    UINT flags = 0;
-    output->GetDisplayModeList(format, flags, &count,
-    nullptr);
-    std::vector<DXGI_MODE_DESC> modeList(count);
-    output->GetDisplayModeList(format, flags, &count,
-    &modeList[0]);
-    for(auto& x : modeList)
-    {
-        UINT n = x.RefreshRate.Numerator;
-        UINT d = x.RefreshRate.Denominator;
-        std::wstring text =
-        L"Width = " + std::to_wstring(x.Width) + L" " +
-        L"Height = " + std::to_wstring(x.Height) + L" "
-        +
-        L"Refresh = " + std::to_wstring(n) + L"/" +
-        std::to_wstring(d) +
-        L"\n";
-        ::OutputDebugString(text.c_str());
-    }
+	UINT count = 0;
+	UINT flags = 0;
+	output->GetDisplayModeList(format, flags, &count,
+		nullptr);
+	std::vector<DXGI_MODE_DESC> modeList(count);
+	output->GetDisplayModeList(format, flags, &count,
+		&modeList[0]);
+	for (auto& x : modeList)
+	{
+		UINT n = x.RefreshRate.Numerator;
+		UINT d = x.RefreshRate.Denominator;
+		std::wstring text =
+			L"Width = " + std::to_wstring(x.Width) + L" " +
+			L"Height = " + std::to_wstring(x.Height) + L" "
+			+
+			L"Refresh = " + std::to_wstring(n) + L"/" +
+			std::to_wstring(d) +
+			L"\n";
+		::OutputDebugString(text.c_str());
+	}
 }
