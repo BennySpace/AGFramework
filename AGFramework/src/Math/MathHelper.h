@@ -6,9 +6,9 @@
 
 #pragma once
 
-#include <Windows.h>
-#include <DirectXMath.h>
 #include <cstdint>
+#include <DirectXMath.h>
+#include <Windows.h>
 
 class MathHelper
 {
@@ -94,6 +94,4 @@ public:
 
 	static const float Infinity;
 	static const float Pi;
-
-
 };

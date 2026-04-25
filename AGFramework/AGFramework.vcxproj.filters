@@ -1,76 +1,37 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Common">
-      <UniqueIdentifier>{a414c8b2-6bf8-4dee-b694-d1301b5afaa9}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Input">
-      <UniqueIdentifier>{ff912449-13f5-4870-9773-9b9e3de211ca}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Utility">
-      <UniqueIdentifier>{049c784d-4d10-426f-adfb-9739992163dd}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Core">
-      <UniqueIdentifier>{ee8fce67-fb27-4bf1-a0de-e29a4e06555f}</UniqueIdentifier>
-    </Filter>
+    <ClCompile Include="src\Rendering\DirectX12\d3dUtil.cpp" />
+    <ClCompile Include="src\Rendering\DirectX12\DDSTextureLoader.cpp" />
+    <ClCompile Include="src\Utils\Delegates\Delegates.cpp" />
+    <ClCompile Include="src\Rendering\DirectX12\DirectX12App.cpp" />
+    <ClCompile Include="src\Core\Timer\GameTimer.cpp" />
+    <ClCompile Include="src\Core\Input\InputDevice.cpp" />
+    <ClCompile Include="src\Math\MathHelper.cpp" />
+    <ClCompile Include="src\Core\Application\AGFramework.cpp" />
+    <ClCompile Include="src\Core\Window\Window.cpp" />
+    <ClCompile Include="src\EntryPoint\WinMain.cpp" />
+    <ClCompile Include="src\Rendering\Renderer\Renderer.cpp" />
+    <ClCompile Include="src\Graphics\Geometry\GeometryGenerator.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Common\d3dUtil.cpp">
-      <Filter>Common</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Common\DDSTextureLoader.cpp">
-      <Filter>Common</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Common\GameTimer.cpp">
-      <Filter>Common</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Common\MathHelper.cpp">
-      <Filter>Common</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Input\InputDevice.cpp">
-      <Filter>Input</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Utility\Delegates.cpp">
-      <Filter>Utility</Filter>
-    </ClCompile>
-    <ClCompile Include="WinMain.cpp" />
-    <ClCompile Include="AGFApp.cpp" />
-    <ClCompile Include="DirectX12App.cpp" />
-    <ClCompile Include="Window.cpp" />
+    <ClInclude Include="src\Rendering\DirectX12\d3dUtil.h" />
+    <ClInclude Include="src\Rendering\Common\d3dx12.h" />
+    <ClInclude Include="src\Rendering\DirectX12\DDSTextureLoader.h" />
+    <ClInclude Include="src\Utils\Delegates\Delegates.h" />
+    <ClInclude Include="src\Rendering\DirectX12\DirectX12App.h" />
+    <ClInclude Include="src\Core\Timer\GameTimer.h" />
+    <ClInclude Include="src\Core\Input\InputDevice.h" />
+    <ClInclude Include="src\Core\Input\Keys.h" />
+    <ClInclude Include="src\Math\MathHelper.h" />
+    <ClInclude Include="src\Core\Application\AGFramework.h" />
+    <ClInclude Include="src\Core\Window\Window.h" />
+    <ClInclude Include="src\Rendering\Renderer\Renderer.h" />
+    <ClInclude Include="src\Graphics\Geometry\GeometryGenerator.h" />
+    <ClInclude Include="src\Utils\Export\Exports.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\Common\d3dUtil.h">
-      <Filter>Common</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Common\d3dx12.h">
-      <Filter>Common</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Common\DDSTextureLoader.h">
-      <Filter>Common</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Common\GameTimer.h">
-      <Filter>Common</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Common\MathHelper.h">
-      <Filter>Common</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Input\InputDevice.h">
-      <Filter>Input</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Input\Keys.h">
-      <Filter>Input</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Utility\Delegates.h">
-      <Filter>Utility</Filter>
-    </ClInclude>
-    <ClInclude Include="AGFapp.h" />
-    <ClInclude Include="DirectX12App.h" />
-    <ClInclude Include="Window.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <Natvis Include="src\Utility\Delegates.natvis">
-      <Filter>Utility</Filter>
-    </Natvis>
+    <Natvis Include="src\Utils\Delegates\Delegates.natvis" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

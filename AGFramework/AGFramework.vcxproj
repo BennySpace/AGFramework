@@ -19,32 +19,37 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="AGFApp.cpp" />
-    <ClCompile Include="DirectX12App.cpp" />
-    <ClCompile Include="src\Common\d3dUtil.cpp" />
-    <ClCompile Include="src\Common\DDSTextureLoader.cpp" />
-    <ClCompile Include="src\Common\GameTimer.cpp" />
-    <ClCompile Include="src\Common\MathHelper.cpp" />
-    <ClCompile Include="src\Input\InputDevice.cpp" />
-    <ClCompile Include="src\Utility\Delegates.cpp" />
-    <ClCompile Include="Window.cpp" />
-    <ClCompile Include="WinMain.cpp" />
+    <ClCompile Include="src\Rendering\DirectX12\d3dUtil.cpp" />
+    <ClCompile Include="src\Rendering\DirectX12\DDSTextureLoader.cpp" />
+    <ClCompile Include="src\Utils\Delegates\Delegates.cpp" />
+    <ClCompile Include="src\Rendering\DirectX12\DirectX12App.cpp" />
+    <ClCompile Include="src\Core\Timer\GameTimer.cpp" />
+    <ClCompile Include="src\Graphics\Geometry\GeometryGenerator.cpp" />
+    <ClCompile Include="src\Core\Input\InputDevice.cpp" />
+    <ClCompile Include="src\Math\MathHelper.cpp" />
+    <ClCompile Include="src\Core\Application\AGFramework.cpp" />
+    <ClCompile Include="src\Rendering\Renderer\Renderer.cpp" />
+    <ClCompile Include="src\Core\Window\Window.cpp" />
+    <ClCompile Include="src\EntryPoint\WinMain.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="AGFapp.h" />
-    <ClInclude Include="DirectX12App.h" />
-    <ClInclude Include="src\Common\d3dUtil.h" />
-    <ClInclude Include="src\Common\d3dx12.h" />
-    <ClInclude Include="src\Common\DDSTextureLoader.h" />
-    <ClInclude Include="src\Common\GameTimer.h" />
-    <ClInclude Include="src\Common\MathHelper.h" />
-    <ClInclude Include="src\Input\InputDevice.h" />
-    <ClInclude Include="src\Input\Keys.h" />
-    <ClInclude Include="src\Utility\Delegates.h" />
-    <ClInclude Include="Window.h" />
+    <ClInclude Include="src\Rendering\DirectX12\d3dUtil.h" />
+    <ClInclude Include="src\Rendering\Common\d3dx12.h" />
+    <ClInclude Include="src\Rendering\DirectX12\DDSTextureLoader.h" />
+    <ClInclude Include="src\Utils\Delegates\Delegates.h" />
+    <ClInclude Include="src\Rendering\DirectX12\DirectX12App.h" />
+    <ClInclude Include="src\Utils\Export\Exports.h" />
+    <ClInclude Include="src\Core\Timer\GameTimer.h" />
+    <ClInclude Include="src\Graphics\Geometry\GeometryGenerator.h" />
+    <ClInclude Include="src\Core\Input\InputDevice.h" />
+    <ClInclude Include="src\Core\Input\Keys.h" />
+    <ClInclude Include="src\Math\MathHelper.h" />
+    <ClInclude Include="src\Core\Application\AGFramework.h" />
+    <ClInclude Include="src\Rendering\Renderer\Renderer.h" />
+    <ClInclude Include="src\Core\Window\Window.h" />
   </ItemGroup>
   <ItemGroup>
-    <Natvis Include="src\Utility\Delegates.natvis" />
+    <Natvis Include="src\Utils\Delegates\Delegates.natvis" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -160,11 +165,15 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <Import Project="packages\directxtk12_uwp.2026.4.1.1\build\native\directxtk12_uwp.targets" Condition="Exists('packages\directxtk12_uwp.2026.4.1.1\build\native\directxtk12_uwp.targets')" />
+    <Import Project="packages\Assimp.redist.3.0.0\build\native\Assimp.redist.targets" Condition="Exists('packages\Assimp.redist.3.0.0\build\native\Assimp.redist.targets')" />
+    <Import Project="packages\Assimp.3.0.0\build\native\Assimp.targets" Condition="Exists('packages\Assimp.3.0.0\build\native\Assimp.targets')" />
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
     <Error Condition="!Exists('packages\directxtk12_uwp.2026.4.1.1\build\native\directxtk12_uwp.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\directxtk12_uwp.2026.4.1.1\build\native\directxtk12_uwp.targets'))" />
+    <Error Condition="!Exists('packages\Assimp.redist.3.0.0\build\native\Assimp.redist.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Assimp.redist.3.0.0\build\native\Assimp.redist.targets'))" />
+    <Error Condition="!Exists('packages\Assimp.3.0.0\build\native\Assimp.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Assimp.3.0.0\build\native\Assimp.targets'))" />
   </Target>
 </Project>

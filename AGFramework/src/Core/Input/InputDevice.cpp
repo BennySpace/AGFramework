@@ -1,16 +1,16 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 
-#include <windows.h>
 #include "InputDevice.h"
 #include <iostream>
+#include <windows.h>
 
 using namespace DirectX::SimpleMath;
 
 InputDevice::InputDevice(HWND hWnd) : m_hWnd(hWnd)
 {
 	keys = new std::unordered_set<Keys>();
-
+	
 	RAWINPUTDEVICE Rid[2];
 
 	Rid[0].usUsagePage = 0x01;
@@ -43,18 +43,17 @@ void InputDevice::OnKeyDown(KeyboardInputEventArgs args)
 
 	if (args.MakeCode == 42) key = Keys::LeftShift;
 	if (args.MakeCode == 54) key = Keys::RightShift;
-
-	if (Break) {
-		if (keys->count(key))	RemovePressedKey(key);
-	}
-	else {
+	
+	if(Break) {
+		if(keys->count(key))	RemovePressedKey(key);
+	} else {
 		if (!keys->count(key))	AddPressedKey(key);
 	}
 }
 
 void InputDevice::OnMouseMove(RawMouseEventArgs args)
 {
-	if (args.ButtonFlags & static_cast<int>(MouseButtonFlags::LeftButtonDown))
+	if(args.ButtonFlags & static_cast<int>(MouseButtonFlags::LeftButtonDown))
 		AddPressedKey(Keys::LeftButton);
 	if (args.ButtonFlags & static_cast<int>(MouseButtonFlags::LeftButtonUp))
 		RemovePressedKey(Keys::LeftButton);
@@ -70,13 +69,13 @@ void InputDevice::OnMouseMove(RawMouseEventArgs args)
 	POINT p;
 	GetCursorPos(&p);
 	ScreenToClient(m_hWnd, &p);
-
-	MousePosition = Vector2(p.x, p.y);
-	MouseOffset = Vector2(args.X, args.Y);
+	
+	MousePosition	= Vector2(p.x, p.y);
+	MouseOffset		= Vector2(args.X, args.Y);
 	MouseWheelDelta = args.WheelDelta;
 
-	const MouseMoveEventArgs moveArgs = { MousePosition, MouseOffset, MouseWheelDelta };
-
+	const MouseMoveEventArgs moveArgs = {MousePosition, MouseOffset, MouseWheelDelta};
+	
 	MouseMove.Broadcast(moveArgs);
 }
 

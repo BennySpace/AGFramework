@@ -1570,7 +1570,6 @@ inline ID3D12CommandList* const* CommandListCast(ID3D12GraphicsCommandList* cons
 	return reinterpret_cast<ID3D12CommandList* const*>(pp);
 }
 
-
 #endif // defined( __cplusplus )
 
 #endif //__D3DX12_H__

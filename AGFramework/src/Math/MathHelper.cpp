@@ -3,8 +3,8 @@
 //***************************************************************************************
 
 #include "MathHelper.h"
-#include <float.h>
 #include <cmath>
+#include <float.h>
 
 using namespace DirectX;
 
