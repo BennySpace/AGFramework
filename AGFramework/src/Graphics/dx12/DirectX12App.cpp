@@ -1,5 +1,7 @@
 #include "DirectX12App.h"
+#include "../ObjModelLoader.h"
 #include "../../Core/GameTimer.h"
+#include <limits>
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
@@ -61,6 +63,24 @@ namespace
 	std::uint16_t ReadUInt16LE(const std::uint8_t* bytes)
 	{
 		return static_cast<std::uint16_t>(bytes[0] | (bytes[1] << 8));
+	}
+
+	std::string WStringToString(const std::wstring& wideString)
+	{
+		if (wideString.empty())
+		{
+			return std::string();
+		}
+
+		const int sizeRequired = WideCharToMultiByte(CP_UTF8, 0, wideString.c_str(), -1, nullptr, 0, nullptr, nullptr);
+		std::string result(sizeRequired > 0 ? sizeRequired - 1 : 0, '\0');
+
+		if (sizeRequired > 1)
+		{
+			WideCharToMultiByte(CP_UTF8, 0, wideString.c_str(), -1, &result[0], sizeRequired - 1, nullptr, nullptr);
+		}
+
+		return result;
 	}
 
 	TgaTextureData LoadUncompressedTga(const std::wstring& filename)
@@ -191,8 +211,8 @@ bool DirectX12App::Initialize()
 	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
 
 	BuildShadersAndInputLayout();
-	BuildBoxGeometry();
-	BuildTexture();
+	BuildModelGeometry();
+	BuildTextures();
 	BuildDescriptorHeaps();
 	BuildConstantBuffer();
 	BuildRootSignature();
@@ -203,13 +223,13 @@ bool DirectX12App::Initialize()
 	m_commandQueue->ExecuteCommandLists(_countof(initCmdsLists), initCmdsLists);
 	FlushCommandQueue();
 
-	if (m_boxGeo)
+	if (m_sceneGeo)
 	{
-		m_boxGeo->DisposeUploaders();
+		m_sceneGeo->DisposeUploaders();
 	}
-	if (m_diffuseTexture)
+	for (auto& textureEntry : m_textures)
 	{
-		m_diffuseTexture->UploadHeap.Reset();
+		textureEntry.second->UploadHeap.Reset();
 	}
 
 	return true;
@@ -243,16 +263,23 @@ void DirectX12App::Draw(const GameTimer& gt)
 	m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
 	ID3D12DescriptorHeap* descriptorHeaps[] = { m_srvDescriptorHeap.Get() };
 	m_commandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
-	m_commandList->SetGraphicsRootDescriptorTable(1, m_srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 
 	m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	const D3D12_VERTEX_BUFFER_VIEW vertexBufferView = m_boxGeo->VertexBufferView();
-	const D3D12_INDEX_BUFFER_VIEW indexBufferView = m_boxGeo->IndexBufferView();
+	const D3D12_VERTEX_BUFFER_VIEW vertexBufferView = m_sceneGeo->VertexBufferView();
+	const D3D12_INDEX_BUFFER_VIEW indexBufferView = m_sceneGeo->IndexBufferView();
 	m_commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
 	m_commandList->IASetIndexBuffer(&indexBufferView);
 	m_commandList->SetGraphicsRootConstantBufferView(0, m_objectCB->GetGPUVirtualAddress());
-	const auto& boxSubmesh = m_boxGeo->DrawArgs["box"];
-	m_commandList->DrawIndexedInstanced(boxSubmesh.IndexCount, 1, boxSubmesh.StartIndexLocation, boxSubmesh.BaseVertexLocation, 0);
+
+	for (const ModelDrawItem& drawItem : m_modelDrawItems)
+	{
+		CD3DX12_GPU_DESCRIPTOR_HANDLE textureHandle(m_srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+		textureHandle.Offset(static_cast<INT>(drawItem.DiffuseSrvHeapIndex), m_cbvSrvUavDescriptorSize);
+		m_commandList->SetGraphicsRootDescriptorTable(1, textureHandle);
+
+		const auto& submesh = m_sceneGeo->DrawArgs.at(drawItem.DrawName);
+		m_commandList->DrawIndexedInstanced(submesh.IndexCount, 1, submesh.StartIndexLocation, submesh.BaseVertexLocation, 0);
+	}
 
 	auto transitionToPresent = CD3DX12_RESOURCE_BARRIER::Transition(
 		CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
@@ -543,55 +570,127 @@ void DirectX12App::BuildShadersAndInputLayout()
 	};
 }
 
-void DirectX12App::BuildBoxGeometry()
+void DirectX12App::BuildModelGeometry()
 {
-	auto box = GeometryGenerator().CreateBox(2.0f, 2.0f, 2.0f, 0);
-	const std::vector<std::uint16_t>& indices = box.GetIndices16();
+	const std::wstring modelPath = ResolveAssetPath(L"Assets\\sponza\\sponza.obj");
+	std::vector<ObjModelLoader::MeshData> meshes = ObjModelLoader().Load(WStringToString(modelPath));
+	if (meshes.empty())
+	{
+		throw std::runtime_error("No meshes were loaded from the OBJ model.");
+	}
 
-	const UINT vbByteSize = static_cast<UINT>(box.Vertices.size() * sizeof(GeometryGenerator::Vertex));
-	const UINT ibByteSize = static_cast<UINT>(indices.size() * sizeof(std::uint16_t));
+	std::vector<GeometryGenerator::Vertex> vertices;
+	std::vector<std::uint32_t> indices;
+	m_modelDrawItems.clear();
+
+	XMFLOAT3 minPoint(
+		(std::numeric_limits<float>::max)(),
+		(std::numeric_limits<float>::max)(),
+		(std::numeric_limits<float>::max)());
+	XMFLOAT3 maxPoint(
+		-(std::numeric_limits<float>::max)(),
+		-(std::numeric_limits<float>::max)(),
+		-(std::numeric_limits<float>::max)());
+
+	for (size_t meshIndex = 0; meshIndex < meshes.size(); ++meshIndex)
+	{
+		const ObjModelLoader::MeshData& mesh = meshes[meshIndex];
+		const UINT baseVertexLocation = static_cast<UINT>(vertices.size());
+		const UINT startIndexLocation = static_cast<UINT>(indices.size());
+
+		vertices.insert(vertices.end(), mesh.Vertices.begin(), mesh.Vertices.end());
+		for (std::uint32_t index : mesh.Indices32)
+		{
+			indices.push_back(index);
+		}
+
+		for (const GeometryGenerator::Vertex& vertex : mesh.Vertices)
+		{
+			minPoint.x = (std::min)(minPoint.x, vertex.Position.x);
+			minPoint.y = (std::min)(minPoint.y, vertex.Position.y);
+			minPoint.z = (std::min)(minPoint.z, vertex.Position.z);
+			maxPoint.x = (std::max)(maxPoint.x, vertex.Position.x);
+			maxPoint.y = (std::max)(maxPoint.y, vertex.Position.y);
+			maxPoint.z = (std::max)(maxPoint.z, vertex.Position.z);
+		}
+
+		const std::string drawName = "mesh_" + std::to_string(meshIndex);
+		SubmeshGeometry submesh;
+		submesh.IndexCount = static_cast<UINT>(mesh.Indices32.size());
+		submesh.StartIndexLocation = startIndexLocation;
+		submesh.BaseVertexLocation = baseVertexLocation;
+
+		ModelDrawItem drawItem;
+		drawItem.DrawName = drawName;
+		drawItem.DiffuseTexturePath = mesh.DiffuseTexturePath;
+
+		m_modelDrawItems.push_back(std::move(drawItem));
+	}
+
+	m_sceneCenter = XMFLOAT3(
+		0.5f * (minPoint.x + maxPoint.x),
+		0.5f * (minPoint.y + maxPoint.y),
+		0.5f * (minPoint.z + maxPoint.z));
+
+	const float extentX = maxPoint.x - minPoint.x;
+	const float extentY = maxPoint.y - minPoint.y;
+	const float extentZ = maxPoint.z - minPoint.z;
+	const float maxExtent = (std::max)(extentX, (std::max)(extentY, extentZ));
+	m_sceneScale = maxExtent > 0.0f ? 20.0f / maxExtent : 1.0f;
+
+	const UINT vbByteSize = static_cast<UINT>(vertices.size() * sizeof(GeometryGenerator::Vertex));
+	const UINT ibByteSize = static_cast<UINT>(indices.size() * sizeof(std::uint32_t));
 
 	auto geo = std::make_unique<MeshGeometry>();
-	geo->Name = "boxGeo";
+	geo->Name = "sponzaGeo";
 
 	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
-	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), box.Vertices.data(), vbByteSize);
+	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
 
 	ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
 	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
 
 	geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(
-		m_device.Get(), m_commandList.Get(), box.Vertices.data(), vbByteSize, geo->VertexBufferUploader);
+		m_device.Get(), m_commandList.Get(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
 	geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(
 		m_device.Get(), m_commandList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);
 
 	geo->VertexByteStride = sizeof(GeometryGenerator::Vertex);
 	geo->VertexBufferByteSize = vbByteSize;
-	geo->IndexFormat = DXGI_FORMAT_R16_UINT;
+	geo->IndexFormat = DXGI_FORMAT_R32_UINT;
 	geo->IndexBufferByteSize = ibByteSize;
 
-	SubmeshGeometry submesh;
-	submesh.IndexCount = static_cast<UINT>(indices.size());
-	submesh.StartIndexLocation = 0;
-	submesh.BaseVertexLocation = 0;
+	for (size_t meshIndex = 0; meshIndex < m_modelDrawItems.size(); ++meshIndex)
+	{
+		const std::string drawName = m_modelDrawItems[meshIndex].DrawName;
+		SubmeshGeometry submesh;
+		submesh.IndexCount = static_cast<UINT>(meshes[meshIndex].Indices32.size());
+		submesh.StartIndexLocation = static_cast<UINT>(0);
+		submesh.BaseVertexLocation = 0;
+		geo->DrawArgs[drawName] = submesh;
+	}
 
-	geo->DrawArgs["box"] = submesh;
-	m_boxGeo = std::move(geo);
+	UINT runningBaseVertex = 0;
+	UINT runningStartIndex = 0;
+	for (size_t meshIndex = 0; meshIndex < meshes.size(); ++meshIndex)
+	{
+		SubmeshGeometry& submesh = geo->DrawArgs[m_modelDrawItems[meshIndex].DrawName];
+		submesh.IndexCount = static_cast<UINT>(meshes[meshIndex].Indices32.size());
+		submesh.StartIndexLocation = runningStartIndex;
+		submesh.BaseVertexLocation = runningBaseVertex;
+		runningBaseVertex += static_cast<UINT>(meshes[meshIndex].Vertices.size());
+		runningStartIndex += static_cast<UINT>(meshes[meshIndex].Indices32.size());
+	}
+
+	m_sceneGeo = std::move(geo);
 }
 
-void DirectX12App::BuildTexture()
+void DirectX12App::CreateTextureResource(Texture& texture, const void* pixelData, UINT width, UINT height)
 {
-	const std::wstring texturePath = ResolveAssetPath(L"Assets\\sponza\\textures\\spnza_bricks_a_diff.tga");
-	const TgaTextureData textureData = LoadUncompressedTga(texturePath);
-
-	m_diffuseTexture = std::make_unique<Texture>();
-	m_diffuseTexture->Name = "sponzaBricksDiffuse";
-	m_diffuseTexture->Filename = texturePath;
-
 	const auto textureDesc = CD3DX12_RESOURCE_DESC::Tex2D(
-		textureData.Format,
-		textureData.Width,
-		textureData.Height,
+		DXGI_FORMAT_R8G8B8A8_UNORM,
+		width,
+		height,
 		1,
 		1);
 
@@ -601,9 +700,9 @@ void DirectX12App::BuildTexture()
 		&textureDesc,
 		D3D12_RESOURCE_STATE_COPY_DEST,
 		nullptr,
-		IID_PPV_ARGS(&m_diffuseTexture->Resource)));
+		IID_PPV_ARGS(&texture.Resource)));
 
-	const UINT64 uploadBufferSize = GetRequiredIntermediateSize(m_diffuseTexture->Resource.Get(), 0, 1);
+	const UINT64 uploadBufferSize = GetRequiredIntermediateSize(texture.Resource.Get(), 0, 1);
 
 	ThrowIfFailed(m_device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
@@ -611,50 +710,94 @@ void DirectX12App::BuildTexture()
 		&CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize),
 		D3D12_RESOURCE_STATE_GENERIC_READ,
 		nullptr,
-		IID_PPV_ARGS(&m_diffuseTexture->UploadHeap)));
+		IID_PPV_ARGS(&texture.UploadHeap)));
 
 	D3D12_SUBRESOURCE_DATA subresourceData = {};
-	subresourceData.pData = textureData.Pixels.data();
-	subresourceData.RowPitch = static_cast<LONG_PTR>(textureData.Width * 4);
-	subresourceData.SlicePitch = subresourceData.RowPitch * textureData.Height;
+	subresourceData.pData = pixelData;
+	subresourceData.RowPitch = static_cast<LONG_PTR>(width * 4);
+	subresourceData.SlicePitch = subresourceData.RowPitch * height;
 
 	UpdateSubresources(
 		m_commandList.Get(),
-		m_diffuseTexture->Resource.Get(),
-		m_diffuseTexture->UploadHeap.Get(),
+		texture.Resource.Get(),
+		texture.UploadHeap.Get(),
 		0,
 		0,
 		1,
 		&subresourceData);
 
 	auto transition = CD3DX12_RESOURCE_BARRIER::Transition(
-		m_diffuseTexture->Resource.Get(),
+		texture.Resource.Get(),
 		D3D12_RESOURCE_STATE_COPY_DEST,
 		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	m_commandList->ResourceBarrier(1, &transition);
 }
 
+void DirectX12App::BuildTextures()
+{
+	m_textures.clear();
+	m_orderedTextures.clear();
+
+	const std::array<std::uint8_t, 4> whitePixel = { 255, 255, 255, 255 };
+	std::unordered_map<std::string, UINT> textureIndices;
+
+	for (ModelDrawItem& drawItem : m_modelDrawItems)
+	{
+		const std::string textureKey = drawItem.DiffuseTexturePath.empty() ? "__default_white__" : drawItem.DiffuseTexturePath;
+		const auto existing = textureIndices.find(textureKey);
+		if (existing != textureIndices.end())
+		{
+			drawItem.DiffuseSrvHeapIndex = existing->second;
+			continue;
+		}
+
+		auto texture = std::make_unique<Texture>();
+		texture->Name = textureKey;
+
+		if (drawItem.DiffuseTexturePath.empty())
+		{
+			texture->Filename = L"default-white";
+			CreateTextureResource(*texture, whitePixel.data(), 1, 1);
+		}
+		else
+		{
+			const std::wstring texturePath = AnsiToWString(drawItem.DiffuseTexturePath);
+			const TgaTextureData textureData = LoadUncompressedTga(texturePath);
+			texture->Filename = texturePath;
+			CreateTextureResource(*texture, textureData.Pixels.data(), textureData.Width, textureData.Height);
+		}
+
+		const UINT textureIndex = static_cast<UINT>(m_orderedTextures.size());
+		drawItem.DiffuseSrvHeapIndex = textureIndex;
+		textureIndices[textureKey] = textureIndex;
+		m_orderedTextures.push_back(texture.get());
+		m_textures[textureKey] = std::move(texture);
+	}
+}
+
 void DirectX12App::BuildDescriptorHeaps()
 {
 	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.NumDescriptors = 1;
+	srvHeapDesc.NumDescriptors = static_cast<UINT>(m_orderedTextures.size());
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	srvHeapDesc.NodeMask = 0;
 	ThrowIfFailed(m_device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_srvDescriptorHeap)));
 
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = m_diffuseTexture->Resource->GetDesc().Format;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MostDetailedMip = 0;
-	srvDesc.Texture2D.MipLevels = 1;
-	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+	CD3DX12_CPU_DESCRIPTOR_HANDLE handle(m_srvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+	for (Texture* texture : m_orderedTextures)
+	{
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Format = texture->Resource->GetDesc().Format;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MostDetailedMip = 0;
+		srvDesc.Texture2D.MipLevels = 1;
+		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
-	m_device->CreateShaderResourceView(
-		m_diffuseTexture->Resource.Get(),
-		&srvDesc,
-		m_srvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+		m_device->CreateShaderResourceView(texture->Resource.Get(), &srvDesc, handle);
+		handle.Offset(1, m_cbvSrvUavDescriptorSize);
+	}
 }
 
 void DirectX12App::BuildConstantBuffer()
@@ -741,9 +884,13 @@ void DirectX12App::BuildPSO()
 
 void DirectX12App::UpdateMainPassCB(const GameTimer& gt)
 {
-	m_theta += 0.8f * gt.DeltaTime();
+	m_theta += 0.25f * gt.DeltaTime();
 
-	XMMATRIX world = XMMatrixRotationY(m_theta) * XMMatrixRotationX(0.35f * m_theta);
+	XMMATRIX world =
+		XMMatrixTranslation(-m_sceneCenter.x, -m_sceneCenter.y, -m_sceneCenter.z) *
+		XMMatrixScaling(m_sceneScale, m_sceneScale, m_sceneScale);
+
+	m_eyePos = XMFLOAT3(35.0f * sinf(m_theta), 12.0f, -35.0f * cosf(m_theta));
 	XMVECTOR eyePos = XMLoadFloat3(&m_eyePos);
 	XMVECTOR target = XMVectorZero();
 	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);

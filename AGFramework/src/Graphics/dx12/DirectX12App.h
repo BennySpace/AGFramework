@@ -40,13 +40,21 @@ protected:
 	D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView() const;
 
 	void BuildShadersAndInputLayout();
-	void BuildBoxGeometry();
-	void BuildTexture();
+	void BuildModelGeometry();
+	void BuildTextures();
 	void BuildDescriptorHeaps();
 	void BuildConstantBuffer();
 	void BuildRootSignature();
 	void BuildPSO();
+	void CreateTextureResource(Texture& texture, const void* pixelData, UINT width, UINT height);
 	void UpdateMainPassCB(const GameTimer& gt);
+
+	struct ModelDrawItem
+	{
+		std::string DrawName;
+		std::string DiffuseTexturePath;
+		UINT DiffuseSrvHeapIndex = 0;
+	};
 
 private:
 	void LogAdapters();
@@ -111,8 +119,10 @@ protected:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_objectCB;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvDescriptorHeap;
 
-	std::unique_ptr<MeshGeometry> m_boxGeo;
-	std::unique_ptr<Texture> m_diffuseTexture;
+	std::unique_ptr<MeshGeometry> m_sceneGeo;
+	std::unordered_map<std::string, std::unique_ptr<Texture>> m_textures;
+	std::vector<Texture*> m_orderedTextures;
+	std::vector<ModelDrawItem> m_modelDrawItems;
 	std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID3DBlob>> m_shaders;
 	std::vector<D3D12_INPUT_ELEMENT_DESC> m_inputLayout;
 
@@ -123,5 +133,7 @@ protected:
 	DirectX::XMFLOAT4X4 m_view = MathHelper::Identity4x4();
 	DirectX::XMFLOAT4X4 m_proj = MathHelper::Identity4x4();
 	DirectX::XMFLOAT3 m_eyePos = { 0.0f, 2.0f, -6.0f };
+	DirectX::XMFLOAT3 m_sceneCenter = { 0.0f, 0.0f, 0.0f };
+	float m_sceneScale = 1.0f;
 	float m_theta = 0.0f;
 };

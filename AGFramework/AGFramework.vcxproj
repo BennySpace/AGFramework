@@ -25,6 +25,7 @@
     <ClCompile Include="src\Graphics\dx12\DirectX12App.cpp" />
     <ClCompile Include="src\Core\GameTimer.cpp" />
     <ClCompile Include="src\Graphics\GeometryGenerator.cpp" />
+    <ClCompile Include="src\Graphics\ObjModelLoader.cpp" />
     <ClCompile Include="src\Core\InputDevice.cpp" />
     <ClCompile Include="src\Math\MathHelper.cpp" />
     <ClCompile Include="src\App\AGFramework.cpp" />
@@ -41,6 +42,7 @@
     <ClInclude Include="src\Utils\Exports.h" />
     <ClInclude Include="src\Core\GameTimer.h" />
     <ClInclude Include="src\Graphics\GeometryGenerator.h" />
+    <ClInclude Include="src\Graphics\ObjModelLoader.h" />
     <ClInclude Include="src\Core\InputDevice.h" />
     <ClInclude Include="src\Core\Keys.h" />
     <ClInclude Include="src\Math\MathHelper.h" />
