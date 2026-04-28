@@ -6,6 +6,14 @@ using namespace DirectX;
 
 namespace
 {
+	struct TgaTextureData
+	{
+		UINT Width = 0;
+		UINT Height = 0;
+		DXGI_FORMAT Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		std::vector<std::uint8_t> Pixels;
+	};
+
 	std::wstring ResolveShaderPath(const std::wstring& shaderRelativePath)
 	{
 		const std::wstring candidates[] =
@@ -184,6 +192,8 @@ bool DirectX12App::Initialize()
 
 	BuildShadersAndInputLayout();
 	BuildBoxGeometry();
+	BuildTexture();
+	BuildDescriptorHeaps();
 	BuildConstantBuffer();
 	BuildRootSignature();
 	BuildPSO();
@@ -196,6 +206,10 @@ bool DirectX12App::Initialize()
 	if (m_boxGeo)
 	{
 		m_boxGeo->DisposeUploaders();
+	}
+	if (m_diffuseTexture)
+	{
+		m_diffuseTexture->UploadHeap.Reset();
 	}
 
 	return true;
@@ -227,6 +241,9 @@ void DirectX12App::Draw(const GameTimer& gt)
 	const D3D12_CPU_DESCRIPTOR_HANDLE depthStencilView = DepthStencilView();
 	m_commandList->OMSetRenderTargets(1, &currentBackBufferView, true, &depthStencilView);
 	m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+	ID3D12DescriptorHeap* descriptorHeaps[] = { m_srvDescriptorHeap.Get() };
+	m_commandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
+	m_commandList->SetGraphicsRootDescriptorTable(1, m_srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 
 	m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	const D3D12_VERTEX_BUFFER_VIEW vertexBufferView = m_boxGeo->VertexBufferView();
@@ -521,7 +538,8 @@ void DirectX12App::BuildShadersAndInputLayout()
 	m_inputLayout =
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(GeometryGenerator::Vertex, Position), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(GeometryGenerator::Vertex, Normal), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(GeometryGenerator::Vertex, Normal), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(GeometryGenerator::Vertex, TexC), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
 }
 
@@ -561,6 +579,84 @@ void DirectX12App::BuildBoxGeometry()
 	m_boxGeo = std::move(geo);
 }
 
+void DirectX12App::BuildTexture()
+{
+	const std::wstring texturePath = ResolveAssetPath(L"Assets\\sponza\\textures\\spnza_bricks_a_diff.tga");
+	const TgaTextureData textureData = LoadUncompressedTga(texturePath);
+
+	m_diffuseTexture = std::make_unique<Texture>();
+	m_diffuseTexture->Name = "sponzaBricksDiffuse";
+	m_diffuseTexture->Filename = texturePath;
+
+	const auto textureDesc = CD3DX12_RESOURCE_DESC::Tex2D(
+		textureData.Format,
+		textureData.Width,
+		textureData.Height,
+		1,
+		1);
+
+	ThrowIfFailed(m_device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+		D3D12_HEAP_FLAG_NONE,
+		&textureDesc,
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		nullptr,
+		IID_PPV_ARGS(&m_diffuseTexture->Resource)));
+
+	const UINT64 uploadBufferSize = GetRequiredIntermediateSize(m_diffuseTexture->Resource.Get(), 0, 1);
+
+	ThrowIfFailed(m_device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+		D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize),
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&m_diffuseTexture->UploadHeap)));
+
+	D3D12_SUBRESOURCE_DATA subresourceData = {};
+	subresourceData.pData = textureData.Pixels.data();
+	subresourceData.RowPitch = static_cast<LONG_PTR>(textureData.Width * 4);
+	subresourceData.SlicePitch = subresourceData.RowPitch * textureData.Height;
+
+	UpdateSubresources(
+		m_commandList.Get(),
+		m_diffuseTexture->Resource.Get(),
+		m_diffuseTexture->UploadHeap.Get(),
+		0,
+		0,
+		1,
+		&subresourceData);
+
+	auto transition = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_diffuseTexture->Resource.Get(),
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	m_commandList->ResourceBarrier(1, &transition);
+}
+
+void DirectX12App::BuildDescriptorHeaps()
+{
+	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
+	srvHeapDesc.NumDescriptors = 1;
+	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	srvHeapDesc.NodeMask = 0;
+	ThrowIfFailed(m_device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_srvDescriptorHeap)));
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = m_diffuseTexture->Resource->GetDesc().Format;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = 1;
+	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+	m_device->CreateShaderResourceView(
+		m_diffuseTexture->Resource.Get(),
+		&srvDesc,
+		m_srvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+}
+
 void DirectX12App::BuildConstantBuffer()
 {
 	m_objectCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(ObjectConstants));
@@ -578,14 +674,25 @@ void DirectX12App::BuildConstantBuffer()
 
 void DirectX12App::BuildRootSignature()
 {
-	CD3DX12_ROOT_PARAMETER slotRootParameter[1];
+	CD3DX12_DESCRIPTOR_RANGE texTable;
+	texTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
+
+	CD3DX12_ROOT_PARAMETER slotRootParameter[2];
 	slotRootParameter[0].InitAsConstantBufferView(0);
+	slotRootParameter[1].InitAsDescriptorTable(1, &texTable, D3D12_SHADER_VISIBILITY_PIXEL);
+
+	CD3DX12_STATIC_SAMPLER_DESC linearWrapSampler(
+		0,
+		D3D12_FILTER_MIN_MAG_MIP_LINEAR,
+		D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+		D3D12_TEXTURE_ADDRESS_MODE_WRAP,
+		D3D12_TEXTURE_ADDRESS_MODE_WRAP);
 
 	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(
-		1,
+		2,
 		slotRootParameter,
-		0,
-		nullptr,
+		1,
+		&linearWrapSampler,
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 	ComPtr<ID3DBlob> serializedRootSig = nullptr;

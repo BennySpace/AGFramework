@@ -41,6 +41,8 @@ protected:
 
 	void BuildShadersAndInputLayout();
 	void BuildBoxGeometry();
+	void BuildTexture();
+	void BuildDescriptorHeaps();
 	void BuildConstantBuffer();
 	void BuildRootSignature();
 	void BuildPSO();
@@ -107,8 +109,10 @@ protected:
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_rootSignature;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pso;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_objectCB;
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvDescriptorHeap;
 
 	std::unique_ptr<MeshGeometry> m_boxGeo;
+	std::unique_ptr<Texture> m_diffuseTexture;
 	std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID3DBlob>> m_shaders;
 	std::vector<D3D12_INPUT_ELEMENT_DESC> m_inputLayout;
 
