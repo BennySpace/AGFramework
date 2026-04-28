@@ -39,10 +39,31 @@ protected:
 	D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView() const;
 	D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView() const;
 
+	void BuildShadersAndInputLayout();
+	void BuildBoxGeometry();
+	void BuildConstantBuffer();
+	void BuildRootSignature();
+	void BuildPSO();
+	void UpdateMainPassCB(const GameTimer& gt);
+
 private:
 	void LogAdapters();
 	void LogAdapterOutputs(IDXGIAdapter* adapter);
 	void LogOutputDisplayModes(IDXGIOutput* output, DXGI_FORMAT format);
+
+	struct ObjectConstants
+	{
+		DirectX::XMFLOAT4X4 World = MathHelper::Identity4x4();
+		DirectX::XMFLOAT4X4 WorldInvTranspose = MathHelper::Identity4x4();
+		DirectX::XMFLOAT4X4 WorldViewProj = MathHelper::Identity4x4();
+		DirectX::XMFLOAT3 EyePosW = { 0.0f, 0.0f, 0.0f };
+		float Pad0 = 0.0f;
+		DirectX::XMFLOAT4 AmbientLight = { 0.15f, 0.15f, 0.2f, 1.0f };
+		DirectX::XMFLOAT4 LightDir = { 0.577f, -0.577f, 0.577f, 0.0f };
+		DirectX::XMFLOAT4 LightColor = { 0.85f, 0.85f, 0.8f, 1.0f };
+		DirectX::XMFLOAT4 DiffuseAlbedo = { 0.78f, 0.24f, 0.18f, 1.0f };
+		DirectX::XMFLOAT4 SpecularAlbedo = { 0.85f, 0.85f, 0.85f, 32.0f };
+	};
 
 protected:
 	HINSTANCE m_hAppInst = nullptr;
@@ -82,4 +103,21 @@ protected:
 
 	Microsoft::WRL::ComPtr<ID3D12Fence> m_fence;
 	UINT64 m_fenceValue = 0;
+
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_rootSignature;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pso;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_objectCB;
+
+	std::unique_ptr<MeshGeometry> m_boxGeo;
+	std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID3DBlob>> m_shaders;
+	std::vector<D3D12_INPUT_ELEMENT_DESC> m_inputLayout;
+
+	UINT8* m_mappedObjectCB = nullptr;
+	UINT m_objectCBByteSize = 0;
+
+	DirectX::XMFLOAT4X4 m_world = MathHelper::Identity4x4();
+	DirectX::XMFLOAT4X4 m_view = MathHelper::Identity4x4();
+	DirectX::XMFLOAT4X4 m_proj = MathHelper::Identity4x4();
+	DirectX::XMFLOAT3 m_eyePos = { 0.0f, 2.0f, -6.0f };
+	float m_theta = 0.0f;
 };

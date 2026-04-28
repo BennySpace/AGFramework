@@ -1,7 +1,33 @@
 #include "DirectX12App.h"
+#include "../../Core/GameTimer.h"
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
+
+namespace
+{
+	std::wstring ResolveShaderPath(const std::wstring& shaderRelativePath)
+	{
+		const std::wstring candidates[] =
+		{
+			shaderRelativePath,
+			L"..\\" + shaderRelativePath,
+			L"..\\..\\" + shaderRelativePath,
+			L"AGFramework\\" + shaderRelativePath
+		};
+
+		for (const std::wstring& candidate : candidates)
+		{
+			const DWORD attributes = GetFileAttributesW(candidate.c_str());
+			if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+			{
+				return candidate;
+			}
+		}
+
+		return shaderRelativePath;
+	}
+}
 
 DirectX12App::DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd) : m_hAppInst(mhAppInst), m_hMainWnd(mhMainWnd)
 {
@@ -48,17 +74,37 @@ bool DirectX12App::Initialize()
 
 	OnResize(); // Initial setup
 
+	ThrowIfFailed(m_commandAllocator->Reset());
+	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
+
+	BuildShadersAndInputLayout();
+	BuildBoxGeometry();
+	BuildConstantBuffer();
+	BuildRootSignature();
+	BuildPSO();
+
+	ThrowIfFailed(m_commandList->Close());
+	ID3D12CommandList* initCmdsLists[] = { m_commandList.Get() };
+	m_commandQueue->ExecuteCommandLists(_countof(initCmdsLists), initCmdsLists);
+	FlushCommandQueue();
+
+	if (m_boxGeo)
+	{
+		m_boxGeo->DisposeUploaders();
+	}
+
 	return true;
 }
 
 void DirectX12App::Update(const GameTimer& gt)
 {
+	UpdateMainPassCB(gt);
 }
 
 void DirectX12App::Draw(const GameTimer& gt)
 {
 	ThrowIfFailed(m_commandAllocator->Reset());
-	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
+	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pso.Get()));
 
 	auto transitionToRT = CD3DX12_RESOURCE_BARRIER::Transition(
 		CurrentBackBuffer(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
@@ -72,7 +118,19 @@ void DirectX12App::Draw(const GameTimer& gt)
 	m_commandList->ClearDepthStencilView(DepthStencilView(),
 		D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 
-	m_commandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
+	const D3D12_CPU_DESCRIPTOR_HANDLE currentBackBufferView = CurrentBackBufferView();
+	const D3D12_CPU_DESCRIPTOR_HANDLE depthStencilView = DepthStencilView();
+	m_commandList->OMSetRenderTargets(1, &currentBackBufferView, true, &depthStencilView);
+	m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+
+	m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	const D3D12_VERTEX_BUFFER_VIEW vertexBufferView = m_boxGeo->VertexBufferView();
+	const D3D12_INDEX_BUFFER_VIEW indexBufferView = m_boxGeo->IndexBufferView();
+	m_commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
+	m_commandList->IASetIndexBuffer(&indexBufferView);
+	m_commandList->SetGraphicsRootConstantBufferView(0, m_objectCB->GetGPUVirtualAddress());
+	const auto& boxSubmesh = m_boxGeo->DrawArgs["box"];
+	m_commandList->DrawIndexedInstanced(boxSubmesh.IndexCount, 1, boxSubmesh.StartIndexLocation, boxSubmesh.BaseVertexLocation, 0);
 
 	auto transitionToPresent = CD3DX12_RESOURCE_BARRIER::Transition(
 		CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
@@ -139,7 +197,7 @@ void DirectX12App::OnResize()
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
 		&depthStencilDesc,
-		D3D12_RESOURCE_STATE_COMMON,
+		D3D12_RESOURCE_STATE_DEPTH_WRITE,
 		&optClear,
 		IID_PPV_ARGS(m_depthStencilBuffer.GetAddressOf())));
 
@@ -156,6 +214,9 @@ void DirectX12App::OnResize()
 
 	m_viewport = { 0.0f, 0.0f, (float)m_clientWidth, (float)m_clientHeight, 0.0f, 1.0f };
 	m_scissorRect = { 0, 0, m_clientWidth, m_clientHeight };
+
+	XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * XM_PI, AspectRatio(), 1.0f, 1000.0f);
+	XMStoreFloat4x4(&m_proj, P);
 }
 
 void DirectX12App::OnWindowResize(int width, int height)
@@ -343,4 +404,151 @@ void DirectX12App::LogOutputDisplayModes(IDXGIOutput* output, DXGI_FORMAT format
 			L"\n";
 		::OutputDebugString(text.c_str());
 	}
+}
+
+void DirectX12App::BuildShadersAndInputLayout()
+{
+	m_shaders["standardVS"] = d3dUtil::CompileShader(
+		ResolveShaderPath(L"shaders\\Phong.hlsl"), nullptr, "VS", "vs_5_1");
+	m_shaders["opaquePS"] = d3dUtil::CompileShader(
+		ResolveShaderPath(L"shaders\\Phong.hlsl"), nullptr, "PS", "ps_5_1");
+
+	m_inputLayout =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(GeometryGenerator::Vertex, Position), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(GeometryGenerator::Vertex, Normal), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+	};
+}
+
+void DirectX12App::BuildBoxGeometry()
+{
+	auto box = GeometryGenerator().CreateBox(2.0f, 2.0f, 2.0f, 0);
+	const std::vector<std::uint16_t>& indices = box.GetIndices16();
+
+	const UINT vbByteSize = static_cast<UINT>(box.Vertices.size() * sizeof(GeometryGenerator::Vertex));
+	const UINT ibByteSize = static_cast<UINT>(indices.size() * sizeof(std::uint16_t));
+
+	auto geo = std::make_unique<MeshGeometry>();
+	geo->Name = "boxGeo";
+
+	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
+	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), box.Vertices.data(), vbByteSize);
+
+	ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
+	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
+
+	geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(
+		m_device.Get(), m_commandList.Get(), box.Vertices.data(), vbByteSize, geo->VertexBufferUploader);
+	geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(
+		m_device.Get(), m_commandList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);
+
+	geo->VertexByteStride = sizeof(GeometryGenerator::Vertex);
+	geo->VertexBufferByteSize = vbByteSize;
+	geo->IndexFormat = DXGI_FORMAT_R16_UINT;
+	geo->IndexBufferByteSize = ibByteSize;
+
+	SubmeshGeometry submesh;
+	submesh.IndexCount = static_cast<UINT>(indices.size());
+	submesh.StartIndexLocation = 0;
+	submesh.BaseVertexLocation = 0;
+
+	geo->DrawArgs["box"] = submesh;
+	m_boxGeo = std::move(geo);
+}
+
+void DirectX12App::BuildConstantBuffer()
+{
+	m_objectCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(ObjectConstants));
+
+	ThrowIfFailed(m_device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+		D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Buffer(m_objectCBByteSize),
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&m_objectCB)));
+
+	ThrowIfFailed(m_objectCB->Map(0, nullptr, reinterpret_cast<void**>(&m_mappedObjectCB)));
+}
+
+void DirectX12App::BuildRootSignature()
+{
+	CD3DX12_ROOT_PARAMETER slotRootParameter[1];
+	slotRootParameter[0].InitAsConstantBufferView(0);
+
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(
+		1,
+		slotRootParameter,
+		0,
+		nullptr,
+		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
+	ComPtr<ID3DBlob> serializedRootSig = nullptr;
+	ComPtr<ID3DBlob> errorBlob = nullptr;
+	ThrowIfFailed(D3D12SerializeRootSignature(
+		&rootSigDesc,
+		D3D_ROOT_SIGNATURE_VERSION_1,
+		serializedRootSig.GetAddressOf(),
+		errorBlob.GetAddressOf()));
+
+	ThrowIfFailed(m_device->CreateRootSignature(
+		0,
+		serializedRootSig->GetBufferPointer(),
+		serializedRootSig->GetBufferSize(),
+		IID_PPV_ARGS(m_rootSignature.GetAddressOf())));
+}
+
+void DirectX12App::BuildPSO()
+{
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
+	psoDesc.InputLayout = { m_inputLayout.data(), static_cast<UINT>(m_inputLayout.size()) };
+	psoDesc.pRootSignature = m_rootSignature.Get();
+	psoDesc.VS =
+	{
+		reinterpret_cast<BYTE*>(m_shaders["standardVS"]->GetBufferPointer()),
+		m_shaders["standardVS"]->GetBufferSize()
+	};
+	psoDesc.PS =
+	{
+		reinterpret_cast<BYTE*>(m_shaders["opaquePS"]->GetBufferPointer()),
+		m_shaders["opaquePS"]->GetBufferSize()
+	};
+	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+	psoDesc.SampleMask = UINT_MAX;
+	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	psoDesc.NumRenderTargets = 1;
+	psoDesc.RTVFormats[0] = m_backBufferFormat;
+	psoDesc.SampleDesc.Count = m4xMsaaState ? 4 : 1;
+	psoDesc.SampleDesc.Quality = m4xMsaaState ? (m4xMsaaQuality - 1) : 0;
+	psoDesc.DSVFormat = m_depthStencilFormat;
+
+	ThrowIfFailed(m_device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pso)));
+}
+
+void DirectX12App::UpdateMainPassCB(const GameTimer& gt)
+{
+	m_theta += 0.8f * gt.DeltaTime();
+
+	XMMATRIX world = XMMatrixRotationY(m_theta) * XMMatrixRotationX(0.35f * m_theta);
+	XMVECTOR eyePos = XMLoadFloat3(&m_eyePos);
+	XMVECTOR target = XMVectorZero();
+	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
+	XMMATRIX view = XMMatrixLookAtLH(eyePos, target, up);
+	XMMATRIX proj = XMLoadFloat4x4(&m_proj);
+	XMMATRIX worldInvTranspose = MathHelper::InverseTranspose(world);
+	XMMATRIX worldViewProj = world * view * proj;
+
+	XMStoreFloat4x4(&m_world, XMMatrixTranspose(world));
+	XMStoreFloat4x4(&m_view, XMMatrixTranspose(view));
+
+	ObjectConstants objConstants;
+	XMStoreFloat4x4(&objConstants.World, XMMatrixTranspose(world));
+	XMStoreFloat4x4(&objConstants.WorldInvTranspose, XMMatrixTranspose(worldInvTranspose));
+	XMStoreFloat4x4(&objConstants.WorldViewProj, XMMatrixTranspose(worldViewProj));
+	objConstants.EyePosW = m_eyePos;
+
+	memcpy(m_mappedObjectCB, &objConstants, sizeof(objConstants));
 }

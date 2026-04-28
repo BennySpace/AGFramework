@@ -93,7 +93,10 @@ void AGFramework::Shutdown()
 
 void AGFramework::Update()
 {
-	// TODO: Game logic
+	if (m_renderer && !m_isPaused)
+	{
+		m_renderer->Update(m_timer);
+	}
 }
 
 void AGFramework::Render()

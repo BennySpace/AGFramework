@@ -19,40 +19,41 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Rendering\DirectX12\d3dUtil.cpp" />
-    <ClCompile Include="src\Rendering\DirectX12\DDSTextureLoader.cpp" />
-    <ClCompile Include="src\Utils\Delegates\Delegates.cpp" />
-    <ClCompile Include="src\Rendering\DirectX12\DirectX12App.cpp" />
-    <ClCompile Include="src\Core\Timer\GameTimer.cpp" />
-    <ClCompile Include="src\Graphics\Geometry\GeometryGenerator.cpp" />
-    <ClCompile Include="src\Core\Input\InputDevice.cpp" />
+    <ClCompile Include="src\Graphics\dx12\d3dUtil.cpp" />
+    <ClCompile Include="src\Graphics\dx12\DDSTextureLoader.cpp" />
+    <ClCompile Include="src\Utils\Delegates.cpp" />
+    <ClCompile Include="src\Graphics\dx12\DirectX12App.cpp" />
+    <ClCompile Include="src\Core\GameTimer.cpp" />
+    <ClCompile Include="src\Graphics\GeometryGenerator.cpp" />
+    <ClCompile Include="src\Core\InputDevice.cpp" />
     <ClCompile Include="src\Math\MathHelper.cpp" />
-    <ClCompile Include="src\Core\Application\AGFramework.cpp" />
-    <ClCompile Include="src\Rendering\Renderer\Renderer.cpp" />
-    <ClCompile Include="src\Core\Window\Window.cpp" />
-    <ClCompile Include="src\EntryPoint\WinMain.cpp" />
+    <ClCompile Include="src\App\AGFramework.cpp" />
+    <ClCompile Include="src\Graphics\Renderer.cpp" />
+    <ClCompile Include="src\Core\Window.cpp" />
+    <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\Rendering\DirectX12\d3dUtil.h" />
-    <ClInclude Include="src\Rendering\Common\d3dx12.h" />
-    <ClInclude Include="src\Rendering\DirectX12\DDSTextureLoader.h" />
-    <ClInclude Include="src\Utils\Delegates\Delegates.h" />
-    <ClInclude Include="src\Rendering\DirectX12\DirectX12App.h" />
-    <ClInclude Include="src\Utils\Export\Exports.h" />
-    <ClInclude Include="src\Core\Timer\GameTimer.h" />
-    <ClInclude Include="src\Graphics\Geometry\GeometryGenerator.h" />
-    <ClInclude Include="src\Core\Input\InputDevice.h" />
-    <ClInclude Include="src\Core\Input\Keys.h" />
+    <ClInclude Include="src\Graphics\dx12\d3dUtil.h" />
+    <ClInclude Include="src\Graphics\common\d3dx12.h" />
+    <ClInclude Include="src\Graphics\dx12\DDSTextureLoader.h" />
+    <ClInclude Include="src\Utils\Delegates.h" />
+    <ClInclude Include="src\Graphics\dx12\DirectX12App.h" />
+    <ClInclude Include="src\Utils\Exports.h" />
+    <ClInclude Include="src\Core\GameTimer.h" />
+    <ClInclude Include="src\Graphics\GeometryGenerator.h" />
+    <ClInclude Include="src\Core\InputDevice.h" />
+    <ClInclude Include="src\Core\Keys.h" />
     <ClInclude Include="src\Math\MathHelper.h" />
-    <ClInclude Include="src\Core\Application\AGFramework.h" />
-    <ClInclude Include="src\Rendering\Renderer\Renderer.h" />
-    <ClInclude Include="src\Core\Window\Window.h" />
+    <ClInclude Include="src\App\AGFramework.h" />
+    <ClInclude Include="src\Graphics\Renderer.h" />
+    <ClInclude Include="src\Core\Window.h" />
   </ItemGroup>
   <ItemGroup>
-    <Natvis Include="src\Utils\Delegates\Delegates.natvis" />
+    <Natvis Include="src\Utils\Delegates.natvis" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="shaders\Phong.hlsl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>
@@ -106,6 +107,10 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <OutDir>out\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>out\obj\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>

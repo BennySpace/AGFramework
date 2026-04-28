@@ -1,4 +1,4 @@
-#include "../Core/Application/AGFramework.h"
+#include "App/AGFramework.h"
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pCmdLine, int nShowCmd) {
     try {

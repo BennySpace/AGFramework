@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../../Rendering/DirectX12/DirectX12App.h"
-#include "../Input/InputDevice.h"
-#include "../Timer/GameTimer.h"
-#include "../Window/Window.h"
+#include "../Graphics/dx12/DirectX12App.h"
+#include "../Core/InputDevice.h"
+#include "../Core/GameTimer.h"
+#include "../Core/Window.h"
 #include <memory>
 
 class AGFramework {

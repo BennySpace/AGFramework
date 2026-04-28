@@ -6,9 +6,9 @@
 
 #pragma once
 
-#include "../../Graphics/Geometry/GeometryGenerator.h"
+#include "../GeometryGenerator.h"
 #include "../../Math/MathHelper.h"
-#include "../Common/d3dx12.h"
+#include "../common/d3dx12.h"
 #include "DDSTextureLoader.h"
 #include <algorithm>
 #include <array>
