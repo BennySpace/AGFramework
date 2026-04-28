@@ -66,6 +66,7 @@ private:
 		DirectX::XMFLOAT4X4 World = MathHelper::Identity4x4();
 		DirectX::XMFLOAT4X4 WorldInvTranspose = MathHelper::Identity4x4();
 		DirectX::XMFLOAT4X4 WorldViewProj = MathHelper::Identity4x4();
+		DirectX::XMFLOAT4X4 TexTransform = MathHelper::Identity4x4();
 		DirectX::XMFLOAT3 EyePosW = { 0.0f, 0.0f, 0.0f };
 		float Pad0 = 0.0f;
 		DirectX::XMFLOAT4 AmbientLight = { 0.15f, 0.15f, 0.2f, 1.0f };

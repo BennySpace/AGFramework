@@ -3,6 +3,7 @@ cbuffer ObjectConstants : register(b0)
     float4x4 gWorld;
     float4x4 gWorldInvTranspose;
     float4x4 gWorldViewProj;
+    float4x4 gTexTransform;
     float3 gEyePosW;
     float gPad0;
     float4 gAmbientLight;
@@ -38,7 +39,8 @@ VertexOut VS(VertexIn vin)
     vout.PosW = posW.xyz;
     vout.NormalW = mul(vin.NormalL, (float3x3)gWorldInvTranspose);
     vout.PosH = mul(float4(vin.PosL, 1.0f), gWorldViewProj);
-    vout.TexC = vin.TexC;
+    float4 texCoord = mul(float4(vin.TexC, 0.0f, 1.0f), gTexTransform);
+    vout.TexC = texCoord.xy;
 
     return vout;
 }

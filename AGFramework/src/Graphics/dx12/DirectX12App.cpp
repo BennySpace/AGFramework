@@ -889,6 +889,14 @@ void DirectX12App::UpdateMainPassCB(const GameTimer& gt)
 	XMMATRIX world =
 		XMMatrixTranslation(-m_sceneCenter.x, -m_sceneCenter.y, -m_sceneCenter.z) *
 		XMMatrixScaling(m_sceneScale, m_sceneScale, m_sceneScale);
+	const float totalTime = gt.TotalTime();
+	const float tileU = 2.0f;
+	const float tileV = 2.0f;
+	const float scrollU = 0.05f * totalTime;
+	const float scrollV = 0.02f * sinf(0.5f * totalTime);
+	XMMATRIX texTransform =
+		XMMatrixScaling(tileU, tileV, 1.0f) *
+		XMMatrixTranslation(scrollU, scrollV, 0.0f);
 
 	m_eyePos = XMFLOAT3(35.0f * sinf(m_theta), 12.0f, -35.0f * cosf(m_theta));
 	XMVECTOR eyePos = XMLoadFloat3(&m_eyePos);
@@ -907,6 +915,7 @@ void DirectX12App::UpdateMainPassCB(const GameTimer& gt)
 	XMStoreFloat4x4(&objConstants.World, XMMatrixTranspose(world));
 	XMStoreFloat4x4(&objConstants.WorldInvTranspose, XMMatrixTranspose(worldInvTranspose));
 	XMStoreFloat4x4(&objConstants.WorldViewProj, XMMatrixTranspose(worldViewProj));
+	XMStoreFloat4x4(&objConstants.TexTransform, XMMatrixTranspose(texTransform));
 	objConstants.EyePosW = m_eyePos;
 
 	memcpy(m_mappedObjectCB, &objConstants, sizeof(objConstants));
