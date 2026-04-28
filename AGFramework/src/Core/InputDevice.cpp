@@ -9,8 +9,6 @@ using namespace DirectX::SimpleMath;
 
 InputDevice::InputDevice(HWND hWnd) : m_hWnd(hWnd)
 {
-	keys = new std::unordered_set<Keys>();
-	
 	RAWINPUTDEVICE Rid[2];
 
 	Rid[0].usUsagePage = 0x01;
@@ -30,12 +28,7 @@ InputDevice::InputDevice(HWND hWnd) : m_hWnd(hWnd)
 	}
 }
 
-InputDevice::~InputDevice()
-{
-	delete keys;
-}
-
-void InputDevice::OnKeyDown(KeyboardInputEventArgs args)
+void InputDevice::HandleKeyboardInput(KeyboardInputEventArgs args)
 {
 	bool Break = args.Flags & 0x01;
 
@@ -45,13 +38,13 @@ void InputDevice::OnKeyDown(KeyboardInputEventArgs args)
 	if (args.MakeCode == 54) key = Keys::RightShift;
 	
 	if(Break) {
-		if(keys->count(key))	RemovePressedKey(key);
+		if(m_keys.count(key))	RemovePressedKey(key);
 	} else {
-		if (!keys->count(key))	AddPressedKey(key);
+		if (!m_keys.count(key))	AddPressedKey(key);
 	}
 }
 
-void InputDevice::OnMouseMove(RawMouseEventArgs args)
+void InputDevice::HandleMouseInput(RawMouseEventArgs args)
 {
 	if(args.ButtonFlags & static_cast<int>(MouseButtonFlags::LeftButtonDown))
 		AddPressedKey(Keys::LeftButton);
@@ -81,15 +74,15 @@ void InputDevice::OnMouseMove(RawMouseEventArgs args)
 
 void InputDevice::AddPressedKey(Keys key)
 {
-	keys->insert(key);
+	m_keys.insert(key);
 }
 
 void InputDevice::RemovePressedKey(Keys key)
 {
-	keys->erase(key);
+	m_keys.erase(key);
 }
 
 bool InputDevice::IsKeyDown(Keys key)
 {
-	return keys->count(key);
+	return m_keys.count(key) != 0;
 }

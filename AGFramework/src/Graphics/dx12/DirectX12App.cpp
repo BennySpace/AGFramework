@@ -39,6 +39,12 @@ DirectX12App::DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd) : m_hAppInst(mhA
 
 DirectX12App::~DirectX12App()
 {
+	if (m_objectCB != nullptr && m_mappedObjectCB != nullptr)
+	{
+		m_objectCB->Unmap(0, nullptr);
+		m_mappedObjectCB = nullptr;
+	}
+
 	if (m_device) FlushCommandQueue();
 }
 

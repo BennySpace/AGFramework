@@ -17,7 +17,7 @@ public:
     void Show();
     void Hide();
     void Close();
-    bool ProcessMessages();
+    void ProcessMessages();
     bool ShouldClose() const;
 
     HWND GetHandle() const { return m_handle; }

@@ -18,7 +18,7 @@ public:
     
 private:
 	void Update();
-	void Render();
+	void Draw();
 	void CalculateFrameStats();
 	void OnWindowResized(int width, int height);
 

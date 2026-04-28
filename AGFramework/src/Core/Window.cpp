@@ -1,6 +1,11 @@
 #include "Window.h"
 #include <windowsx.h>
 
+namespace
+{
+	constexpr wchar_t kWindowClassName[] = L"ApplicationWindowClass";
+}
+
 Window::Window()
     : m_handle(nullptr), m_instance(nullptr), m_width(0), m_height(0), m_shouldClose(false) {
 }
@@ -24,7 +29,7 @@ bool Window::Create(const std::string& title, int width, int height) {
 
     m_handle = CreateWindowEx(
         0,
-        L"ApplicationWindowClass",
+        kWindowClassName,
         std::wstring(title.begin(), title.end()).c_str(),
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT,
@@ -44,20 +49,17 @@ void Window::Hide() { ShowWindow(m_handle, SW_HIDE); }
 void Window::Close() { DestroyWindow(m_handle); m_shouldClose = true; }
 bool Window::ShouldClose() const { return m_shouldClose; }
 
-bool Window::ProcessMessages() {
+void Window::ProcessMessages() {
     MSG msg;
-    if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+
+    while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
         if (msg.message == WM_QUIT) {
             m_shouldClose = true;
         }
 
         TranslateMessage(&msg);
         DispatchMessage(&msg);
-
-        return true;
     }
-
-    return false;
 }
 
 bool Window::RegisterWindowClass() {
@@ -72,10 +74,16 @@ bool Window::RegisterWindowClass() {
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
     wc.lpszMenuName = nullptr;
-    wc.lpszClassName = L"ApplicationWindowClass";
+    wc.lpszClassName = kWindowClassName;
     wc.hIconSm = wc.hIcon;
 
-    return RegisterClassEx(&wc);
+    const ATOM classAtom = RegisterClassEx(&wc);
+    if (classAtom != 0)
+    {
+        return true;
+    }
+
+    return GetLastError() == ERROR_CLASS_ALREADY_EXISTS;
 }
 
 LRESULT CALLBACK Window::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {

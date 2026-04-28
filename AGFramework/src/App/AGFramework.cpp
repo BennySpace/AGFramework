@@ -1,9 +1,4 @@
 #include "AGFramework.h"
-#include <chrono>
-#include <iostream>
-
-using namespace std;
-
 AGFramework::AGFramework() : m_running(false), m_isPaused(false)
 {
 	m_window = std::make_shared<Window>();
@@ -21,23 +16,17 @@ void AGFramework::Initialize()
 
 	// Input callbacks
 	m_window->OnRawKey.AddLambda([this](InputDevice::KeyboardInputEventArgs args) {
-		m_inputDevice->OnKeyDown(args);
+		m_inputDevice->HandleKeyboardInput(args);
 		});
 
 	m_window->OnRawMouse.AddLambda([this](InputDevice::RawMouseEventArgs args) {
-		m_inputDevice->OnMouseMove(args);
+		m_inputDevice->HandleMouseInput(args);
 		});
 
 	m_window->OnPause.AddLambda([this](bool isPaused) {
 		m_isPaused = isPaused;
 		if (m_isPaused) m_timer.Stop();
 		else m_timer.Start();
-		});
-
-	m_inputDevice->MouseMove.AddLambda([](const InputDevice::MouseMoveEventArgs& args) {
-		std::cout << "Mouse: (" << args.Position.x << ", " << args.Position.y
-			<< ") Offset: (" << args.Offset.x << ", " << args.Offset.y
-			<< ") Wheel: " << args.WheelDelta << "\n";
 		});
 
 	// Resize handler
@@ -65,21 +54,22 @@ void AGFramework::Run()
 	while (m_running && !m_window->ShouldClose())
 	{
 		m_timer.Tick();
+		m_window->ProcessMessages();
 
-		if (!m_window->ProcessMessages())
+		if (m_window->ShouldClose())
 		{
-			CalculateFrameStats();
-
-			if (!m_isPaused)
-			{
-				Update();
-				Render();
-			}
-			else
-			{
-				Sleep(100);
-			}
+			break;
 		}
+
+		if (m_isPaused)
+		{
+			Sleep(100);
+			continue;
+		}
+
+		CalculateFrameStats();
+		Update();
+		Draw();
 	}
 
 	Shutdown();
@@ -99,7 +89,7 @@ void AGFramework::Update()
 	}
 }
 
-void AGFramework::Render()
+void AGFramework::Draw()
 {
 	if (m_renderer && !m_isPaused)
 		m_renderer->Draw(m_timer);

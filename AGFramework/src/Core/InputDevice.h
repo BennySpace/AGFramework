@@ -9,7 +9,7 @@ class InputDevice
 {
 	friend class Window;
 	friend class AGFramework;
-	std::unordered_set<Keys>* keys;
+	std::unordered_set<Keys> m_keys;
 	
 public:
 	struct MouseMoveEventArgs
@@ -27,7 +27,7 @@ public:
 
 public:
 	InputDevice(HWND hWnd);
-	~InputDevice();
+	~InputDevice() = default;
 
 
 	void AddPressedKey(Keys key);
@@ -85,8 +85,8 @@ protected:
 		int Y;
 	};
 
-	void OnKeyDown(KeyboardInputEventArgs args);
-	void OnMouseMove(RawMouseEventArgs args);
+	void HandleKeyboardInput(KeyboardInputEventArgs args);
+	void HandleMouseInput(RawMouseEventArgs args);
 
 	HWND m_hWnd;
 };
