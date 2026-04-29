@@ -12,6 +12,8 @@
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "dxguid.lib")
 
+#include "../Gbuffer.h"
+
 class GameTimer;
 
 class DirectX12App
@@ -46,11 +48,15 @@ protected:
 	void BuildConstantBuffer();
 	void BuildRootSignature();
 	void BuildPSO();
+	void BuildGbuffer();
 	void CreateTextureResource(Texture& texture, const void* pixelData, UINT width, UINT height);
 	void UpdateCamera(const GameTimer& gt);
 	void UpdateMouseCaptureState();
 	void UpdateMouseLook();
 	void UpdateMainPassCB(const GameTimer& gt);
+	void DrawGeometryPass();
+	void DrawLightingPass();
+	void TransitionGbuffer(D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
 
 	struct ModelDrawItem
 	{
@@ -118,10 +124,14 @@ protected:
 	Microsoft::WRL::ComPtr<ID3D12Fence> m_fence;
 	UINT64 m_fenceValue = 0;
 
-	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_rootSignature;
-	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pso;
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_geometryRootSignature;
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_lightingRootSignature;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_geometryPSO;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_lightingPSO;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_objectCB;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvDescriptorHeap;
+	std::unique_ptr<Gbuffer> m_gbuffer;
+	D3D12_RESOURCE_STATES m_gbufferState = D3D12_RESOURCE_STATE_RENDER_TARGET;
 
 	std::unique_ptr<MeshGeometry> m_sceneGeo;
 	std::unordered_map<std::string, std::unique_ptr<Texture>> m_textures;

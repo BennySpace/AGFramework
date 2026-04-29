@@ -2,6 +2,7 @@
 #include "../ObjModelLoader.h"
 #include "../../Core/GameTimer.h"
 #include <limits>
+#include <stdexcept>
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
@@ -215,6 +216,7 @@ bool DirectX12App::Initialize()
 	BuildTextures();
 	BuildDescriptorHeaps();
 	BuildConstantBuffer();
+	BuildGbuffer();
 	BuildRootSignature();
 	BuildPSO();
 
@@ -245,8 +247,9 @@ void DirectX12App::Update(const GameTimer& gt)
 
 void DirectX12App::Draw(const GameTimer& gt)
 {
+	(void)gt;
 	ThrowIfFailed(m_commandAllocator->Reset());
-	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pso.Get()));
+	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
 
 	auto transitionToRT = CD3DX12_RESOURCE_BARRIER::Transition(
 		CurrentBackBuffer(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
@@ -255,34 +258,18 @@ void DirectX12App::Draw(const GameTimer& gt)
 	m_commandList->RSSetViewports(1, &m_viewport);
 	m_commandList->RSSetScissorRects(1, &m_scissorRect);
 
-	const float clearColor[] = { 0.2f, 0.4f, 0.8f, 1.0f }; // Nice blue
-	m_commandList->ClearRenderTargetView(CurrentBackBufferView(), clearColor, 0, nullptr);
-	m_commandList->ClearDepthStencilView(DepthStencilView(),
-		D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
-
-	const D3D12_CPU_DESCRIPTOR_HANDLE currentBackBufferView = CurrentBackBufferView();
-	const D3D12_CPU_DESCRIPTOR_HANDLE depthStencilView = DepthStencilView();
-	m_commandList->OMSetRenderTargets(1, &currentBackBufferView, true, &depthStencilView);
-	m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
-	ID3D12DescriptorHeap* descriptorHeaps[] = { m_srvDescriptorHeap.Get() };
-	m_commandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
-
-	m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	const D3D12_VERTEX_BUFFER_VIEW vertexBufferView = m_sceneGeo->VertexBufferView();
-	const D3D12_INDEX_BUFFER_VIEW indexBufferView = m_sceneGeo->IndexBufferView();
-	m_commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
-	m_commandList->IASetIndexBuffer(&indexBufferView);
-	m_commandList->SetGraphicsRootConstantBufferView(0, m_objectCB->GetGPUVirtualAddress());
-
-	for (const ModelDrawItem& drawItem : m_modelDrawItems)
+	if (m_gbufferState != D3D12_RESOURCE_STATE_RENDER_TARGET)
 	{
-		CD3DX12_GPU_DESCRIPTOR_HANDLE textureHandle(m_srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-		textureHandle.Offset(static_cast<INT>(drawItem.DiffuseSrvHeapIndex), m_cbvSrvUavDescriptorSize);
-		m_commandList->SetGraphicsRootDescriptorTable(1, textureHandle);
-
-		const auto& submesh = m_sceneGeo->DrawArgs.at(drawItem.DrawName);
-		m_commandList->DrawIndexedInstanced(submesh.IndexCount, 1, submesh.StartIndexLocation, submesh.BaseVertexLocation, 0);
+		TransitionGbuffer(m_gbufferState, D3D12_RESOURCE_STATE_RENDER_TARGET);
+		m_gbufferState = D3D12_RESOURCE_STATE_RENDER_TARGET;
 	}
+	DrawGeometryPass();
+	TransitionGbuffer(D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	m_gbufferState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+
+	const float clearColor[] = { 0.03f, 0.05f, 0.08f, 1.0f };
+	m_commandList->ClearRenderTargetView(CurrentBackBufferView(), clearColor, 0, nullptr);
+	DrawLightingPass();
 
 	auto transitionToPresent = CD3DX12_RESOURCE_BARRIER::Transition(
 		CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
@@ -366,6 +353,15 @@ void DirectX12App::OnResize()
 
 	m_viewport = { 0.0f, 0.0f, (float)m_clientWidth, (float)m_clientHeight, 0.0f, 1.0f };
 	m_scissorRect = { 0, 0, m_clientWidth, m_clientHeight };
+
+	if (m_gbuffer)
+	{
+		if (!m_gbuffer->Resize(static_cast<UINT>(m_clientWidth), static_cast<UINT>(m_clientHeight)))
+		{
+			throw std::runtime_error("Failed to resize gbuffer.");
+		}
+		m_gbufferState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	}
 
 	XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * XM_PI, AspectRatio(), 1.0f, 1000.0f);
 	XMStoreFloat4x4(&m_proj, P);
@@ -561,9 +557,13 @@ void DirectX12App::LogOutputDisplayModes(IDXGIOutput* output, DXGI_FORMAT format
 void DirectX12App::BuildShadersAndInputLayout()
 {
 	m_shaders["standardVS"] = d3dUtil::CompileShader(
-		ResolveShaderPath(L"shaders\\Phong.hlsl"), nullptr, "VS", "vs_5_1");
-	m_shaders["opaquePS"] = d3dUtil::CompileShader(
-		ResolveShaderPath(L"shaders\\Phong.hlsl"), nullptr, "PS", "ps_5_1");
+		ResolveShaderPath(L"shaders\\Phong.hlsl"), nullptr, "GeometryVS", "vs_5_1");
+	m_shaders["gbufferPS"] = d3dUtil::CompileShader(
+		ResolveShaderPath(L"shaders\\Phong.hlsl"), nullptr, "GeometryPS", "ps_5_1");
+	m_shaders["fullscreenVS"] = d3dUtil::CompileShader(
+		ResolveShaderPath(L"shaders\\Phong.hlsl"), nullptr, "FullscreenVS", "vs_5_1");
+	m_shaders["deferredLightingPS"] = d3dUtil::CompileShader(
+		ResolveShaderPath(L"shaders\\Phong.hlsl"), nullptr, "DeferredLightingPS", "ps_5_1");
 
 	m_inputLayout =
 	{
@@ -829,15 +829,30 @@ void DirectX12App::BuildConstantBuffer()
 	ThrowIfFailed(m_objectCB->Map(0, nullptr, reinterpret_cast<void**>(&m_mappedObjectCB)));
 }
 
+void DirectX12App::BuildGbuffer()
+{
+	if (!m_gbuffer)
+	{
+		m_gbuffer = std::make_unique<Gbuffer>();
+	}
+
+	Gbuffer::Desc desc;
+	desc.Width = static_cast<UINT>(m_clientWidth);
+	desc.Height = static_cast<UINT>(m_clientHeight);
+	desc.AlbedoFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+	desc.NormalFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	desc.PositionFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	desc.DepthFormat = m_depthStencilFormat;
+
+	if (!m_gbuffer->Initialize(m_device.Get(), desc))
+	{
+		throw std::runtime_error("Failed to initialize gbuffer.");
+	}
+	m_gbufferState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+}
+
 void DirectX12App::BuildRootSignature()
 {
-	CD3DX12_DESCRIPTOR_RANGE texTable;
-	texTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
-
-	CD3DX12_ROOT_PARAMETER slotRootParameter[2];
-	slotRootParameter[0].InitAsConstantBufferView(0);
-	slotRootParameter[1].InitAsDescriptorTable(1, &texTable, D3D12_SHADER_VISIBILITY_PIXEL);
-
 	CD3DX12_STATIC_SAMPLER_DESC linearWrapSampler(
 		0,
 		D3D12_FILTER_MIN_MAG_MIP_LINEAR,
@@ -845,9 +860,16 @@ void DirectX12App::BuildRootSignature()
 		D3D12_TEXTURE_ADDRESS_MODE_WRAP,
 		D3D12_TEXTURE_ADDRESS_MODE_WRAP);
 
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(
+	CD3DX12_DESCRIPTOR_RANGE geometryTexTable;
+	geometryTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
+
+	CD3DX12_ROOT_PARAMETER geometryRootParameters[2];
+	geometryRootParameters[0].InitAsConstantBufferView(0);
+	geometryRootParameters[1].InitAsDescriptorTable(1, &geometryTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
+
+	CD3DX12_ROOT_SIGNATURE_DESC geometryRootSigDesc(
 		2,
-		slotRootParameter,
+		geometryRootParameters,
 		1,
 		&linearWrapSampler,
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
@@ -855,7 +877,7 @@ void DirectX12App::BuildRootSignature()
 	ComPtr<ID3DBlob> serializedRootSig = nullptr;
 	ComPtr<ID3DBlob> errorBlob = nullptr;
 	ThrowIfFailed(D3D12SerializeRootSignature(
-		&rootSigDesc,
+		&geometryRootSigDesc,
 		D3D_ROOT_SIGNATURE_VERSION_1,
 		serializedRootSig.GetAddressOf(),
 		errorBlob.GetAddressOf()));
@@ -864,36 +886,155 @@ void DirectX12App::BuildRootSignature()
 		0,
 		serializedRootSig->GetBufferPointer(),
 		serializedRootSig->GetBufferSize(),
-		IID_PPV_ARGS(m_rootSignature.GetAddressOf())));
+		IID_PPV_ARGS(m_geometryRootSignature.GetAddressOf())));
+
+	CD3DX12_DESCRIPTOR_RANGE lightingTexTable;
+	lightingTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0);
+
+	CD3DX12_ROOT_PARAMETER lightingRootParameters[2];
+	lightingRootParameters[0].InitAsConstantBufferView(0);
+	lightingRootParameters[1].InitAsDescriptorTable(1, &lightingTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
+
+	CD3DX12_ROOT_SIGNATURE_DESC lightingRootSigDesc(
+		2,
+		lightingRootParameters,
+		1,
+		&linearWrapSampler,
+		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
+	serializedRootSig.Reset();
+	errorBlob.Reset();
+	ThrowIfFailed(D3D12SerializeRootSignature(
+		&lightingRootSigDesc,
+		D3D_ROOT_SIGNATURE_VERSION_1,
+		serializedRootSig.GetAddressOf(),
+		errorBlob.GetAddressOf()));
+
+	ThrowIfFailed(m_device->CreateRootSignature(
+		0,
+		serializedRootSig->GetBufferPointer(),
+		serializedRootSig->GetBufferSize(),
+		IID_PPV_ARGS(m_lightingRootSignature.GetAddressOf())));
 }
 
 void DirectX12App::BuildPSO()
 {
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
-	psoDesc.InputLayout = { m_inputLayout.data(), static_cast<UINT>(m_inputLayout.size()) };
-	psoDesc.pRootSignature = m_rootSignature.Get();
-	psoDesc.VS =
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC geometryPsoDesc = {};
+	geometryPsoDesc.InputLayout = { m_inputLayout.data(), static_cast<UINT>(m_inputLayout.size()) };
+	geometryPsoDesc.pRootSignature = m_geometryRootSignature.Get();
+	geometryPsoDesc.VS =
 	{
 		reinterpret_cast<BYTE*>(m_shaders["standardVS"]->GetBufferPointer()),
 		m_shaders["standardVS"]->GetBufferSize()
 	};
-	psoDesc.PS =
+	geometryPsoDesc.PS =
 	{
-		reinterpret_cast<BYTE*>(m_shaders["opaquePS"]->GetBufferPointer()),
-		m_shaders["opaquePS"]->GetBufferSize()
+		reinterpret_cast<BYTE*>(m_shaders["gbufferPS"]->GetBufferPointer()),
+		m_shaders["gbufferPS"]->GetBufferSize()
 	};
-	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-	psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-	psoDesc.SampleMask = UINT_MAX;
-	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	psoDesc.NumRenderTargets = 1;
-	psoDesc.RTVFormats[0] = m_backBufferFormat;
-	psoDesc.SampleDesc.Count = m4xMsaaState ? 4 : 1;
-	psoDesc.SampleDesc.Quality = m4xMsaaState ? (m4xMsaaQuality - 1) : 0;
-	psoDesc.DSVFormat = m_depthStencilFormat;
+	geometryPsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	geometryPsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	geometryPsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+	geometryPsoDesc.SampleMask = UINT_MAX;
+	geometryPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	geometryPsoDesc.NumRenderTargets = 3;
+	geometryPsoDesc.RTVFormats[0] = m_gbuffer->GetFormat(Gbuffer::Target::Albedo);
+	geometryPsoDesc.RTVFormats[1] = m_gbuffer->GetFormat(Gbuffer::Target::Normal);
+	geometryPsoDesc.RTVFormats[2] = m_gbuffer->GetFormat(Gbuffer::Target::Position);
+	geometryPsoDesc.SampleDesc.Count = m4xMsaaState ? 4 : 1;
+	geometryPsoDesc.SampleDesc.Quality = m4xMsaaState ? (m4xMsaaQuality - 1) : 0;
+	geometryPsoDesc.DSVFormat = m_depthStencilFormat;
 
-	ThrowIfFailed(m_device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pso)));
+	ThrowIfFailed(m_device->CreateGraphicsPipelineState(&geometryPsoDesc, IID_PPV_ARGS(&m_geometryPSO)));
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC lightingPsoDesc = {};
+	lightingPsoDesc.InputLayout = { nullptr, 0 };
+	lightingPsoDesc.pRootSignature = m_lightingRootSignature.Get();
+	lightingPsoDesc.VS =
+	{
+		reinterpret_cast<BYTE*>(m_shaders["fullscreenVS"]->GetBufferPointer()),
+		m_shaders["fullscreenVS"]->GetBufferSize()
+	};
+	lightingPsoDesc.PS =
+	{
+		reinterpret_cast<BYTE*>(m_shaders["deferredLightingPS"]->GetBufferPointer()),
+		m_shaders["deferredLightingPS"]->GetBufferSize()
+	};
+	lightingPsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	lightingPsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	lightingPsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+	lightingPsoDesc.DepthStencilState.DepthEnable = FALSE;
+	lightingPsoDesc.DepthStencilState.StencilEnable = FALSE;
+	lightingPsoDesc.SampleMask = UINT_MAX;
+	lightingPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	lightingPsoDesc.NumRenderTargets = 1;
+	lightingPsoDesc.RTVFormats[0] = m_backBufferFormat;
+	lightingPsoDesc.SampleDesc.Count = 1;
+	lightingPsoDesc.SampleDesc.Quality = 0;
+
+	ThrowIfFailed(m_device->CreateGraphicsPipelineState(&lightingPsoDesc, IID_PPV_ARGS(&m_lightingPSO)));
+}
+
+void DirectX12App::DrawGeometryPass()
+{
+	m_gbuffer->Clear(m_commandList.Get());
+
+	D3D12_CPU_DESCRIPTOR_HANDLE gbufferRtvs[3] =
+	{
+		m_gbuffer->GetRtv(Gbuffer::Target::Albedo),
+		m_gbuffer->GetRtv(Gbuffer::Target::Normal),
+		m_gbuffer->GetRtv(Gbuffer::Target::Position)
+	};
+	const D3D12_CPU_DESCRIPTOR_HANDLE gbufferDsv = m_gbuffer->GetDsv();
+	m_commandList->OMSetRenderTargets(_countof(gbufferRtvs), gbufferRtvs, false, &gbufferDsv);
+	m_commandList->SetPipelineState(m_geometryPSO.Get());
+	m_commandList->SetGraphicsRootSignature(m_geometryRootSignature.Get());
+
+	ID3D12DescriptorHeap* descriptorHeaps[] = { m_srvDescriptorHeap.Get() };
+	m_commandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
+	m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	const D3D12_VERTEX_BUFFER_VIEW vertexBufferView = m_sceneGeo->VertexBufferView();
+	const D3D12_INDEX_BUFFER_VIEW indexBufferView = m_sceneGeo->IndexBufferView();
+	m_commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
+	m_commandList->IASetIndexBuffer(&indexBufferView);
+	m_commandList->SetGraphicsRootConstantBufferView(0, m_objectCB->GetGPUVirtualAddress());
+
+	for (const ModelDrawItem& drawItem : m_modelDrawItems)
+	{
+		CD3DX12_GPU_DESCRIPTOR_HANDLE textureHandle(m_srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+		textureHandle.Offset(static_cast<INT>(drawItem.DiffuseSrvHeapIndex), m_cbvSrvUavDescriptorSize);
+		m_commandList->SetGraphicsRootDescriptorTable(1, textureHandle);
+
+		const auto& submesh = m_sceneGeo->DrawArgs.at(drawItem.DrawName);
+		m_commandList->DrawIndexedInstanced(submesh.IndexCount, 1, submesh.StartIndexLocation, submesh.BaseVertexLocation, 0);
+	}
+}
+
+void DirectX12App::DrawLightingPass()
+{
+	const D3D12_CPU_DESCRIPTOR_HANDLE currentBackBufferView = CurrentBackBufferView();
+	m_commandList->OMSetRenderTargets(1, &currentBackBufferView, true, nullptr);
+	m_commandList->SetPipelineState(m_lightingPSO.Get());
+	m_commandList->SetGraphicsRootSignature(m_lightingRootSignature.Get());
+
+	ID3D12DescriptorHeap* descriptorHeaps[] = { m_gbuffer->GetSrvHeap() };
+	m_commandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
+	m_commandList->SetGraphicsRootConstantBufferView(0, m_objectCB->GetGPUVirtualAddress());
+	m_commandList->SetGraphicsRootDescriptorTable(1, m_gbuffer->GetSrvGpuHandle(Gbuffer::Target::Albedo));
+	m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	m_commandList->DrawInstanced(3, 1, 0, 0);
+}
+
+void DirectX12App::TransitionGbuffer(D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState)
+{
+	D3D12_RESOURCE_BARRIER barriers[3] =
+	{
+		CD3DX12_RESOURCE_BARRIER::Transition(m_gbuffer->GetResource(Gbuffer::Target::Albedo), beforeState, afterState),
+		CD3DX12_RESOURCE_BARRIER::Transition(m_gbuffer->GetResource(Gbuffer::Target::Normal), beforeState, afterState),
+		CD3DX12_RESOURCE_BARRIER::Transition(m_gbuffer->GetResource(Gbuffer::Target::Position), beforeState, afterState)
+	};
+	m_commandList->ResourceBarrier(_countof(barriers), barriers);
 }
 
 void DirectX12App::UpdateCamera(const GameTimer& gt)

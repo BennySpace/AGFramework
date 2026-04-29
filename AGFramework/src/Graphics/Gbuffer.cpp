@@ -49,7 +49,7 @@ void Gbuffer::Clear(ID3D12GraphicsCommandList* commandList) const
 
     commandList->ClearRenderTargetView(GetRtv(Target::Albedo), m_desc.ClearColor, 0, nullptr);
     commandList->ClearRenderTargetView(GetRtv(Target::Normal), m_desc.ClearNormal, 0, nullptr);
-    commandList->ClearRenderTargetView(GetRtv(Target::Material), m_desc.ClearMaterial, 0, nullptr);
+    commandList->ClearRenderTargetView(GetRtv(Target::Position), m_desc.ClearPosition, 0, nullptr);
     commandList->ClearDepthStencilView(
         GetDsv(),
         D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
@@ -121,9 +121,9 @@ bool Gbuffer::CreateResources()
         {
             clearValue = m_desc.ClearNormal;
         }
-        else if (target == Target::Material)
+        else if (target == Target::Position)
         {
-            clearValue = m_desc.ClearMaterial;
+            clearValue = m_desc.ClearPosition;
         }
 
         D3D12_CLEAR_VALUE optimizedClearValue = {};
@@ -226,8 +226,8 @@ DXGI_FORMAT Gbuffer::ResolveTargetFormat(Target target) const
         return m_desc.AlbedoFormat;
     case Target::Normal:
         return m_desc.NormalFormat;
-    case Target::Material:
-        return m_desc.MaterialFormat;
+    case Target::Position:
+        return m_desc.PositionFormat;
     default:
         throw std::runtime_error("Unknown gbuffer target.");
     }
