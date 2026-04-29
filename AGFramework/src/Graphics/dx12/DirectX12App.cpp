@@ -237,6 +237,9 @@ bool DirectX12App::Initialize()
 
 void DirectX12App::Update(const GameTimer& gt)
 {
+	UpdateMouseCaptureState();
+	UpdateMouseLook();
+	UpdateCamera(gt);
 	UpdateMainPassCB(gt);
 }
 
@@ -637,6 +640,17 @@ void DirectX12App::BuildModelGeometry()
 	const float extentZ = maxPoint.z - minPoint.z;
 	const float maxExtent = (std::max)(extentX, (std::max)(extentY, extentZ));
 	m_sceneScale = maxExtent > 0.0f ? 20.0f / maxExtent : 1.0f;
+	const float scaledHeight = extentY * m_sceneScale;
+	const float scaledDepth = extentZ * m_sceneScale;
+	const float cameraDistance = (std::max)(18.0f, scaledDepth + 12.0f);
+	m_eyePos = XMFLOAT3(
+		0.0f,
+		(std::max)(6.0f, 0.35f * scaledHeight + 4.0f),
+		-cameraDistance);
+	m_lookDirection = XMFLOAT3(-m_eyePos.x, -m_eyePos.y, -m_eyePos.z);
+	const XMVECTOR initialLook = XMVector3Normalize(XMLoadFloat3(&m_lookDirection));
+	m_yaw = atan2f(XMVectorGetX(initialLook), XMVectorGetZ(initialLook));
+	m_pitch = -asinf(XMVectorGetY(initialLook));
 
 	const UINT vbByteSize = static_cast<UINT>(vertices.size() * sizeof(GeometryGenerator::Vertex));
 	const UINT ibByteSize = static_cast<UINT>(indices.size() * sizeof(std::uint32_t));
@@ -882,10 +896,113 @@ void DirectX12App::BuildPSO()
 	ThrowIfFailed(m_device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pso)));
 }
 
+void DirectX12App::UpdateCamera(const GameTimer& gt)
+{
+	const float baseMoveSpeed = 10.0f;
+	const float sprintMultiplier = 3.0f;
+	const float moveSpeed = baseMoveSpeed *
+		(d3dUtil::IsKeyDown(VK_SHIFT) ? sprintMultiplier : 1.0f) *
+		gt.DeltaTime();
+
+	XMVECTOR eyePosition = XMLoadFloat3(&m_eyePos);
+	XMVECTOR lookDirection = XMVector3Normalize(XMLoadFloat3(&m_lookDirection));
+	const XMVECTOR worldUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+	XMVECTOR rightDirection = XMVector3Normalize(XMVector3Cross(worldUp, lookDirection));
+
+	if (d3dUtil::IsKeyDown('W'))
+	{
+		eyePosition += lookDirection * moveSpeed;
+	}
+	if (d3dUtil::IsKeyDown('S'))
+	{
+		eyePosition -= lookDirection * moveSpeed;
+	}
+	if (d3dUtil::IsKeyDown('A'))
+	{
+		eyePosition -= rightDirection * moveSpeed;
+	}
+	if (d3dUtil::IsKeyDown('D'))
+	{
+		eyePosition += rightDirection * moveSpeed;
+	}
+
+	XMStoreFloat3(&m_eyePos, eyePosition);
+}
+
+void DirectX12App::UpdateMouseCaptureState()
+{
+	const bool isWindowFocused = GetForegroundWindow() == m_hMainWnd;
+	const bool isRightMouseDown = d3dUtil::IsKeyDown(VK_RBUTTON);
+	const bool shouldCaptureMouse = isWindowFocused && isRightMouseDown;
+
+	if (shouldCaptureMouse && !m_isMouseCaptured)
+	{
+		RECT clientRect{};
+		GetClientRect(m_hMainWnd, &clientRect);
+
+		POINT topLeft{ clientRect.left, clientRect.top };
+		POINT bottomRight{ clientRect.right, clientRect.bottom };
+		ClientToScreen(m_hMainWnd, &topLeft);
+		ClientToScreen(m_hMainWnd, &bottomRight);
+
+		RECT clipRect{ topLeft.x, topLeft.y, bottomRight.x, bottomRight.y };
+		ClipCursor(&clipRect);
+		ShowCursor(FALSE);
+
+		const int centerX = (clipRect.left + clipRect.right) / 2;
+		const int centerY = (clipRect.top + clipRect.bottom) / 2;
+		SetCursorPos(centerX, centerY);
+
+		m_isMouseCaptured = true;
+	}
+	else if (!shouldCaptureMouse && m_isMouseCaptured)
+	{
+		ClipCursor(nullptr);
+		ShowCursor(TRUE);
+		m_isMouseCaptured = false;
+	}
+}
+
+void DirectX12App::UpdateMouseLook()
+{
+	if (!m_isMouseCaptured)
+	{
+		return;
+	}
+
+	RECT clientRect{};
+	GetClientRect(m_hMainWnd, &clientRect);
+
+	POINT centerPoint{
+		(clientRect.left + clientRect.right) / 2,
+		(clientRect.top + clientRect.bottom) / 2
+	};
+	ClientToScreen(m_hMainWnd, &centerPoint);
+
+	POINT currentMousePosition{};
+	if (!GetCursorPos(&currentMousePosition))
+	{
+		return;
+	}
+
+	const float mouseSensitivity = 0.0035f;
+	const float deltaX = static_cast<float>(currentMousePosition.x - centerPoint.x);
+	const float deltaY = static_cast<float>(currentMousePosition.y - centerPoint.y);
+
+	m_yaw += deltaX * mouseSensitivity;
+	m_pitch += deltaY * mouseSensitivity;
+	m_pitch = (std::max)(-1.45f, (std::min)(1.45f, m_pitch));
+
+	const float cosPitch = cosf(m_pitch);
+	m_lookDirection.x = sinf(m_yaw) * cosPitch;
+	m_lookDirection.y = -sinf(m_pitch);
+	m_lookDirection.z = cosf(m_yaw) * cosPitch;
+
+	SetCursorPos(centerPoint.x, centerPoint.y);
+}
+
 void DirectX12App::UpdateMainPassCB(const GameTimer& gt)
 {
-	m_theta += 0.25f * gt.DeltaTime();
-
 	XMMATRIX world =
 		XMMatrixTranslation(-m_sceneCenter.x, -m_sceneCenter.y, -m_sceneCenter.z) *
 		XMMatrixScaling(m_sceneScale, m_sceneScale, m_sceneScale);
@@ -898,9 +1015,8 @@ void DirectX12App::UpdateMainPassCB(const GameTimer& gt)
 		XMMatrixScaling(tileU, tileV, 1.0f) *
 		XMMatrixTranslation(scrollU, scrollV, 0.0f);
 
-	m_eyePos = XMFLOAT3(35.0f * sinf(m_theta), 12.0f, -35.0f * cosf(m_theta));
 	XMVECTOR eyePos = XMLoadFloat3(&m_eyePos);
-	XMVECTOR target = XMVectorZero();
+	XMVECTOR target = eyePos + XMVector3Normalize(XMLoadFloat3(&m_lookDirection));
 	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
 	XMMATRIX view = XMMatrixLookAtLH(eyePos, target, up);

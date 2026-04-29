@@ -47,6 +47,9 @@ protected:
 	void BuildRootSignature();
 	void BuildPSO();
 	void CreateTextureResource(Texture& texture, const void* pixelData, UINT width, UINT height);
+	void UpdateCamera(const GameTimer& gt);
+	void UpdateMouseCaptureState();
+	void UpdateMouseLook();
 	void UpdateMainPassCB(const GameTimer& gt);
 
 	struct ModelDrawItem
@@ -133,8 +136,12 @@ protected:
 	DirectX::XMFLOAT4X4 m_world = MathHelper::Identity4x4();
 	DirectX::XMFLOAT4X4 m_view = MathHelper::Identity4x4();
 	DirectX::XMFLOAT4X4 m_proj = MathHelper::Identity4x4();
-	DirectX::XMFLOAT3 m_eyePos = { 0.0f, 2.0f, -6.0f };
+	DirectX::XMFLOAT3 m_eyePos = { 0.0f, 8.0f, -30.0f };
+	DirectX::XMFLOAT3 m_lookDirection = { 0.0f, 0.0f, 1.0f };
 	DirectX::XMFLOAT3 m_sceneCenter = { 0.0f, 0.0f, 0.0f };
 	float m_sceneScale = 1.0f;
 	float m_theta = 0.0f;
+	float m_yaw = 0.0f;
+	float m_pitch = 0.0f;
+	bool m_isMouseCaptured = false;
 };
