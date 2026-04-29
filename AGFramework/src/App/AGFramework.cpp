@@ -1,7 +1,11 @@
 #include "AGFramework.h"
+
+#include <stdexcept>
+
 AGFramework::AGFramework() : m_running(false), m_isPaused(false)
 {
 	m_window = std::make_shared<Window>();
+	m_renderingSystem = std::make_unique<RenderingSystem>();
 }
 
 void AGFramework::Initialize()
@@ -39,12 +43,8 @@ void AGFramework::Initialize()
 	m_window->Show();
 	m_running = true;
 
-	// Initialize DirectX12
-	m_renderer = std::make_unique<DirectX12App>(m_hInstance, m_hWnd);
-	if (!m_renderer->Initialize())
-		throw std::runtime_error("Failed to initialize DirectX12");
-
-	m_renderer->OnResize(); // Initial resize
+	if (!m_renderingSystem->Initialize(m_hInstance, m_hWnd))
+		throw std::runtime_error("Failed to initialize rendering system");
 }
 
 void AGFramework::Run()
@@ -77,22 +77,22 @@ void AGFramework::Run()
 
 void AGFramework::Shutdown()
 {
-	if (m_renderer)
-		m_renderer.reset();
+	if (m_renderingSystem)
+		m_renderingSystem->Shutdown();
 }
 
 void AGFramework::Update()
 {
-	if (m_renderer && !m_isPaused)
+	if (m_renderingSystem && !m_isPaused)
 	{
-		m_renderer->Update(m_timer);
+		m_renderingSystem->Update(m_timer);
 	}
 }
 
 void AGFramework::Draw()
 {
-	if (m_renderer && !m_isPaused)
-		m_renderer->Draw(m_timer);
+	if (m_renderingSystem && !m_isPaused)
+		m_renderingSystem->Render(m_timer);
 }
 
 void AGFramework::CalculateFrameStats()
@@ -119,6 +119,6 @@ void AGFramework::CalculateFrameStats()
 
 void AGFramework::OnWindowResized(int width, int height)
 {
-	if (m_renderer)
-		m_renderer->OnWindowResize(width, height);
+	if (m_renderingSystem)
+		m_renderingSystem->OnWindowResize(width, height);
 }

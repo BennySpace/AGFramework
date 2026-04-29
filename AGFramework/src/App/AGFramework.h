@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../Graphics/dx12/DirectX12App.h"
+#include "../Graphics/RenderingSystem.h"
 #include "../Core/InputDevice.h"
 #include "../Core/GameTimer.h"
 #include "../Core/Window.h"
@@ -25,7 +25,7 @@ private:
 private:
     std::shared_ptr<Window> m_window;
     std::unique_ptr<InputDevice> m_inputDevice;
-    std::unique_ptr<DirectX12App> m_renderer;
+    std::unique_ptr<RenderingSystem> m_renderingSystem;
 
     GameTimer m_timer;
     HWND m_hWnd;

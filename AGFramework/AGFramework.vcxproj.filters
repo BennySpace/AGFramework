@@ -12,6 +12,7 @@
     <ClCompile Include="src\Core\Window.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\Graphics\Renderer.cpp" />
+    <ClCompile Include="src\Graphics\RenderingSystem.cpp" />
     <ClCompile Include="src\Graphics\GeometryGenerator.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -27,6 +28,7 @@
     <ClInclude Include="src\App\AGFramework.h" />
     <ClInclude Include="src\Core\Window.h" />
     <ClInclude Include="src\Graphics\Renderer.h" />
+    <ClInclude Include="src\Graphics\RenderingSystem.h" />
     <ClInclude Include="src\Graphics\GeometryGenerator.h" />
     <ClInclude Include="src\Utils\Exports.h" />
   </ItemGroup>
