@@ -13,6 +13,9 @@
 #pragma comment(lib, "dxguid.lib")
 
 #include "../Gbuffer.h"
+#include "../LightSystem.h"
+#include "../MaterialSystem.h"
+#include "../RenderSettings.h"
 
 class GameTimer;
 
@@ -78,11 +81,11 @@ private:
 		DirectX::XMFLOAT4X4 TexTransform = MathHelper::Identity4x4();
 		DirectX::XMFLOAT3 EyePosW = { 0.0f, 0.0f, 0.0f };
 		float Pad0 = 0.0f;
-		DirectX::XMFLOAT4 AmbientLight = { 0.15f, 0.15f, 0.2f, 1.0f };
-		DirectX::XMFLOAT4 LightDir = { 0.577f, -0.577f, 0.577f, 0.0f };
-		DirectX::XMFLOAT4 LightColor = { 0.85f, 0.85f, 0.8f, 1.0f };
-		DirectX::XMFLOAT4 DiffuseAlbedo = { 0.78f, 0.24f, 0.18f, 1.0f };
-		DirectX::XMFLOAT4 SpecularAlbedo = { 0.85f, 0.85f, 0.85f, 32.0f };
+		RenderSettings::LightingSettings LightingSettings;
+		MaterialSystem::MaterialState Material;
+		LightSystem::DirectionalLightData DirectionalLights[LightSystem::DirectionalLightCount];
+		LightSystem::PointLightData PointLights[LightSystem::PointLightCount];
+		LightSystem::SpotLightData SpotLights[LightSystem::SpotLightCount];
 	};
 
 protected:
@@ -139,6 +142,9 @@ protected:
 	std::vector<ModelDrawItem> m_modelDrawItems;
 	std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID3DBlob>> m_shaders;
 	std::vector<D3D12_INPUT_ELEMENT_DESC> m_inputLayout;
+	LightSystem m_lightSystem;
+	MaterialSystem m_materialSystem;
+	RenderSettings m_renderSettings;
 
 	UINT8* m_mappedObjectCB = nullptr;
 	UINT m_objectCBByteSize = 0;

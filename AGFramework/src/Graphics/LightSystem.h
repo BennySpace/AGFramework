@@ -1,0 +1,47 @@
+#pragma once
+
+#include <array>
+
+#include "../Math/MathHelper.h"
+
+class LightSystem
+{
+public:
+    static constexpr std::size_t DirectionalLightCount = 1;
+    static constexpr std::size_t PointLightCount = 6;
+    static constexpr std::size_t SpotLightCount = 2;
+
+    struct DirectionalLightData
+    {
+        DirectX::XMFLOAT4 Direction = { 0.577f, -0.577f, 0.577f, 0.0f };
+        DirectX::XMFLOAT4 Color = { 0.75f, 0.74f, 0.70f, 1.0f };
+    };
+
+    struct PointLightData
+    {
+        DirectX::XMFLOAT4 Position = { 8.0f, 6.0f, -4.0f, 1.0f };
+        DirectX::XMFLOAT4 Color = { 1.0f, 0.55f, 0.30f, 1.0f };
+        DirectX::XMFLOAT4 Params = { 24.0f, 2.2f, 0.0f, 1.0f };
+    };
+
+    struct SpotLightData
+    {
+        DirectX::XMFLOAT4 Position = { 0.0f, 10.0f, -18.0f, 1.0f };
+        DirectX::XMFLOAT4 Direction = { 0.0f, -0.35f, 1.0f, 0.0f };
+        DirectX::XMFLOAT4 Color = { 0.35f, 0.45f, 1.0f, 1.0f };
+        DirectX::XMFLOAT4 Params = { 42.0f, 0.94f, 0.82f, 3.0f };
+    };
+
+    struct LightingState
+    {
+        std::array<DirectionalLightData, DirectionalLightCount> DirectionalLights;
+        std::array<PointLightData, PointLightCount> PointLights;
+        std::array<SpotLightData, SpotLightCount> SpotLights;
+    };
+
+    void Update(const DirectX::XMFLOAT3& eyePosition, const DirectX::XMFLOAT3& lookDirection, const DirectX::XMFLOAT3& sceneCenter);
+    const LightingState& GetLightingState() const { return m_lightingState; }
+
+private:
+    LightingState m_lightingState;
+};

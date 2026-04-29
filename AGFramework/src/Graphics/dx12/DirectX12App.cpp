@@ -1147,14 +1147,7 @@ void DirectX12App::UpdateMainPassCB(const GameTimer& gt)
 	XMMATRIX world =
 		XMMatrixTranslation(-m_sceneCenter.x, -m_sceneCenter.y, -m_sceneCenter.z) *
 		XMMatrixScaling(m_sceneScale, m_sceneScale, m_sceneScale);
-	const float totalTime = gt.TotalTime();
-	const float tileU = 2.0f;
-	const float tileV = 2.0f;
-	const float scrollU = 0.05f * totalTime;
-	const float scrollV = 0.02f * sinf(0.5f * totalTime);
-	XMMATRIX texTransform =
-		XMMatrixScaling(tileU, tileV, 1.0f) *
-		XMMatrixTranslation(scrollU, scrollV, 0.0f);
+	XMMATRIX texTransform = XMMatrixIdentity();
 
 	XMVECTOR eyePos = XMLoadFloat3(&m_eyePos);
 	XMVECTOR target = eyePos + XMVector3Normalize(XMLoadFloat3(&m_lookDirection));
@@ -1174,6 +1167,22 @@ void DirectX12App::UpdateMainPassCB(const GameTimer& gt)
 	XMStoreFloat4x4(&objConstants.WorldViewProj, XMMatrixTranspose(worldViewProj));
 	XMStoreFloat4x4(&objConstants.TexTransform, XMMatrixTranspose(texTransform));
 	objConstants.EyePosW = m_eyePos;
+	objConstants.LightingSettings = m_renderSettings.GetLightingSettings();
+	objConstants.Material = m_materialSystem.GetMaterialState();
+	m_lightSystem.Update(m_eyePos, m_lookDirection, m_sceneCenter);
+	const LightSystem::LightingState& lightingState = m_lightSystem.GetLightingState();
+	for (size_t lightIndex = 0; lightIndex < LightSystem::DirectionalLightCount; ++lightIndex)
+	{
+		objConstants.DirectionalLights[lightIndex] = lightingState.DirectionalLights[lightIndex];
+	}
+	for (size_t lightIndex = 0; lightIndex < LightSystem::PointLightCount; ++lightIndex)
+	{
+		objConstants.PointLights[lightIndex] = lightingState.PointLights[lightIndex];
+	}
+	for (size_t lightIndex = 0; lightIndex < LightSystem::SpotLightCount; ++lightIndex)
+	{
+		objConstants.SpotLights[lightIndex] = lightingState.SpotLights[lightIndex];
+	}
 
 	memcpy(m_mappedObjectCB, &objConstants, sizeof(objConstants));
 }
