@@ -66,6 +66,7 @@ protected:
 		std::string DrawName;
 		std::string DiffuseTexturePath;
 		UINT DiffuseSrvHeapIndex = 0;
+		bool HasAlphaCutout = false;
 	};
 
 private:
@@ -86,6 +87,12 @@ private:
 		LightSystem::DirectionalLightData DirectionalLights[LightSystem::DirectionalLightCount];
 		LightSystem::PointLightData PointLights[LightSystem::PointLightCount];
 		LightSystem::SpotLightData SpotLights[LightSystem::SpotLightCount];
+	};
+
+	struct DrawSettings
+	{
+		float AlphaCutoff = -1.0f;
+		float Padding[3] = { 0.0f, 0.0f, 0.0f };
 	};
 
 protected:

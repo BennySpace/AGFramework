@@ -39,6 +39,12 @@ cbuffer ObjectConstants : register(b0)
     SpotLightData gSpotLights[SPOT_LIGHT_COUNT];
 }
 
+cbuffer DrawSettings : register(b1)
+{
+    float gAlphaCutoff;
+    float3 gDrawSettingsPadding;
+}
+
 float3 ComputeSpecular(float3 normalW, float3 lightVector, float3 toEye, float shininess)
 {
     float3 halfVector = normalize(lightVector + toEye);
@@ -151,6 +157,11 @@ GeometryVertexOut GeometryVS(VertexIn vin)
 GBufferOutput GeometryPS(GeometryVertexOut pin)
 {
     float4 texColor = gTexture0.Sample(gsamLinearWrap, pin.TexC);
+    if (gAlphaCutoff >= 0.0f)
+    {
+        clip(texColor.a - gAlphaCutoff);
+    }
+
     float3 normalW = normalize(pin.NormalW);
     GBufferOutput output;
     output.Albedo = float4(texColor.rgb * gDiffuseAlbedo.rgb, texColor.a * gDiffuseAlbedo.a);

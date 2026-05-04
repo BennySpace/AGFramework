@@ -85,6 +85,10 @@ std::vector<ObjModelLoader::MeshData> ObjModelLoader::Load(const std::string& fi
 			{
 				meshData.DiffuseTexturePath = JoinPath(basePath, diffusePath.C_Str());
 			}
+
+			aiString opacityPath;
+			meshData.HasAlphaCutout =
+				material->GetTexture(aiTextureType_OPACITY, 0, &opacityPath) == aiReturn_SUCCESS;
 		}
 
 		for (unsigned int vertexIndex = 0; vertexIndex < sourceMesh->mNumVertices; ++vertexIndex)

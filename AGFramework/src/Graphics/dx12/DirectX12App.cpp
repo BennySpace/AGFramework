@@ -626,6 +626,7 @@ void DirectX12App::BuildModelGeometry()
 		ModelDrawItem drawItem;
 		drawItem.DrawName = drawName;
 		drawItem.DiffuseTexturePath = mesh.DiffuseTexturePath;
+		drawItem.HasAlphaCutout = mesh.HasAlphaCutout;
 
 		m_modelDrawItems.push_back(std::move(drawItem));
 	}
@@ -863,12 +864,13 @@ void DirectX12App::BuildRootSignature()
 	CD3DX12_DESCRIPTOR_RANGE geometryTexTable;
 	geometryTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
 
-	CD3DX12_ROOT_PARAMETER geometryRootParameters[2];
+	CD3DX12_ROOT_PARAMETER geometryRootParameters[3];
 	geometryRootParameters[0].InitAsConstantBufferView(0);
 	geometryRootParameters[1].InitAsDescriptorTable(1, &geometryTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
+	geometryRootParameters[2].InitAsConstants(4, 1);
 
 	CD3DX12_ROOT_SIGNATURE_DESC geometryRootSigDesc(
-		2,
+		3,
 		geometryRootParameters,
 		1,
 		&linearWrapSampler,
@@ -1005,6 +1007,9 @@ void DirectX12App::DrawGeometryPass()
 		CD3DX12_GPU_DESCRIPTOR_HANDLE textureHandle(m_srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 		textureHandle.Offset(static_cast<INT>(drawItem.DiffuseSrvHeapIndex), m_cbvSrvUavDescriptorSize);
 		m_commandList->SetGraphicsRootDescriptorTable(1, textureHandle);
+		DrawSettings drawSettings;
+		drawSettings.AlphaCutoff = drawItem.HasAlphaCutout ? 0.5f : -1.0f;
+		m_commandList->SetGraphicsRoot32BitConstants(2, 4, &drawSettings, 0);
 
 		const auto& submesh = m_sceneGeo->DrawArgs.at(drawItem.DrawName);
 		m_commandList->DrawIndexedInstanced(submesh.IndexCount, 1, submesh.StartIndexLocation, submesh.BaseVertexLocation, 0);
