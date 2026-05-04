@@ -1,22 +1,25 @@
 #include "LightSystem.h"
 
-#include <algorithm>
-
 using namespace DirectX;
 
 void LightSystem::Update(const XMFLOAT3& eyePosition, const XMFLOAT3& lookDirection, const XMFLOAT3& sceneCenter)
 {
-    m_lightingState.DirectionalLights[0].Direction = XMFLOAT4(0.45f, -0.82f, 0.35f, 0.0f);
-    m_lightingState.DirectionalLights[0].Color = XMFLOAT4(0.72f, 0.74f, 0.70f, 1.0f);
+    (void)sceneCenter;
 
-    const std::array<XMFLOAT3, PointLightCount> pointOffsets =
+    m_lightingState.DirectionalLights[0].Direction = XMFLOAT4(0.45f, -0.82f, 0.35f, 0.0f);
+    m_lightingState.DirectionalLights[0].Color =
+        m_lightEnableState.DirectionalLights[0] ?
+        XMFLOAT4(0.72f, 0.74f, 0.70f, 1.0f) :
+        XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
+
+    const std::array<XMFLOAT3, PointLightCount> pointPositions =
     {
-        XMFLOAT3(-12.0f, 5.0f, -12.0f),
-        XMFLOAT3(12.0f, 5.0f, -10.0f),
-        XMFLOAT3(-10.0f, 6.5f, 0.0f),
-        XMFLOAT3(10.0f, 6.0f, 2.0f),
-        XMFLOAT3(-8.0f, 5.5f, 12.0f),
-        XMFLOAT3(8.0f, 5.0f, 10.0f)
+        XMFLOAT3(-6.0f, 4.0f, -6.0f),
+        XMFLOAT3(6.0f, 4.0f, -6.0f),
+        XMFLOAT3(-6.0f, 4.5f, 0.0f),
+        XMFLOAT3(6.0f, 4.5f, 0.0f),
+        XMFLOAT3(-5.0f, 4.0f, 6.0f),
+        XMFLOAT3(5.0f, 4.0f, 6.0f)
     };
     const std::array<XMFLOAT4, PointLightCount> pointColors =
     {
@@ -30,14 +33,17 @@ void LightSystem::Update(const XMFLOAT3& eyePosition, const XMFLOAT3& lookDirect
 
     for (std::size_t lightIndex = 0; lightIndex < PointLightCount; ++lightIndex)
     {
-        const XMFLOAT3& offset = pointOffsets[lightIndex];
+        const XMFLOAT3& position = pointPositions[lightIndex];
         m_lightingState.PointLights[lightIndex].Position = XMFLOAT4(
-            sceneCenter.x + offset.x,
-            sceneCenter.y + offset.y,
-            sceneCenter.z + offset.z,
+            position.x,
+            position.y,
+            position.z,
             1.0f);
-        m_lightingState.PointLights[lightIndex].Color = pointColors[lightIndex];
-        m_lightingState.PointLights[lightIndex].Params = XMFLOAT4(20.0f + static_cast<float>(lightIndex), 2.0f, 0.0f, 1.0f);
+        m_lightingState.PointLights[lightIndex].Color =
+            m_lightEnableState.PointLights[lightIndex] ?
+            pointColors[lightIndex] :
+            XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
+        m_lightingState.PointLights[lightIndex].Params = XMFLOAT4(12.0f, 1.35f, 0.0f, 1.0f);
     }
 
     const XMVECTOR spotDirectionVector = XMVector3Normalize(XMLoadFloat3(&lookDirection));
@@ -50,15 +56,21 @@ void LightSystem::Update(const XMFLOAT3& eyePosition, const XMFLOAT3& lookDirect
         spotDirection.y,
         spotDirection.z,
         0.0f);
-    m_lightingState.SpotLights[0].Color = XMFLOAT4(0.38f, 0.48f, 1.0f, 1.0f);
+    m_lightingState.SpotLights[0].Color =
+        m_lightEnableState.SpotLights[0] ?
+        XMFLOAT4(0.38f, 0.48f, 1.0f, 1.0f) :
+        XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
     m_lightingState.SpotLights[0].Params = XMFLOAT4(48.0f, 0.96f, 0.88f, 3.25f);
 
     m_lightingState.SpotLights[1].Position = XMFLOAT4(
-        sceneCenter.x,
-        sceneCenter.y + (std::max)(12.0f, eyePosition.y + 3.0f),
-        sceneCenter.z - 16.0f,
+        0.0f,
+        8.0f,
+        -6.0f,
         1.0f);
-    m_lightingState.SpotLights[1].Direction = XMFLOAT4(0.0f, -0.75f, 0.65f, 0.0f);
-    m_lightingState.SpotLights[1].Color = XMFLOAT4(1.0f, 0.92f, 0.70f, 1.0f);
-    m_lightingState.SpotLights[1].Params = XMFLOAT4(52.0f, 0.93f, 0.82f, 2.8f);
+    m_lightingState.SpotLights[1].Direction = XMFLOAT4(0.0f, -0.45f, 1.0f, 0.0f);
+    m_lightingState.SpotLights[1].Color =
+        m_lightEnableState.SpotLights[1] ?
+        XMFLOAT4(1.0f, 0.92f, 0.70f, 1.0f) :
+        XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
+    m_lightingState.SpotLights[1].Params = XMFLOAT4(24.0f, 0.95f, 0.82f, 2.2f);
 }

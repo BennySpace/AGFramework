@@ -1122,6 +1122,7 @@ void DirectX12App::DrawDebugUi(const GameTimer& gt)
 	if (ImGui::CollapsingHeader("Lighting", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		RenderSettings::LightingSettings lightingSettings = m_renderSettings.GetLightingSettings();
+		LightSystem::LightEnableState lightEnableState = m_lightSystem.GetLightEnableState();
 		if (ImGui::ColorEdit3("Ambient", &lightingSettings.AmbientLight.x))
 		{
 			m_renderSettings.SetLightingSettings(lightingSettings);
@@ -1130,9 +1131,48 @@ void DirectX12App::DrawDebugUi(const GameTimer& gt)
 		{
 			m_renderSettings.SetLightingSettings(lightingSettings);
 		}
-		ImGui::Text("Directional lights: %d", static_cast<int>(LightSystem::DirectionalLightCount));
-		ImGui::Text("Point lights: %d", static_cast<int>(LightSystem::PointLightCount));
-		ImGui::Text("Spot lights: %d", static_cast<int>(LightSystem::SpotLightCount));
+
+		if (ImGui::TreeNodeEx("Directional", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			bool enableDirectionalLight = lightEnableState.DirectionalLights[0];
+			if (ImGui::Checkbox("Directional 0", &enableDirectionalLight))
+			{
+				lightEnableState.DirectionalLights[0] = enableDirectionalLight;
+				m_lightSystem.SetLightEnableState(lightEnableState);
+			}
+			ImGui::TreePop();
+		}
+
+		if (ImGui::TreeNodeEx("Point", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			for (int lightIndex = 0; lightIndex < static_cast<int>(LightSystem::PointLightCount); ++lightIndex)
+			{
+				bool isEnabled = lightEnableState.PointLights[lightIndex];
+				std::string label = "Point " + std::to_string(lightIndex);
+				if (ImGui::Checkbox(label.c_str(), &isEnabled))
+				{
+					lightEnableState.PointLights[lightIndex] = isEnabled;
+					m_lightSystem.SetLightEnableState(lightEnableState);
+				}
+			}
+			ImGui::TreePop();
+		}
+
+		if (ImGui::TreeNodeEx("Spot", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			for (int lightIndex = 0; lightIndex < static_cast<int>(LightSystem::SpotLightCount); ++lightIndex)
+			{
+				bool isEnabled = lightEnableState.SpotLights[lightIndex];
+				std::string label = "Spot " + std::to_string(lightIndex);
+				if (ImGui::Checkbox(label.c_str(), &isEnabled))
+				{
+					lightEnableState.SpotLights[lightIndex] = isEnabled;
+					m_lightSystem.SetLightEnableState(lightEnableState);
+				}
+			}
+			ImGui::TreePop();
+		}
+
 	}
 	ImGui::End();
 

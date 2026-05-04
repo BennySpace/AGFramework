@@ -39,9 +39,19 @@ public:
         std::array<SpotLightData, SpotLightCount> SpotLights;
     };
 
+    struct LightEnableState
+    {
+        std::array<bool, DirectionalLightCount> DirectionalLights = { false };
+        std::array<bool, PointLightCount> PointLights = { false, false, false, false, false, false };
+        std::array<bool, SpotLightCount> SpotLights = { false, false };
+    };
+
     void Update(const DirectX::XMFLOAT3& eyePosition, const DirectX::XMFLOAT3& lookDirection, const DirectX::XMFLOAT3& sceneCenter);
     const LightingState& GetLightingState() const { return m_lightingState; }
+    const LightEnableState& GetLightEnableState() const { return m_lightEnableState; }
+    void SetLightEnableState(const LightEnableState& lightEnableState) { m_lightEnableState = lightEnableState; }
 
 private:
     LightingState m_lightingState;
+    LightEnableState m_lightEnableState;
 };
