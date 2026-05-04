@@ -170,10 +170,6 @@ namespace
 
 DirectX12App::DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd) : m_hAppInst(mhAppInst), m_hMainWnd(mhMainWnd)
 {
-	RECT r{};
-	GetClientRect(mhMainWnd, &r);
-	m_clientWidth = r.right - r.left;
-	m_clientHeight = r.bottom - r.top;
 }
 
 DirectX12App::~DirectX12App()
@@ -185,44 +181,29 @@ DirectX12App::~DirectX12App()
 		m_objectCB->Unmap(0, nullptr);
 		m_mappedObjectCB = nullptr;
 	}
-
-	if (m_device) FlushCommandQueue();
 }
 
 bool DirectX12App::Initialize()
 {
-#if defined(DEBUG) || defined(_DEBUG)
-	{
-		ComPtr<ID3D12Debug> debugController;
-		if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
-			debugController->EnableDebugLayer();
-	}
-#endif
+	RECT clientRect{};
+	GetClientRect(m_hMainWnd, &clientRect);
+	const int clientWidth = clientRect.right - clientRect.left;
+	const int clientHeight = clientRect.bottom - clientRect.top;
 
-	ThrowIfFailed(CreateDXGIFactory1(IID_PPV_ARGS(&m_dxgiFactory)));
-
-	HRESULT hr = D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_12_0, IID_PPV_ARGS(&m_device));
-	if (FAILED(hr))
-	{
-		ComPtr<IDXGIAdapter> warpAdapter;
-		ThrowIfFailed(m_dxgiFactory->EnumWarpAdapter(IID_PPV_ARGS(&warpAdapter)));
-		ThrowIfFailed(D3D12CreateDevice(warpAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_device)));
-	}
-
-	ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
-
-	m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-	m_dsvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-	m_cbvSrvUavDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-	CreateCommandObjects();
-	CreateSwapChain();
-	CreateRtvAndDsvDescriptorHeaps();
+	m_context.Initialize(
+		m_hMainWnd,
+		clientWidth,
+		clientHeight,
+		m4xMsaaState,
+		m4xMsaaQuality,
+		SwapChainBufferCount,
+		DXGI_FORMAT_R8G8B8A8_UNORM,
+		DXGI_FORMAT_D24_UNORM_S8_UINT);
 
 	OnResize(); // Initial setup
 
-	ThrowIfFailed(m_commandAllocator->Reset());
-	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
+	ThrowIfFailed(m_context.GetCommandAllocator()->Reset());
+	ThrowIfFailed(m_context.GetCommandList()->Reset(m_context.GetCommandAllocator(), nullptr));
 
 	BuildShadersAndInputLayout();
 	BuildModelGeometry();
@@ -232,12 +213,17 @@ bool DirectX12App::Initialize()
 	BuildGbuffer();
 	BuildRootSignature();
 	BuildPSO();
-	m_debugOverlay.Initialize(m_hMainWnd, m_device.Get(), m_commandQueue.Get(), m_backBufferFormat, SwapChainBufferCount);
+	m_debugOverlay.Initialize(
+		m_hMainWnd,
+		m_context.GetDevice(),
+		m_context.GetCommandQueue(),
+		m_context.GetBackBufferFormat(),
+		SwapChainBufferCount);
 
-	ThrowIfFailed(m_commandList->Close());
-	ID3D12CommandList* initCmdsLists[] = { m_commandList.Get() };
-	m_commandQueue->ExecuteCommandLists(_countof(initCmdsLists), initCmdsLists);
-	FlushCommandQueue();
+	ThrowIfFailed(m_context.GetCommandList()->Close());
+	ID3D12CommandList* initCmdsLists[] = { m_context.GetCommandList() };
+	m_context.ExecuteCommandLists(_countof(initCmdsLists), initCmdsLists);
+	m_context.FlushCommandQueue();
 
 	if (m_sceneGeo)
 	{
@@ -262,15 +248,15 @@ void DirectX12App::Update(const GameTimer& gt)
 void DirectX12App::Draw(const GameTimer& gt)
 {
 	(void)gt;
-	ThrowIfFailed(m_commandAllocator->Reset());
-	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
+	ThrowIfFailed(m_context.GetCommandAllocator()->Reset());
+	ThrowIfFailed(m_context.GetCommandList()->Reset(m_context.GetCommandAllocator(), nullptr));
 
 	auto transitionToRT = CD3DX12_RESOURCE_BARRIER::Transition(
-		CurrentBackBuffer(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
-	m_commandList->ResourceBarrier(1, &transitionToRT);
+		m_context.CurrentBackBuffer(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	m_context.GetCommandList()->ResourceBarrier(1, &transitionToRT);
 
-	m_commandList->RSSetViewports(1, &m_viewport);
-	m_commandList->RSSetScissorRects(1, &m_scissorRect);
+	m_context.GetCommandList()->RSSetViewports(1, &m_context.GetViewport());
+	m_context.GetCommandList()->RSSetScissorRects(1, &m_context.GetScissorRect());
 
 	if (m_gbufferState != D3D12_RESOURCE_STATE_RENDER_TARGET)
 	{
@@ -282,10 +268,10 @@ void DirectX12App::Draw(const GameTimer& gt)
 	m_gbufferState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 
 	const float clearColor[] = { 0.03f, 0.05f, 0.08f, 1.0f };
-	m_commandList->ClearRenderTargetView(CurrentBackBufferView(), clearColor, 0, nullptr);
+	m_context.GetCommandList()->ClearRenderTargetView(m_context.CurrentBackBufferView(), clearColor, 0, nullptr);
 	DrawLightingPass();
 	m_debugOverlay.Draw(
-		m_commandList.Get(),
+		m_context.GetCommandList(),
 		gt,
 		m_eyePos,
 		m_lookDirection,
@@ -298,91 +284,25 @@ void DirectX12App::Draw(const GameTimer& gt)
 		m_lightSystem);
 
 	auto transitionToPresent = CD3DX12_RESOURCE_BARRIER::Transition(
-		CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
-	m_commandList->ResourceBarrier(1, &transitionToPresent);
+		m_context.CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+	m_context.GetCommandList()->ResourceBarrier(1, &transitionToPresent);
 
-	ThrowIfFailed(m_commandList->Close());
+	ThrowIfFailed(m_context.GetCommandList()->Close());
 
-	ID3D12CommandList* cmds[] = { m_commandList.Get() };
-	m_commandQueue->ExecuteCommandLists(_countof(cmds), cmds);
+	ID3D12CommandList* cmds[] = { m_context.GetCommandList() };
+	m_context.ExecuteCommandLists(_countof(cmds), cmds);
 
-	ThrowIfFailed(m_swapChain->Present(0, 0));
-	m_currBackBuffer = (m_currBackBuffer + 1) % SwapChainBufferCount;
-
-	FlushCommandQueue();
+	m_context.Present();
+	m_context.FlushCommandQueue();
 }
 
 void DirectX12App::OnResize()
 {
-	assert(m_device);
-	assert(m_swapChain);
-	assert(m_commandAllocator);
-
-	FlushCommandQueue();
-
-	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
-
-	for (int i = 0; i < SwapChainBufferCount; ++i)
-		m_renderTargets[i].Reset();
-	m_depthStencilBuffer.Reset();
-
-	ThrowIfFailed(m_swapChain->ResizeBuffers(
-		SwapChainBufferCount, m_clientWidth, m_clientHeight,
-		m_backBufferFormat, DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH));
-
-	m_currBackBuffer = 0;
-
-	// Recreate RTVs
-	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHeapHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart());
-	for (UINT i = 0; i < SwapChainBufferCount; ++i)
-	{
-		ThrowIfFailed(m_swapChain->GetBuffer(i, IID_PPV_ARGS(&m_renderTargets[i])));
-		m_device->CreateRenderTargetView(m_renderTargets[i].Get(), nullptr, rtvHeapHandle);
-		rtvHeapHandle.Offset(1, m_rtvDescriptorSize);
-	}
-
-	// Recreate Depth Stencil
-	D3D12_RESOURCE_DESC depthStencilDesc = {};
-	depthStencilDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	depthStencilDesc.Width = m_clientWidth;
-	depthStencilDesc.Height = m_clientHeight;
-	depthStencilDesc.DepthOrArraySize = 1;
-	depthStencilDesc.MipLevels = 1;
-	depthStencilDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;
-	depthStencilDesc.SampleDesc.Count = 1;
-	depthStencilDesc.SampleDesc.Quality = 0;
-	depthStencilDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
-
-	D3D12_CLEAR_VALUE optClear{};
-	optClear.Format = m_depthStencilFormat;
-	optClear.DepthStencil.Depth = 1.0f;
-	optClear.DepthStencil.Stencil = 0;
-
-	ThrowIfFailed(m_device->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-		D3D12_HEAP_FLAG_NONE,
-		&depthStencilDesc,
-		D3D12_RESOURCE_STATE_DEPTH_WRITE,
-		&optClear,
-		IID_PPV_ARGS(m_depthStencilBuffer.GetAddressOf())));
-
-	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc{};
-	dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
-	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-	dsvDesc.Format = m_depthStencilFormat;
-	m_device->CreateDepthStencilView(m_depthStencilBuffer.Get(), &dsvDesc, DepthStencilView());
-
-	ThrowIfFailed(m_commandList->Close());
-	ID3D12CommandList* cmds[] = { m_commandList.Get() };
-	m_commandQueue->ExecuteCommandLists(_countof(cmds), cmds);
-	FlushCommandQueue();
-
-	m_viewport = { 0.0f, 0.0f, (float)m_clientWidth, (float)m_clientHeight, 0.0f, 1.0f };
-	m_scissorRect = { 0, 0, m_clientWidth, m_clientHeight };
+	m_context.Resize(m_context.GetClientWidth(), m_context.GetClientHeight());
 
 	if (m_gbuffer)
 	{
-		if (!m_gbuffer->Resize(static_cast<UINT>(m_clientWidth), static_cast<UINT>(m_clientHeight)))
+		if (!m_gbuffer->Resize(static_cast<UINT>(m_context.GetClientWidth()), static_cast<UINT>(m_context.GetClientHeight())))
 		{
 			throw std::runtime_error("Failed to resize gbuffer.");
 		}
@@ -395,121 +315,30 @@ void DirectX12App::OnResize()
 
 void DirectX12App::OnWindowResize(int width, int height)
 {
-	if (width == m_clientWidth && height == m_clientHeight)
+	if (width == m_context.GetClientWidth() && height == m_context.GetClientHeight())
 		return;
 
-	m_clientWidth = width;
-	m_clientHeight = height;
+	if (m_context.IsInitialized())
+	{
+		m_context.Resize(width, height);
 
-	if (m_device != nullptr)
-		OnResize();
+		if (m_gbuffer)
+		{
+			if (!m_gbuffer->Resize(static_cast<UINT>(width), static_cast<UINT>(height)))
+			{
+				throw std::runtime_error("Failed to resize gbuffer.");
+			}
+			m_gbufferState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		}
+
+		XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * XM_PI, AspectRatio(), 1.0f, 1000.0f);
+		XMStoreFloat4x4(&m_proj, P);
+	}
 }
 
 float DirectX12App::AspectRatio()const
 {
-	return static_cast<float>(m_clientWidth) / m_clientHeight;
-}
-
-void DirectX12App::CreateSwapChain()
-{
-	m_swapChain.Reset();
-
-	DXGI_SWAP_CHAIN_DESC sd;
-	sd.BufferDesc.Width = m_clientWidth;
-	sd.BufferDesc.Height = m_clientHeight;
-	sd.BufferDesc.RefreshRate.Numerator = 60;
-	sd.BufferDesc.RefreshRate.Denominator = 1;
-	sd.BufferDesc.Format = m_backBufferFormat;
-	sd.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
-	sd.BufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
-	sd.SampleDesc.Count = m4xMsaaState ? 4 : 1;
-	sd.SampleDesc.Quality = m4xMsaaState ? (m4xMsaaQuality - 1) : 0;
-	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	sd.BufferCount = SwapChainBufferCount;
-	sd.OutputWindow = m_hMainWnd;
-	sd.Windowed = true;
-	sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-	sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-
-	ThrowIfFailed(m_dxgiFactory->CreateSwapChain(
-		m_commandQueue.Get(),
-		&sd,
-		m_swapChain.GetAddressOf()));
-}
-
-void DirectX12App::FlushCommandQueue()
-{
-	m_fenceValue++;
-
-	ThrowIfFailed(m_commandQueue->Signal(m_fence.Get(), m_fenceValue));
-
-	if (m_fence->GetCompletedValue() < m_fenceValue)
-	{
-		HANDLE eventHandle = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
-
-		ThrowIfFailed(m_fence->SetEventOnCompletion(m_fenceValue, eventHandle));
-
-		WaitForSingleObject(eventHandle, INFINITE);
-		CloseHandle(eventHandle);
-	}
-}
-
-ID3D12Resource* DirectX12App::CurrentBackBuffer()const
-{
-	return m_renderTargets[m_currBackBuffer].Get();
-}
-
-D3D12_CPU_DESCRIPTOR_HANDLE DirectX12App::CurrentBackBufferView()const
-{
-	return CD3DX12_CPU_DESCRIPTOR_HANDLE(
-		m_rtvHeap->GetCPUDescriptorHandleForHeapStart(),
-		m_currBackBuffer,
-		m_rtvDescriptorSize);
-}
-
-D3D12_CPU_DESCRIPTOR_HANDLE DirectX12App::DepthStencilView()const
-{
-	return m_dsvHeap->GetCPUDescriptorHandleForHeapStart();
-}
-
-void DirectX12App::CreateRtvAndDsvDescriptorHeaps()
-{
-	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc;
-	rtvHeapDesc.NumDescriptors = SwapChainBufferCount;
-	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	rtvHeapDesc.NodeMask = 0;
-	ThrowIfFailed(m_device->CreateDescriptorHeap(
-		&rtvHeapDesc, IID_PPV_ARGS(m_rtvHeap.GetAddressOf())));
-
-	D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc;
-	dsvHeapDesc.NumDescriptors = 1;
-	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-	dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	dsvHeapDesc.NodeMask = 0;
-	ThrowIfFailed(m_device->CreateDescriptorHeap(
-		&dsvHeapDesc, IID_PPV_ARGS(m_dsvHeap.GetAddressOf())));
-}
-
-void DirectX12App::CreateCommandObjects()
-{
-	D3D12_COMMAND_QUEUE_DESC queueDesc = {};
-	queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-	queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-	ThrowIfFailed(m_device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m_commandQueue)));
-
-	ThrowIfFailed(m_device->CreateCommandAllocator(
-		D3D12_COMMAND_LIST_TYPE_DIRECT,
-		IID_PPV_ARGS(m_commandAllocator.GetAddressOf())));
-
-	ThrowIfFailed(m_device->CreateCommandList(
-		0,
-		D3D12_COMMAND_LIST_TYPE_DIRECT,
-		m_commandAllocator.Get(),
-		nullptr,
-		IID_PPV_ARGS(m_commandList.GetAddressOf())));
-
-	m_commandList->Close();
+	return static_cast<float>(m_context.GetClientWidth()) / m_context.GetClientHeight();
 }
 
 void DirectX12App::LogAdapters()
@@ -517,7 +346,7 @@ void DirectX12App::LogAdapters()
 	UINT i = 0;
 	IDXGIAdapter* adapter = nullptr;
 	std::vector<IDXGIAdapter*> adapterList;
-	while (m_dxgiFactory->EnumAdapters(i, &adapter) !=
+	while (m_context.GetFactory()->EnumAdapters(i, &adapter) !=
 		DXGI_ERROR_NOT_FOUND)
 	{
 		DXGI_ADAPTER_DESC desc;
@@ -692,9 +521,9 @@ void DirectX12App::BuildModelGeometry()
 	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
 
 	geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(
-		m_device.Get(), m_commandList.Get(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
+		m_context.GetDevice(), m_context.GetCommandList(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
 	geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(
-		m_device.Get(), m_commandList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);
+		m_context.GetDevice(), m_context.GetCommandList(), indices.data(), ibByteSize, geo->IndexBufferUploader);
 
 	geo->VertexByteStride = sizeof(GeometryGenerator::Vertex);
 	geo->VertexBufferByteSize = vbByteSize;
@@ -735,7 +564,7 @@ void DirectX12App::CreateTextureResource(Texture& texture, const void* pixelData
 		1,
 		1);
 
-	ThrowIfFailed(m_device->CreateCommittedResource(
+	ThrowIfFailed(m_context.GetDevice()->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
 		&textureDesc,
@@ -745,7 +574,7 @@ void DirectX12App::CreateTextureResource(Texture& texture, const void* pixelData
 
 	const UINT64 uploadBufferSize = GetRequiredIntermediateSize(texture.Resource.Get(), 0, 1);
 
-	ThrowIfFailed(m_device->CreateCommittedResource(
+	ThrowIfFailed(m_context.GetDevice()->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
 		D3D12_HEAP_FLAG_NONE,
 		&CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize),
@@ -759,7 +588,7 @@ void DirectX12App::CreateTextureResource(Texture& texture, const void* pixelData
 	subresourceData.SlicePitch = subresourceData.RowPitch * height;
 
 	UpdateSubresources(
-		m_commandList.Get(),
+		m_context.GetCommandList(),
 		texture.Resource.Get(),
 		texture.UploadHeap.Get(),
 		0,
@@ -771,7 +600,7 @@ void DirectX12App::CreateTextureResource(Texture& texture, const void* pixelData
 		texture.Resource.Get(),
 		D3D12_RESOURCE_STATE_COPY_DEST,
 		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	m_commandList->ResourceBarrier(1, &transition);
+	m_context.GetCommandList()->ResourceBarrier(1, &transition);
 }
 
 void DirectX12App::BuildTextures()
@@ -823,7 +652,7 @@ void DirectX12App::BuildDescriptorHeaps()
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	srvHeapDesc.NodeMask = 0;
-	ThrowIfFailed(m_device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_srvDescriptorHeap)));
+	ThrowIfFailed(m_context.GetDevice()->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_srvDescriptorHeap)));
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE handle(m_srvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 	for (Texture* texture : m_orderedTextures)
@@ -836,8 +665,8 @@ void DirectX12App::BuildDescriptorHeaps()
 		srvDesc.Texture2D.MipLevels = 1;
 		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
-		m_device->CreateShaderResourceView(texture->Resource.Get(), &srvDesc, handle);
-		handle.Offset(1, m_cbvSrvUavDescriptorSize);
+		m_context.GetDevice()->CreateShaderResourceView(texture->Resource.Get(), &srvDesc, handle);
+		handle.Offset(1, m_context.GetCbvSrvUavDescriptorSize());
 	}
 }
 
@@ -845,7 +674,7 @@ void DirectX12App::BuildConstantBuffer()
 {
 	m_objectCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(ObjectConstants));
 
-	ThrowIfFailed(m_device->CreateCommittedResource(
+	ThrowIfFailed(m_context.GetDevice()->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
 		D3D12_HEAP_FLAG_NONE,
 		&CD3DX12_RESOURCE_DESC::Buffer(m_objectCBByteSize),
@@ -864,14 +693,14 @@ void DirectX12App::BuildGbuffer()
 	}
 
 	Gbuffer::Desc desc;
-	desc.Width = static_cast<UINT>(m_clientWidth);
-	desc.Height = static_cast<UINT>(m_clientHeight);
+	desc.Width = static_cast<UINT>(m_context.GetClientWidth());
+	desc.Height = static_cast<UINT>(m_context.GetClientHeight());
 	desc.AlbedoFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 	desc.NormalFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
 	desc.PositionFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
-	desc.DepthFormat = m_depthStencilFormat;
+	desc.DepthFormat = m_context.GetDepthStencilFormat();
 
-	if (!m_gbuffer->Initialize(m_device.Get(), desc))
+	if (!m_gbuffer->Initialize(m_context.GetDevice(), desc))
 	{
 		throw std::runtime_error("Failed to initialize gbuffer.");
 	}
@@ -910,7 +739,7 @@ void DirectX12App::BuildRootSignature()
 		serializedRootSig.GetAddressOf(),
 		errorBlob.GetAddressOf()));
 
-	ThrowIfFailed(m_device->CreateRootSignature(
+	ThrowIfFailed(m_context.GetDevice()->CreateRootSignature(
 		0,
 		serializedRootSig->GetBufferPointer(),
 		serializedRootSig->GetBufferSize(),
@@ -939,7 +768,7 @@ void DirectX12App::BuildRootSignature()
 		serializedRootSig.GetAddressOf(),
 		errorBlob.GetAddressOf()));
 
-	ThrowIfFailed(m_device->CreateRootSignature(
+	ThrowIfFailed(m_context.GetDevice()->CreateRootSignature(
 		0,
 		serializedRootSig->GetBufferPointer(),
 		serializedRootSig->GetBufferSize(),
@@ -972,9 +801,9 @@ void DirectX12App::BuildPSO()
 	geometryPsoDesc.RTVFormats[2] = m_gbuffer->GetFormat(Gbuffer::Target::Position);
 	geometryPsoDesc.SampleDesc.Count = m4xMsaaState ? 4 : 1;
 	geometryPsoDesc.SampleDesc.Quality = m4xMsaaState ? (m4xMsaaQuality - 1) : 0;
-	geometryPsoDesc.DSVFormat = m_depthStencilFormat;
+	geometryPsoDesc.DSVFormat = m_context.GetDepthStencilFormat();
 
-	ThrowIfFailed(m_device->CreateGraphicsPipelineState(&geometryPsoDesc, IID_PPV_ARGS(&m_geometryPSO)));
+	ThrowIfFailed(m_context.GetDevice()->CreateGraphicsPipelineState(&geometryPsoDesc, IID_PPV_ARGS(&m_geometryPSO)));
 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC lightingPsoDesc = {};
 	lightingPsoDesc.InputLayout = { nullptr, 0 };
@@ -997,16 +826,16 @@ void DirectX12App::BuildPSO()
 	lightingPsoDesc.SampleMask = UINT_MAX;
 	lightingPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	lightingPsoDesc.NumRenderTargets = 1;
-	lightingPsoDesc.RTVFormats[0] = m_backBufferFormat;
+	lightingPsoDesc.RTVFormats[0] = m_context.GetBackBufferFormat();
 	lightingPsoDesc.SampleDesc.Count = 1;
 	lightingPsoDesc.SampleDesc.Quality = 0;
 
-	ThrowIfFailed(m_device->CreateGraphicsPipelineState(&lightingPsoDesc, IID_PPV_ARGS(&m_lightingPSO)));
+	ThrowIfFailed(m_context.GetDevice()->CreateGraphicsPipelineState(&lightingPsoDesc, IID_PPV_ARGS(&m_lightingPSO)));
 }
 
 void DirectX12App::DrawGeometryPass()
 {
-	m_gbuffer->Clear(m_commandList.Get());
+	m_gbuffer->Clear(m_context.GetCommandList());
 
 	D3D12_CPU_DESCRIPTOR_HANDLE gbufferRtvs[3] =
 	{
@@ -1015,51 +844,51 @@ void DirectX12App::DrawGeometryPass()
 		m_gbuffer->GetRtv(Gbuffer::Target::Position)
 	};
 	const D3D12_CPU_DESCRIPTOR_HANDLE gbufferDsv = m_gbuffer->GetDsv();
-	m_commandList->OMSetRenderTargets(_countof(gbufferRtvs), gbufferRtvs, false, &gbufferDsv);
-	m_commandList->SetPipelineState(m_geometryPSO.Get());
-	m_commandList->SetGraphicsRootSignature(m_geometryRootSignature.Get());
+	m_context.GetCommandList()->OMSetRenderTargets(_countof(gbufferRtvs), gbufferRtvs, false, &gbufferDsv);
+	m_context.GetCommandList()->SetPipelineState(m_geometryPSO.Get());
+	m_context.GetCommandList()->SetGraphicsRootSignature(m_geometryRootSignature.Get());
 
 	ID3D12DescriptorHeap* descriptorHeaps[] = { m_srvDescriptorHeap.Get() };
-	m_commandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
-	m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	m_context.GetCommandList()->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
+	m_context.GetCommandList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	const D3D12_VERTEX_BUFFER_VIEW vertexBufferView = m_sceneGeo->VertexBufferView();
 	const D3D12_INDEX_BUFFER_VIEW indexBufferView = m_sceneGeo->IndexBufferView();
-	m_commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
-	m_commandList->IASetIndexBuffer(&indexBufferView);
-	m_commandList->SetGraphicsRootConstantBufferView(0, m_objectCB->GetGPUVirtualAddress());
+	m_context.GetCommandList()->IASetVertexBuffers(0, 1, &vertexBufferView);
+	m_context.GetCommandList()->IASetIndexBuffer(&indexBufferView);
+	m_context.GetCommandList()->SetGraphicsRootConstantBufferView(0, m_objectCB->GetGPUVirtualAddress());
 
 	for (const ModelDrawItem& drawItem : m_modelDrawItems)
 	{
 		CD3DX12_GPU_DESCRIPTOR_HANDLE textureHandle(m_srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-		textureHandle.Offset(static_cast<INT>(drawItem.DiffuseSrvHeapIndex), m_cbvSrvUavDescriptorSize);
-		m_commandList->SetGraphicsRootDescriptorTable(1, textureHandle);
+		textureHandle.Offset(static_cast<INT>(drawItem.DiffuseSrvHeapIndex), m_context.GetCbvSrvUavDescriptorSize());
+		m_context.GetCommandList()->SetGraphicsRootDescriptorTable(1, textureHandle);
 		DrawSettings drawSettings;
 		drawSettings.AlphaCutoff = drawItem.HasAlphaCutout ? 0.5f : -1.0f;
-		m_commandList->SetGraphicsRoot32BitConstants(2, 4, &drawSettings, 0);
+		m_context.GetCommandList()->SetGraphicsRoot32BitConstants(2, 4, &drawSettings, 0);
 
 		const auto& submesh = m_sceneGeo->DrawArgs.at(drawItem.DrawName);
-		m_commandList->DrawIndexedInstanced(submesh.IndexCount, 1, submesh.StartIndexLocation, submesh.BaseVertexLocation, 0);
+		m_context.GetCommandList()->DrawIndexedInstanced(submesh.IndexCount, 1, submesh.StartIndexLocation, submesh.BaseVertexLocation, 0);
 	}
 }
 
 void DirectX12App::DrawLightingPass()
 {
-	const D3D12_CPU_DESCRIPTOR_HANDLE currentBackBufferView = CurrentBackBufferView();
-	m_commandList->OMSetRenderTargets(1, &currentBackBufferView, true, nullptr);
-	m_commandList->SetPipelineState(m_lightingPSO.Get());
-	m_commandList->SetGraphicsRootSignature(m_lightingRootSignature.Get());
+	const D3D12_CPU_DESCRIPTOR_HANDLE currentBackBufferView = m_context.CurrentBackBufferView();
+	m_context.GetCommandList()->OMSetRenderTargets(1, &currentBackBufferView, true, nullptr);
+	m_context.GetCommandList()->SetPipelineState(m_lightingPSO.Get());
+	m_context.GetCommandList()->SetGraphicsRootSignature(m_lightingRootSignature.Get());
 
 	ID3D12DescriptorHeap* descriptorHeaps[] = { m_gbuffer->GetSrvHeap() };
-	m_commandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
-	m_commandList->SetGraphicsRootConstantBufferView(0, m_objectCB->GetGPUVirtualAddress());
-	m_commandList->SetGraphicsRootDescriptorTable(1, m_gbuffer->GetSrvGpuHandle(Gbuffer::Target::Albedo));
+	m_context.GetCommandList()->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
+	m_context.GetCommandList()->SetGraphicsRootConstantBufferView(0, m_objectCB->GetGPUVirtualAddress());
+	m_context.GetCommandList()->SetGraphicsRootDescriptorTable(1, m_gbuffer->GetSrvGpuHandle(Gbuffer::Target::Albedo));
 	LightingDebugSettings debugSettings;
 	debugSettings.ViewMode = static_cast<float>(m_debugOverlay.GetDebugViewMode());
 	debugSettings.PositionVizScale = 0.05f;
-	m_commandList->SetGraphicsRoot32BitConstants(2, 4, &debugSettings, 0);
-	m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	m_commandList->DrawInstanced(3, 1, 0, 0);
+	m_context.GetCommandList()->SetGraphicsRoot32BitConstants(2, 4, &debugSettings, 0);
+	m_context.GetCommandList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	m_context.GetCommandList()->DrawInstanced(3, 1, 0, 0);
 }
 
 void DirectX12App::TransitionGbuffer(D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState)
@@ -1070,7 +899,7 @@ void DirectX12App::TransitionGbuffer(D3D12_RESOURCE_STATES beforeState, D3D12_RE
 		CD3DX12_RESOURCE_BARRIER::Transition(m_gbuffer->GetResource(Gbuffer::Target::Normal), beforeState, afterState),
 		CD3DX12_RESOURCE_BARRIER::Transition(m_gbuffer->GetResource(Gbuffer::Target::Position), beforeState, afterState)
 	};
-	m_commandList->ResourceBarrier(_countof(barriers), barriers);
+	m_context.GetCommandList()->ResourceBarrier(_countof(barriers), barriers);
 }
 
 void DirectX12App::UpdateCamera(const GameTimer& gt)

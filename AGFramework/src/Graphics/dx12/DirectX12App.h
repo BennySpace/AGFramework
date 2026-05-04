@@ -12,6 +12,7 @@
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "dxguid.lib")
 
+#include "DirectX12Context.h"
 #include "../Gbuffer.h"
 #include "../Overlay/DebugOverlay.h"
 #include "../LightSystem.h"
@@ -34,16 +35,6 @@ public:
 	void OnWindowResize(int width, int height);
 
 	float AspectRatio() const;
-
-protected:
-	virtual void CreateRtvAndDsvDescriptorHeaps();
-	void CreateCommandObjects();
-	void CreateSwapChain();
-	void FlushCommandQueue();
-
-	ID3D12Resource* CurrentBackBuffer() const;
-	D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView() const;
-	D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView() const;
 
 	void BuildShadersAndInputLayout();
 	void BuildModelGeometry();
@@ -112,36 +103,6 @@ protected:
 
 	static const int SwapChainBufferCount = 2;
 
-	Microsoft::WRL::ComPtr<IDXGISwapChain> m_swapChain;
-	Microsoft::WRL::ComPtr<IDXGIFactory4> m_dxgiFactory;
-	Microsoft::WRL::ComPtr<ID3D12Device> m_device;
-
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_renderTargets[SwapChainBufferCount];
-	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> m_commandAllocator;
-	Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_commandQueue;
-	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_commandList;
-
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_depthStencilBuffer;
-
-	D3D12_VIEWPORT m_viewport{};
-	D3D12_RECT m_scissorRect{};
-
-	UINT m_rtvDescriptorSize = 0;
-	UINT m_dsvDescriptorSize = 0;
-	UINT m_cbvSrvUavDescriptorSize = 0;
-
-	int m_currBackBuffer = 0;
-	int m_clientWidth = 1920;
-	int m_clientHeight = 1080;
-
-	DXGI_FORMAT m_backBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
-	DXGI_FORMAT m_depthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
-
-	Microsoft::WRL::ComPtr<ID3D12Fence> m_fence;
-	UINT64 m_fenceValue = 0;
-
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_geometryRootSignature;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_lightingRootSignature;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_geometryPSO;
@@ -177,5 +138,6 @@ protected:
 	float m_cameraMoveSpeed = 10.0f;
 	float m_cameraMouseSensitivity = 0.0035f;
 	bool m_isMouseCaptured = false;
+	DirectX12Context m_context;
 	DebugOverlay m_debugOverlay;
 };

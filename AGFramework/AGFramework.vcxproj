@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Graphics\dx12\d3dUtil.cpp" />
+    <ClCompile Include="src\Graphics\dx12\DirectX12Context.cpp" />
     <ClCompile Include="src\Graphics\dx12\DDSTextureLoader.cpp" />
     <ClCompile Include="src\Graphics\Overlay\DebugOverlay.cpp" />
     <ClCompile Include="external\imgui\backends\imgui_impl_dx12.cpp" />
@@ -48,6 +49,7 @@
   <ItemGroup>
     <ClInclude Include="src\Graphics\dx12\d3dUtil.h" />
     <ClInclude Include="src\Graphics\common\d3dx12.h" />
+    <ClInclude Include="src\Graphics\dx12\DirectX12Context.h" />
     <ClInclude Include="src\Graphics\dx12\DDSTextureLoader.h" />
     <ClInclude Include="src\Graphics\Overlay\DebugOverlay.h" />
     <ClInclude Include="external\imgui\backends\imgui_impl_dx12.h" />
