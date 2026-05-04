@@ -16,6 +16,7 @@
 #include "../LightSystem.h"
 #include "../MaterialSystem.h"
 #include "../RenderSettings.h"
+#include "../../../external/imgui/imgui.h"
 
 class GameTimer;
 
@@ -59,7 +60,10 @@ protected:
 	void UpdateMainPassCB(const GameTimer& gt);
 	void DrawGeometryPass();
 	void DrawLightingPass();
+	void DrawDebugUi(const GameTimer& gt);
 	void TransitionGbuffer(D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
+	void InitializeImGui();
+	void ShutdownImGui();
 
 	struct ModelDrawItem
 	{
@@ -140,6 +144,7 @@ protected:
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_lightingPSO;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_objectCB;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvDescriptorHeap;
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_imguiSrvHeap;
 	std::unique_ptr<Gbuffer> m_gbuffer;
 	D3D12_RESOURCE_STATES m_gbufferState = D3D12_RESOURCE_STATE_RENDER_TARGET;
 
@@ -167,4 +172,5 @@ protected:
 	float m_yaw = 0.0f;
 	float m_pitch = 0.0f;
 	bool m_isMouseCaptured = false;
+	bool m_isImGuiInitialized = false;
 };

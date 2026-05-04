@@ -1,6 +1,9 @@
 #include "DirectX12App.h"
 #include "../ObjModelLoader.h"
 #include "../../Core/GameTimer.h"
+#include "../../../external/imgui/imgui.h"
+#include "../../../external/imgui/backends/imgui_impl_dx12.h"
+#include "../../../external/imgui/backends/imgui_impl_win32.h"
 #include <limits>
 #include <stdexcept>
 
@@ -167,6 +170,8 @@ DirectX12App::DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd) : m_hAppInst(mhA
 
 DirectX12App::~DirectX12App()
 {
+	ShutdownImGui();
+
 	if (m_objectCB != nullptr && m_mappedObjectCB != nullptr)
 	{
 		m_objectCB->Unmap(0, nullptr);
@@ -219,6 +224,7 @@ bool DirectX12App::Initialize()
 	BuildGbuffer();
 	BuildRootSignature();
 	BuildPSO();
+	InitializeImGui();
 
 	ThrowIfFailed(m_commandList->Close());
 	ID3D12CommandList* initCmdsLists[] = { m_commandList.Get() };
@@ -270,6 +276,7 @@ void DirectX12App::Draw(const GameTimer& gt)
 	const float clearColor[] = { 0.03f, 0.05f, 0.08f, 1.0f };
 	m_commandList->ClearRenderTargetView(CurrentBackBufferView(), clearColor, 0, nullptr);
 	DrawLightingPass();
+	DrawDebugUi(gt);
 
 	auto transitionToPresent = CD3DX12_RESOURCE_BARRIER::Transition(
 		CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
@@ -1031,6 +1038,31 @@ void DirectX12App::DrawLightingPass()
 	m_commandList->DrawInstanced(3, 1, 0, 0);
 }
 
+void DirectX12App::DrawDebugUi(const GameTimer& gt)
+{
+	ImGui_ImplDX12_NewFrame();
+	ImGui_ImplWin32_NewFrame();
+	ImGui::NewFrame();
+
+	ImGui::Begin("Debug");
+	ImGui::Text("Renderer: DirectX 12 + Dear ImGui");
+	ImGui::Separator();
+	ImGui::Text("FPS: %.1f", gt.DeltaTime() > 0.0 ? (1.0 / gt.DeltaTime()) : 0.0);
+	ImGui::Text("Frame time: %.3f ms", gt.DeltaTime() * 1000.0);
+	ImGui::Text("Camera position: %.2f %.2f %.2f", m_eyePos.x, m_eyePos.y, m_eyePos.z);
+	ImGui::Text("Look direction: %.2f %.2f %.2f", m_lookDirection.x, m_lookDirection.y, m_lookDirection.z);
+	//ImGui::Text("Point lights: %d", static_cast<int>(LightSystem::PointLightCount));
+	//ImGui::Text("Spot lights: %d", static_cast<int>(LightSystem::SpotLightCount));
+	//ImGui::Text("Directional lights: %d", static_cast<int>(LightSystem::DirectionalLightCount));
+	ImGui::End();
+
+	ImGui::Render();
+
+	ID3D12DescriptorHeap* descriptorHeaps[] = { m_imguiSrvHeap.Get() };
+	m_commandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
+	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_commandList.Get());
+}
+
 void DirectX12App::TransitionGbuffer(D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState)
 {
 	D3D12_RESOURCE_BARRIER barriers[3] =
@@ -1040,6 +1072,54 @@ void DirectX12App::TransitionGbuffer(D3D12_RESOURCE_STATES beforeState, D3D12_RE
 		CD3DX12_RESOURCE_BARRIER::Transition(m_gbuffer->GetResource(Gbuffer::Target::Position), beforeState, afterState)
 	};
 	m_commandList->ResourceBarrier(_countof(barriers), barriers);
+}
+
+void DirectX12App::InitializeImGui()
+{
+	if (m_isImGuiInitialized)
+	{
+		return;
+	}
+
+	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
+	srvHeapDesc.NumDescriptors = 1;
+	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	ThrowIfFailed(m_device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_imguiSrvHeap)));
+
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGui::StyleColorsDark();
+
+	ImGuiIO& io = ImGui::GetIO();
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+
+	ImGui_ImplWin32_Init(m_hMainWnd);
+	ImGui_ImplDX12_InitInfo initInfo = {};
+	initInfo.Device = m_device.Get();
+	initInfo.CommandQueue = m_commandQueue.Get();
+	initInfo.NumFramesInFlight = SwapChainBufferCount;
+	initInfo.RTVFormat = m_backBufferFormat;
+	initInfo.DSVFormat = DXGI_FORMAT_UNKNOWN;
+	initInfo.SrvDescriptorHeap = m_imguiSrvHeap.Get();
+	initInfo.LegacySingleSrvCpuDescriptor = m_imguiSrvHeap->GetCPUDescriptorHandleForHeapStart();
+	initInfo.LegacySingleSrvGpuDescriptor = m_imguiSrvHeap->GetGPUDescriptorHandleForHeapStart();
+	ImGui_ImplDX12_Init(&initInfo);
+
+	m_isImGuiInitialized = true;
+}
+
+void DirectX12App::ShutdownImGui()
+{
+	if (!m_isImGuiInitialized)
+	{
+		return;
+	}
+
+	ImGui_ImplDX12_Shutdown();
+	ImGui_ImplWin32_Shutdown();
+	ImGui::DestroyContext();
+	m_isImGuiInitialized = false;
 }
 
 void DirectX12App::UpdateCamera(const GameTimer& gt)

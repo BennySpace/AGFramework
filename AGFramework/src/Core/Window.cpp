@@ -1,5 +1,8 @@
 #include "Window.h"
+#include "../../external/imgui/backends/imgui_impl_win32.h"
 #include <windowsx.h>
+
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 namespace
 {
@@ -87,6 +90,11 @@ bool Window::RegisterWindowClass() {
 }
 
 LRESULT CALLBACK Window::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    if (ImGui_ImplWin32_WndProcHandler(hWnd, uMsg, wParam, lParam))
+    {
+        return true;
+    }
+
     Window* window = nullptr;
 
     if (uMsg == WM_NCCREATE) {
