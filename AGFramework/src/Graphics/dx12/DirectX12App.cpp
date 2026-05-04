@@ -24,7 +24,6 @@ namespace
 	{
 		UINT Width = 0;
 		UINT Height = 0;
-		DXGI_FORMAT Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 		std::vector<std::uint8_t> Pixels;
 	};
 
@@ -175,12 +174,6 @@ DirectX12App::DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd) : m_hAppInst(mhA
 DirectX12App::~DirectX12App()
 {
 	m_debugOverlay.Shutdown();
-
-	if (m_objectCB != nullptr && m_mappedObjectCB != nullptr)
-	{
-		m_objectCB->Unmap(0, nullptr);
-		m_mappedObjectCB = nullptr;
-	}
 }
 
 bool DirectX12App::Initialize()
@@ -200,19 +193,15 @@ bool DirectX12App::Initialize()
 		DXGI_FORMAT_R8G8B8A8_UNORM,
 		DXGI_FORMAT_D24_UNORM_S8_UINT);
 
-	OnResize(); // Initial setup
+	ApplyResize(clientWidth, clientHeight);
 
 	ThrowIfFailed(m_context.GetCommandAllocator()->Reset());
 	ThrowIfFailed(m_context.GetCommandList()->Reset(m_context.GetCommandAllocator(), nullptr));
 
-	BuildShadersAndInputLayout();
 	BuildModelGeometry();
 	BuildTextures();
 	BuildDescriptorHeaps();
-	BuildConstantBuffer();
-	BuildGbuffer();
-	BuildRootSignature();
-	BuildPSO();
+	m_deferredRenderer.Initialize(m_context, m4xMsaaState, m4xMsaaQuality);
 	m_debugOverlay.Initialize(
 		m_hMainWnd,
 		m_context.GetDevice(),
@@ -258,18 +247,23 @@ void DirectX12App::Draw(const GameTimer& gt)
 	m_context.GetCommandList()->RSSetViewports(1, &m_context.GetViewport());
 	m_context.GetCommandList()->RSSetScissorRects(1, &m_context.GetScissorRect());
 
-	if (m_gbufferState != D3D12_RESOURCE_STATE_RENDER_TARGET)
+	if (m_deferredRenderer.GetGbufferState() != D3D12_RESOURCE_STATE_RENDER_TARGET)
 	{
-		TransitionGbuffer(m_gbufferState, D3D12_RESOURCE_STATE_RENDER_TARGET);
-		m_gbufferState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		m_deferredRenderer.TransitionGbuffer(m_context, m_deferredRenderer.GetGbufferState(), D3D12_RESOURCE_STATE_RENDER_TARGET);
+		m_deferredRenderer.SetGbufferState(D3D12_RESOURCE_STATE_RENDER_TARGET);
 	}
-	DrawGeometryPass();
-	TransitionGbuffer(D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	m_gbufferState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	m_deferredRenderer.DrawGeometryPass(
+		m_context,
+		m_srvDescriptorHeap.Get(),
+		m_context.GetCbvSrvUavDescriptorSize(),
+		*m_sceneGeo,
+		m_modelDrawItems);
+	m_deferredRenderer.TransitionGbuffer(m_context, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	m_deferredRenderer.SetGbufferState(D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
 	const float clearColor[] = { 0.03f, 0.05f, 0.08f, 1.0f };
 	m_context.GetCommandList()->ClearRenderTargetView(m_context.CurrentBackBufferView(), clearColor, 0, nullptr);
-	DrawLightingPass();
+	m_deferredRenderer.DrawLightingPass(m_context, m_debugOverlay.GetDebugViewMode());
 	m_debugOverlay.Draw(
 		m_context.GetCommandList(),
 		gt,
@@ -296,18 +290,10 @@ void DirectX12App::Draw(const GameTimer& gt)
 	m_context.FlushCommandQueue();
 }
 
-void DirectX12App::OnResize()
+void DirectX12App::ApplyResize(int width, int height)
 {
-	m_context.Resize(m_context.GetClientWidth(), m_context.GetClientHeight());
-
-	if (m_gbuffer)
-	{
-		if (!m_gbuffer->Resize(static_cast<UINT>(m_context.GetClientWidth()), static_cast<UINT>(m_context.GetClientHeight())))
-		{
-			throw std::runtime_error("Failed to resize gbuffer.");
-		}
-		m_gbufferState = D3D12_RESOURCE_STATE_RENDER_TARGET;
-	}
+	m_context.Resize(width, height);
+	m_deferredRenderer.Resize(m_context);
 
 	XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * XM_PI, AspectRatio(), 1.0f, 1000.0f);
 	XMStoreFloat4x4(&m_proj, P);
@@ -320,112 +306,13 @@ void DirectX12App::OnWindowResize(int width, int height)
 
 	if (m_context.IsInitialized())
 	{
-		m_context.Resize(width, height);
-
-		if (m_gbuffer)
-		{
-			if (!m_gbuffer->Resize(static_cast<UINT>(width), static_cast<UINT>(height)))
-			{
-				throw std::runtime_error("Failed to resize gbuffer.");
-			}
-			m_gbufferState = D3D12_RESOURCE_STATE_RENDER_TARGET;
-		}
-
-		XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * XM_PI, AspectRatio(), 1.0f, 1000.0f);
-		XMStoreFloat4x4(&m_proj, P);
+		ApplyResize(width, height);
 	}
 }
 
-float DirectX12App::AspectRatio()const
+float DirectX12App::AspectRatio() const
 {
 	return static_cast<float>(m_context.GetClientWidth()) / m_context.GetClientHeight();
-}
-
-void DirectX12App::LogAdapters()
-{
-	UINT i = 0;
-	IDXGIAdapter* adapter = nullptr;
-	std::vector<IDXGIAdapter*> adapterList;
-	while (m_context.GetFactory()->EnumAdapters(i, &adapter) !=
-		DXGI_ERROR_NOT_FOUND)
-	{
-		DXGI_ADAPTER_DESC desc;
-		adapter->GetDesc(&desc);
-		std::wstring text = L"***Adapter: ";
-		text += desc.Description;
-		text += L"\n";
-		OutputDebugString(text.c_str());
-		adapterList.push_back(adapter);
-		++i;
-	}
-	for (size_t i = 0; i < adapterList.size(); ++i)
-	{
-		LogAdapterOutputs(adapterList[i]);
-		ReleaseCom(adapterList[i]);
-	}
-}
-
-void DirectX12App::LogAdapterOutputs(IDXGIAdapter* adapter)
-{
-	UINT i = 0;
-	IDXGIOutput* output = nullptr;
-	while (adapter->EnumOutputs(i, &output) !=
-		DXGI_ERROR_NOT_FOUND)
-	{
-		DXGI_OUTPUT_DESC desc;
-		output->GetDesc(&desc);
-		std::wstring text = L"***Output: ";
-		text += desc.DeviceName;
-		text += L"\n";
-		OutputDebugString(text.c_str());
-		LogOutputDisplayModes(output,
-			DXGI_FORMAT_B8G8R8A8_UNORM);
-		ReleaseCom(output);
-		++i;
-	}
-}
-
-void DirectX12App::LogOutputDisplayModes(IDXGIOutput* output, DXGI_FORMAT format)
-{
-	UINT count = 0;
-	UINT flags = 0;
-	output->GetDisplayModeList(format, flags, &count,
-		nullptr);
-	std::vector<DXGI_MODE_DESC> modeList(count);
-	output->GetDisplayModeList(format, flags, &count,
-		&modeList[0]);
-	for (auto& x : modeList)
-	{
-		UINT n = x.RefreshRate.Numerator;
-		UINT d = x.RefreshRate.Denominator;
-		std::wstring text =
-			L"Width = " + std::to_wstring(x.Width) + L" " +
-			L"Height = " + std::to_wstring(x.Height) + L" "
-			+
-			L"Refresh = " + std::to_wstring(n) + L"/" +
-			std::to_wstring(d) +
-			L"\n";
-		::OutputDebugString(text.c_str());
-	}
-}
-
-void DirectX12App::BuildShadersAndInputLayout()
-{
-	m_shaders["standardVS"] = d3dUtil::CompileShader(
-		ResolveShaderPath(L"shaders\\Phong.hlsl"), nullptr, "GeometryVS", "vs_5_1");
-	m_shaders["gbufferPS"] = d3dUtil::CompileShader(
-		ResolveShaderPath(L"shaders\\Phong.hlsl"), nullptr, "GeometryPS", "ps_5_1");
-	m_shaders["fullscreenVS"] = d3dUtil::CompileShader(
-		ResolveShaderPath(L"shaders\\Phong.hlsl"), nullptr, "FullscreenVS", "vs_5_1");
-	m_shaders["deferredLightingPS"] = d3dUtil::CompileShader(
-		ResolveShaderPath(L"shaders\\Phong.hlsl"), nullptr, "DeferredLightingPS", "ps_5_1");
-
-	m_inputLayout =
-	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(GeometryGenerator::Vertex, Position), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(GeometryGenerator::Vertex, Normal), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(GeometryGenerator::Vertex, TexC), D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
-	};
 }
 
 void DirectX12App::BuildModelGeometry()
@@ -478,7 +365,7 @@ void DirectX12App::BuildModelGeometry()
 		submesh.StartIndexLocation = startIndexLocation;
 		submesh.BaseVertexLocation = baseVertexLocation;
 
-		ModelDrawItem drawItem;
+		DeferredRenderer::ModelDrawItem drawItem;
 		drawItem.DrawName = drawName;
 		drawItem.DiffuseTexturePath = mesh.DiffuseTexturePath;
 		drawItem.HasAlphaCutout = mesh.HasAlphaCutout;
@@ -611,7 +498,7 @@ void DirectX12App::BuildTextures()
 	const std::array<std::uint8_t, 4> whitePixel = { 255, 255, 255, 255 };
 	std::unordered_map<std::string, UINT> textureIndices;
 
-	for (ModelDrawItem& drawItem : m_modelDrawItems)
+	for (DeferredRenderer::ModelDrawItem& drawItem : m_modelDrawItems)
 	{
 		const std::string textureKey = drawItem.DiffuseTexturePath.empty() ? "__default_white__" : drawItem.DiffuseTexturePath;
 		const auto existing = textureIndices.find(textureKey);
@@ -668,238 +555,6 @@ void DirectX12App::BuildDescriptorHeaps()
 		m_context.GetDevice()->CreateShaderResourceView(texture->Resource.Get(), &srvDesc, handle);
 		handle.Offset(1, m_context.GetCbvSrvUavDescriptorSize());
 	}
-}
-
-void DirectX12App::BuildConstantBuffer()
-{
-	m_objectCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(ObjectConstants));
-
-	ThrowIfFailed(m_context.GetDevice()->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-		D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(m_objectCBByteSize),
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&m_objectCB)));
-
-	ThrowIfFailed(m_objectCB->Map(0, nullptr, reinterpret_cast<void**>(&m_mappedObjectCB)));
-}
-
-void DirectX12App::BuildGbuffer()
-{
-	if (!m_gbuffer)
-	{
-		m_gbuffer = std::make_unique<Gbuffer>();
-	}
-
-	Gbuffer::Desc desc;
-	desc.Width = static_cast<UINT>(m_context.GetClientWidth());
-	desc.Height = static_cast<UINT>(m_context.GetClientHeight());
-	desc.AlbedoFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
-	desc.NormalFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
-	desc.PositionFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
-	desc.DepthFormat = m_context.GetDepthStencilFormat();
-
-	if (!m_gbuffer->Initialize(m_context.GetDevice(), desc))
-	{
-		throw std::runtime_error("Failed to initialize gbuffer.");
-	}
-	m_gbufferState = D3D12_RESOURCE_STATE_RENDER_TARGET;
-}
-
-void DirectX12App::BuildRootSignature()
-{
-	CD3DX12_STATIC_SAMPLER_DESC linearWrapSampler(
-		0,
-		D3D12_FILTER_MIN_MAG_MIP_LINEAR,
-		D3D12_TEXTURE_ADDRESS_MODE_WRAP,
-		D3D12_TEXTURE_ADDRESS_MODE_WRAP,
-		D3D12_TEXTURE_ADDRESS_MODE_WRAP);
-
-	CD3DX12_DESCRIPTOR_RANGE geometryTexTable;
-	geometryTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
-
-	CD3DX12_ROOT_PARAMETER geometryRootParameters[3];
-	geometryRootParameters[0].InitAsConstantBufferView(0);
-	geometryRootParameters[1].InitAsDescriptorTable(1, &geometryTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
-	geometryRootParameters[2].InitAsConstants(4, 1);
-
-	CD3DX12_ROOT_SIGNATURE_DESC geometryRootSigDesc(
-		3,
-		geometryRootParameters,
-		1,
-		&linearWrapSampler,
-		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
-
-	ComPtr<ID3DBlob> serializedRootSig = nullptr;
-	ComPtr<ID3DBlob> errorBlob = nullptr;
-	ThrowIfFailed(D3D12SerializeRootSignature(
-		&geometryRootSigDesc,
-		D3D_ROOT_SIGNATURE_VERSION_1,
-		serializedRootSig.GetAddressOf(),
-		errorBlob.GetAddressOf()));
-
-	ThrowIfFailed(m_context.GetDevice()->CreateRootSignature(
-		0,
-		serializedRootSig->GetBufferPointer(),
-		serializedRootSig->GetBufferSize(),
-		IID_PPV_ARGS(m_geometryRootSignature.GetAddressOf())));
-
-	CD3DX12_DESCRIPTOR_RANGE lightingTexTable;
-	lightingTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0);
-
-	CD3DX12_ROOT_PARAMETER lightingRootParameters[3];
-	lightingRootParameters[0].InitAsConstantBufferView(0);
-	lightingRootParameters[1].InitAsDescriptorTable(1, &lightingTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
-	lightingRootParameters[2].InitAsConstants(4, 1);
-
-	CD3DX12_ROOT_SIGNATURE_DESC lightingRootSigDesc(
-		3,
-		lightingRootParameters,
-		1,
-		&linearWrapSampler,
-		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
-
-	serializedRootSig.Reset();
-	errorBlob.Reset();
-	ThrowIfFailed(D3D12SerializeRootSignature(
-		&lightingRootSigDesc,
-		D3D_ROOT_SIGNATURE_VERSION_1,
-		serializedRootSig.GetAddressOf(),
-		errorBlob.GetAddressOf()));
-
-	ThrowIfFailed(m_context.GetDevice()->CreateRootSignature(
-		0,
-		serializedRootSig->GetBufferPointer(),
-		serializedRootSig->GetBufferSize(),
-		IID_PPV_ARGS(m_lightingRootSignature.GetAddressOf())));
-}
-
-void DirectX12App::BuildPSO()
-{
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC geometryPsoDesc = {};
-	geometryPsoDesc.InputLayout = { m_inputLayout.data(), static_cast<UINT>(m_inputLayout.size()) };
-	geometryPsoDesc.pRootSignature = m_geometryRootSignature.Get();
-	geometryPsoDesc.VS =
-	{
-		reinterpret_cast<BYTE*>(m_shaders["standardVS"]->GetBufferPointer()),
-		m_shaders["standardVS"]->GetBufferSize()
-	};
-	geometryPsoDesc.PS =
-	{
-		reinterpret_cast<BYTE*>(m_shaders["gbufferPS"]->GetBufferPointer()),
-		m_shaders["gbufferPS"]->GetBufferSize()
-	};
-	geometryPsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	geometryPsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-	geometryPsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-	geometryPsoDesc.SampleMask = UINT_MAX;
-	geometryPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	geometryPsoDesc.NumRenderTargets = 3;
-	geometryPsoDesc.RTVFormats[0] = m_gbuffer->GetFormat(Gbuffer::Target::Albedo);
-	geometryPsoDesc.RTVFormats[1] = m_gbuffer->GetFormat(Gbuffer::Target::Normal);
-	geometryPsoDesc.RTVFormats[2] = m_gbuffer->GetFormat(Gbuffer::Target::Position);
-	geometryPsoDesc.SampleDesc.Count = m4xMsaaState ? 4 : 1;
-	geometryPsoDesc.SampleDesc.Quality = m4xMsaaState ? (m4xMsaaQuality - 1) : 0;
-	geometryPsoDesc.DSVFormat = m_context.GetDepthStencilFormat();
-
-	ThrowIfFailed(m_context.GetDevice()->CreateGraphicsPipelineState(&geometryPsoDesc, IID_PPV_ARGS(&m_geometryPSO)));
-
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC lightingPsoDesc = {};
-	lightingPsoDesc.InputLayout = { nullptr, 0 };
-	lightingPsoDesc.pRootSignature = m_lightingRootSignature.Get();
-	lightingPsoDesc.VS =
-	{
-		reinterpret_cast<BYTE*>(m_shaders["fullscreenVS"]->GetBufferPointer()),
-		m_shaders["fullscreenVS"]->GetBufferSize()
-	};
-	lightingPsoDesc.PS =
-	{
-		reinterpret_cast<BYTE*>(m_shaders["deferredLightingPS"]->GetBufferPointer()),
-		m_shaders["deferredLightingPS"]->GetBufferSize()
-	};
-	lightingPsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	lightingPsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-	lightingPsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-	lightingPsoDesc.DepthStencilState.DepthEnable = FALSE;
-	lightingPsoDesc.DepthStencilState.StencilEnable = FALSE;
-	lightingPsoDesc.SampleMask = UINT_MAX;
-	lightingPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	lightingPsoDesc.NumRenderTargets = 1;
-	lightingPsoDesc.RTVFormats[0] = m_context.GetBackBufferFormat();
-	lightingPsoDesc.SampleDesc.Count = 1;
-	lightingPsoDesc.SampleDesc.Quality = 0;
-
-	ThrowIfFailed(m_context.GetDevice()->CreateGraphicsPipelineState(&lightingPsoDesc, IID_PPV_ARGS(&m_lightingPSO)));
-}
-
-void DirectX12App::DrawGeometryPass()
-{
-	m_gbuffer->Clear(m_context.GetCommandList());
-
-	D3D12_CPU_DESCRIPTOR_HANDLE gbufferRtvs[3] =
-	{
-		m_gbuffer->GetRtv(Gbuffer::Target::Albedo),
-		m_gbuffer->GetRtv(Gbuffer::Target::Normal),
-		m_gbuffer->GetRtv(Gbuffer::Target::Position)
-	};
-	const D3D12_CPU_DESCRIPTOR_HANDLE gbufferDsv = m_gbuffer->GetDsv();
-	m_context.GetCommandList()->OMSetRenderTargets(_countof(gbufferRtvs), gbufferRtvs, false, &gbufferDsv);
-	m_context.GetCommandList()->SetPipelineState(m_geometryPSO.Get());
-	m_context.GetCommandList()->SetGraphicsRootSignature(m_geometryRootSignature.Get());
-
-	ID3D12DescriptorHeap* descriptorHeaps[] = { m_srvDescriptorHeap.Get() };
-	m_context.GetCommandList()->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
-	m_context.GetCommandList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-	const D3D12_VERTEX_BUFFER_VIEW vertexBufferView = m_sceneGeo->VertexBufferView();
-	const D3D12_INDEX_BUFFER_VIEW indexBufferView = m_sceneGeo->IndexBufferView();
-	m_context.GetCommandList()->IASetVertexBuffers(0, 1, &vertexBufferView);
-	m_context.GetCommandList()->IASetIndexBuffer(&indexBufferView);
-	m_context.GetCommandList()->SetGraphicsRootConstantBufferView(0, m_objectCB->GetGPUVirtualAddress());
-
-	for (const ModelDrawItem& drawItem : m_modelDrawItems)
-	{
-		CD3DX12_GPU_DESCRIPTOR_HANDLE textureHandle(m_srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-		textureHandle.Offset(static_cast<INT>(drawItem.DiffuseSrvHeapIndex), m_context.GetCbvSrvUavDescriptorSize());
-		m_context.GetCommandList()->SetGraphicsRootDescriptorTable(1, textureHandle);
-		DrawSettings drawSettings;
-		drawSettings.AlphaCutoff = drawItem.HasAlphaCutout ? 0.5f : -1.0f;
-		m_context.GetCommandList()->SetGraphicsRoot32BitConstants(2, 4, &drawSettings, 0);
-
-		const auto& submesh = m_sceneGeo->DrawArgs.at(drawItem.DrawName);
-		m_context.GetCommandList()->DrawIndexedInstanced(submesh.IndexCount, 1, submesh.StartIndexLocation, submesh.BaseVertexLocation, 0);
-	}
-}
-
-void DirectX12App::DrawLightingPass()
-{
-	const D3D12_CPU_DESCRIPTOR_HANDLE currentBackBufferView = m_context.CurrentBackBufferView();
-	m_context.GetCommandList()->OMSetRenderTargets(1, &currentBackBufferView, true, nullptr);
-	m_context.GetCommandList()->SetPipelineState(m_lightingPSO.Get());
-	m_context.GetCommandList()->SetGraphicsRootSignature(m_lightingRootSignature.Get());
-
-	ID3D12DescriptorHeap* descriptorHeaps[] = { m_gbuffer->GetSrvHeap() };
-	m_context.GetCommandList()->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
-	m_context.GetCommandList()->SetGraphicsRootConstantBufferView(0, m_objectCB->GetGPUVirtualAddress());
-	m_context.GetCommandList()->SetGraphicsRootDescriptorTable(1, m_gbuffer->GetSrvGpuHandle(Gbuffer::Target::Albedo));
-	LightingDebugSettings debugSettings;
-	debugSettings.ViewMode = static_cast<float>(m_debugOverlay.GetDebugViewMode());
-	debugSettings.PositionVizScale = 0.05f;
-	m_context.GetCommandList()->SetGraphicsRoot32BitConstants(2, 4, &debugSettings, 0);
-	m_context.GetCommandList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	m_context.GetCommandList()->DrawInstanced(3, 1, 0, 0);
-}
-
-void DirectX12App::TransitionGbuffer(D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState)
-{
-	D3D12_RESOURCE_BARRIER barriers[3] =
-	{
-		CD3DX12_RESOURCE_BARRIER::Transition(m_gbuffer->GetResource(Gbuffer::Target::Albedo), beforeState, afterState),
-		CD3DX12_RESOURCE_BARRIER::Transition(m_gbuffer->GetResource(Gbuffer::Target::Normal), beforeState, afterState),
-		CD3DX12_RESOURCE_BARRIER::Transition(m_gbuffer->GetResource(Gbuffer::Target::Position), beforeState, afterState)
-	};
-	m_context.GetCommandList()->ResourceBarrier(_countof(barriers), barriers);
 }
 
 void DirectX12App::UpdateCamera(const GameTimer& gt)
@@ -1007,47 +662,22 @@ void DirectX12App::UpdateMouseLook()
 
 void DirectX12App::UpdateMainPassCB(const GameTimer& gt)
 {
-	XMMATRIX world =
-		XMMatrixTranslation(-m_sceneCenter.x, -m_sceneCenter.y, -m_sceneCenter.z) *
-		XMMatrixScaling(m_sceneScale, m_sceneScale, m_sceneScale);
-	XMMATRIX texTransform = XMMatrixIdentity();
+	(void)gt;
 
 	XMVECTOR eyePos = XMLoadFloat3(&m_eyePos);
 	const XMVECTOR safeLookDirection = GetSafeNormalizedDirection(m_lookDirection);
 	XMStoreFloat3(&m_lookDirection, safeLookDirection);
-	XMVECTOR target = eyePos + safeLookDirection;
-	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-
-	XMMATRIX view = XMMatrixLookAtLH(eyePos, target, up);
-	XMMATRIX proj = XMLoadFloat4x4(&m_proj);
-	XMMATRIX worldInvTranspose = MathHelper::InverseTranspose(world);
-	XMMATRIX worldViewProj = world * view * proj;
-
-	XMStoreFloat4x4(&m_world, XMMatrixTranspose(world));
-	XMStoreFloat4x4(&m_view, XMMatrixTranspose(view));
-
-	ObjectConstants objConstants;
-	XMStoreFloat4x4(&objConstants.World, XMMatrixTranspose(world));
-	XMStoreFloat4x4(&objConstants.WorldInvTranspose, XMMatrixTranspose(worldInvTranspose));
-	XMStoreFloat4x4(&objConstants.WorldViewProj, XMMatrixTranspose(worldViewProj));
-	XMStoreFloat4x4(&objConstants.TexTransform, XMMatrixTranspose(texTransform));
-	objConstants.EyePosW = m_eyePos;
-	objConstants.LightingSettings = m_renderSettings.GetLightingSettings();
-	objConstants.Material = m_materialSystem.GetMaterialState();
 	m_lightSystem.Update(m_eyePos, m_lookDirection, m_sceneCenter);
-	const LightSystem::LightingState& lightingState = m_lightSystem.GetLightingState();
-	for (size_t lightIndex = 0; lightIndex < LightSystem::DirectionalLightCount; ++lightIndex)
-	{
-		objConstants.DirectionalLights[lightIndex] = lightingState.DirectionalLights[lightIndex];
-	}
-	for (size_t lightIndex = 0; lightIndex < LightSystem::PointLightCount; ++lightIndex)
-	{
-		objConstants.PointLights[lightIndex] = lightingState.PointLights[lightIndex];
-	}
-	for (size_t lightIndex = 0; lightIndex < LightSystem::SpotLightCount; ++lightIndex)
-	{
-		objConstants.SpotLights[lightIndex] = lightingState.SpotLights[lightIndex];
-	}
 
-	memcpy(m_mappedObjectCB, &objConstants, sizeof(objConstants));
+	DeferredRenderer::FrameData frameData;
+	frameData.EyePos = m_eyePos;
+	frameData.LookDirection = m_lookDirection;
+	frameData.SceneCenter = m_sceneCenter;
+	frameData.SceneScale = m_sceneScale;
+	frameData.Projection = m_proj;
+	frameData.LightingSettings = m_renderSettings.GetLightingSettings();
+	frameData.Material = m_materialSystem.GetMaterialState();
+	frameData.LightState = m_lightSystem.GetLightingState();
+
+	m_deferredRenderer.UpdateMainPassCB(frameData);
 }
