@@ -39,10 +39,9 @@ cbuffer ObjectConstants : register(b0)
     SpotLightData gSpotLights[SPOT_LIGHT_COUNT];
 }
 
-cbuffer DrawSettings : register(b1)
+cbuffer AuxiliarySettings : register(b1)
 {
-    float gAlphaCutoff;
-    float3 gDrawSettingsPadding;
+    float4 gAuxiliarySettings;
 }
 
 float3 ComputeSpecular(float3 normalW, float3 lightVector, float3 toEye, float shininess)
@@ -157,9 +156,9 @@ GeometryVertexOut GeometryVS(VertexIn vin)
 GBufferOutput GeometryPS(GeometryVertexOut pin)
 {
     float4 texColor = gTexture0.Sample(gsamLinearWrap, pin.TexC);
-    if (gAlphaCutoff >= 0.0f)
+    if (gAuxiliarySettings.x >= 0.0f)
     {
-        clip(texColor.a - gAlphaCutoff);
+        clip(texColor.a - gAuxiliarySettings.x);
     }
 
     float3 normalW = normalize(pin.NormalW);
@@ -191,6 +190,24 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
 
     float3 normalW = normalize(gTexture1.Sample(gsamLinearWrap, pin.TexC).xyz * 2.0f - 1.0f);
     float3 posW = gTexture2.Sample(gsamLinearWrap, pin.TexC).xyz;
+
+    const int debugViewMode = (int)round(gAuxiliarySettings.x);
+    const float positionVizScale = gAuxiliarySettings.y;
+
+    if (debugViewMode == 1)
+    {
+        return float4(albedoSample.rgb, 1.0f);
+    }
+
+    if (debugViewMode == 2)
+    {
+        return float4(normalW * 0.5f + 0.5f, 1.0f);
+    }
+
+    if (debugViewMode == 3)
+    {
+        return float4(saturate(posW * positionVizScale + 0.5f), 1.0f);
+    }
 
     float3 toEye = normalize(gEyePosW - posW);
     float3 ambient = gAmbientLight.rgb * albedoSample.rgb;

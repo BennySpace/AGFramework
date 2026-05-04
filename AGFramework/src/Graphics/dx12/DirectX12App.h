@@ -23,6 +23,14 @@ class GameTimer;
 class DirectX12App
 {
 public:
+	enum class DebugViewMode
+	{
+		Final = 0,
+		Albedo = 1,
+		Normal = 2,
+		Position = 3
+	};
+
 	DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd);
 	virtual ~DirectX12App();
 
@@ -99,6 +107,13 @@ private:
 		float Padding[3] = { 0.0f, 0.0f, 0.0f };
 	};
 
+	struct LightingDebugSettings
+	{
+		float ViewMode = static_cast<float>(DebugViewMode::Final);
+		float PositionVizScale = 0.05f;
+		float Padding[2] = { 0.0f, 0.0f };
+	};
+
 protected:
 	HINSTANCE m_hAppInst = nullptr;
 	HWND      m_hMainWnd = nullptr;
@@ -171,6 +186,9 @@ protected:
 	float m_theta = 0.0f;
 	float m_yaw = 0.0f;
 	float m_pitch = 0.0f;
+	float m_cameraMoveSpeed = 10.0f;
+	float m_cameraMouseSensitivity = 0.0035f;
 	bool m_isMouseCaptured = false;
 	bool m_isImGuiInitialized = false;
+	DebugViewMode m_debugViewMode = DebugViewMode::Final;
 };

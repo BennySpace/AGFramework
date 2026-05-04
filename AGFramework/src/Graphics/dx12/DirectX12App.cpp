@@ -12,6 +12,17 @@ using namespace DirectX;
 
 namespace
 {
+	XMVECTOR GetSafeNormalizedDirection(const XMFLOAT3& direction, const XMVECTOR& fallbackDirection = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f))
+	{
+		const XMVECTOR directionVector = XMLoadFloat3(&direction);
+		if (XMVector3NearEqual(directionVector, XMVectorZero(), XMVectorReplicate(0.0001f)))
+		{
+			return fallbackDirection;
+		}
+
+		return XMVector3Normalize(directionVector);
+	}
+
 	struct TgaTextureData
 	{
 		UINT Width = 0;
@@ -900,12 +911,13 @@ void DirectX12App::BuildRootSignature()
 	CD3DX12_DESCRIPTOR_RANGE lightingTexTable;
 	lightingTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0);
 
-	CD3DX12_ROOT_PARAMETER lightingRootParameters[2];
+	CD3DX12_ROOT_PARAMETER lightingRootParameters[3];
 	lightingRootParameters[0].InitAsConstantBufferView(0);
 	lightingRootParameters[1].InitAsDescriptorTable(1, &lightingTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
+	lightingRootParameters[2].InitAsConstants(4, 1);
 
 	CD3DX12_ROOT_SIGNATURE_DESC lightingRootSigDesc(
-		2,
+		3,
 		lightingRootParameters,
 		1,
 		&linearWrapSampler,
@@ -1034,6 +1046,10 @@ void DirectX12App::DrawLightingPass()
 	m_commandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
 	m_commandList->SetGraphicsRootConstantBufferView(0, m_objectCB->GetGPUVirtualAddress());
 	m_commandList->SetGraphicsRootDescriptorTable(1, m_gbuffer->GetSrvGpuHandle(Gbuffer::Target::Albedo));
+	LightingDebugSettings debugSettings;
+	debugSettings.ViewMode = static_cast<float>(m_debugViewMode);
+	debugSettings.PositionVizScale = 0.05f;
+	m_commandList->SetGraphicsRoot32BitConstants(2, 4, &debugSettings, 0);
 	m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	m_commandList->DrawInstanced(3, 1, 0, 0);
 }
@@ -1049,11 +1065,75 @@ void DirectX12App::DrawDebugUi(const GameTimer& gt)
 	ImGui::Separator();
 	ImGui::Text("FPS: %.1f", gt.DeltaTime() > 0.0 ? (1.0 / gt.DeltaTime()) : 0.0);
 	ImGui::Text("Frame time: %.3f ms", gt.DeltaTime() * 1000.0);
-	ImGui::Text("Camera position: %.2f %.2f %.2f", m_eyePos.x, m_eyePos.y, m_eyePos.z);
-	ImGui::Text("Look direction: %.2f %.2f %.2f", m_lookDirection.x, m_lookDirection.y, m_lookDirection.z);
-	//ImGui::Text("Point lights: %d", static_cast<int>(LightSystem::PointLightCount));
-	//ImGui::Text("Spot lights: %d", static_cast<int>(LightSystem::SpotLightCount));
-	//ImGui::Text("Directional lights: %d", static_cast<int>(LightSystem::DirectionalLightCount));
+	if (ImGui::CollapsingHeader("View", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		const char* viewModeLabels[] = { "Final", "Albedo", "Normal", "Position" };
+		int debugViewMode = static_cast<int>(m_debugViewMode);
+		if (ImGui::Combo("Debug view", &debugViewMode, viewModeLabels, IM_ARRAYSIZE(viewModeLabels)))
+		{
+			m_debugViewMode = static_cast<DebugViewMode>(debugViewMode);
+		}
+	}
+
+	if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		ImGui::DragFloat3("Position", &m_eyePos.x, 0.1f);
+		ImGui::DragFloat3("Look direction", &m_lookDirection.x, 0.01f);
+		ImGui::TextUnformatted("Use actions below to realign the camera.");
+		if (ImGui::Button("Reset look forward"))
+		{
+			m_lookDirection = XMFLOAT3(0.0f, 0.0f, 1.0f);
+			m_yaw = 0.0f;
+			m_pitch = 0.0f;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Reset camera"))
+		{
+			m_eyePos = XMFLOAT3(0.0f, 0.0f, 0.0f);
+			m_lookDirection = XMFLOAT3(0.0f, 0.0f, 1.0f);
+			m_yaw = 0.0f;
+			m_pitch = 0.0f;
+		}
+		ImGui::SliderFloat("Move speed", &m_cameraMoveSpeed, 1.0f, 50.0f);
+		ImGui::SliderFloat("Mouse sensitivity", &m_cameraMouseSensitivity, 0.0005f, 0.02f, "%.4f");
+	}
+
+	if (ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		MaterialSystem::MaterialState materialState = m_materialSystem.GetMaterialState();
+		if (ImGui::ColorEdit3("Diffuse", &materialState.DiffuseAlbedo.x))
+		{
+			m_materialSystem.SetMaterialState(materialState);
+		}
+		if (ImGui::SliderFloat("Opacity", &materialState.DiffuseAlbedo.w, 0.0f, 1.0f))
+		{
+			m_materialSystem.SetMaterialState(materialState);
+		}
+		if (ImGui::ColorEdit3("Specular", &materialState.SpecularAlbedo.x))
+		{
+			m_materialSystem.SetMaterialState(materialState);
+		}
+		if (ImGui::SliderFloat("Shininess", &materialState.SpecularAlbedo.w, 1.0f, 128.0f))
+		{
+			m_materialSystem.SetMaterialState(materialState);
+		}
+	}
+
+	if (ImGui::CollapsingHeader("Lighting", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		RenderSettings::LightingSettings lightingSettings = m_renderSettings.GetLightingSettings();
+		if (ImGui::ColorEdit3("Ambient", &lightingSettings.AmbientLight.x))
+		{
+			m_renderSettings.SetLightingSettings(lightingSettings);
+		}
+		if (ImGui::SliderFloat("Ambient intensity", &lightingSettings.AmbientLight.w, 0.0f, 2.0f))
+		{
+			m_renderSettings.SetLightingSettings(lightingSettings);
+		}
+		ImGui::Text("Directional lights: %d", static_cast<int>(LightSystem::DirectionalLightCount));
+		ImGui::Text("Point lights: %d", static_cast<int>(LightSystem::PointLightCount));
+		ImGui::Text("Spot lights: %d", static_cast<int>(LightSystem::SpotLightCount));
+	}
 	ImGui::End();
 
 	ImGui::Render();
@@ -1124,14 +1204,13 @@ void DirectX12App::ShutdownImGui()
 
 void DirectX12App::UpdateCamera(const GameTimer& gt)
 {
-	const float baseMoveSpeed = 10.0f;
 	const float sprintMultiplier = 3.0f;
-	const float moveSpeed = baseMoveSpeed *
+	const float moveSpeed = m_cameraMoveSpeed *
 		(d3dUtil::IsKeyDown(VK_SHIFT) ? sprintMultiplier : 1.0f) *
 		gt.DeltaTime();
 
 	XMVECTOR eyePosition = XMLoadFloat3(&m_eyePos);
-	XMVECTOR lookDirection = XMVector3Normalize(XMLoadFloat3(&m_lookDirection));
+	XMVECTOR lookDirection = GetSafeNormalizedDirection(m_lookDirection);
 	const XMVECTOR worldUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 	XMVECTOR rightDirection = XMVector3Normalize(XMVector3Cross(worldUp, lookDirection));
 
@@ -1211,12 +1290,11 @@ void DirectX12App::UpdateMouseLook()
 		return;
 	}
 
-	const float mouseSensitivity = 0.0035f;
 	const float deltaX = static_cast<float>(currentMousePosition.x - centerPoint.x);
 	const float deltaY = static_cast<float>(currentMousePosition.y - centerPoint.y);
 
-	m_yaw += deltaX * mouseSensitivity;
-	m_pitch += deltaY * mouseSensitivity;
+	m_yaw += deltaX * m_cameraMouseSensitivity;
+	m_pitch += deltaY * m_cameraMouseSensitivity;
 	m_pitch = (std::max)(-1.45f, (std::min)(1.45f, m_pitch));
 
 	const float cosPitch = cosf(m_pitch);
@@ -1235,7 +1313,9 @@ void DirectX12App::UpdateMainPassCB(const GameTimer& gt)
 	XMMATRIX texTransform = XMMatrixIdentity();
 
 	XMVECTOR eyePos = XMLoadFloat3(&m_eyePos);
-	XMVECTOR target = eyePos + XMVector3Normalize(XMLoadFloat3(&m_lookDirection));
+	const XMVECTOR safeLookDirection = GetSafeNormalizedDirection(m_lookDirection);
+	XMStoreFloat3(&m_lookDirection, safeLookDirection);
+	XMVECTOR target = eyePos + safeLookDirection;
 	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
 	XMMATRIX view = XMMatrixLookAtLH(eyePos, target, up);
