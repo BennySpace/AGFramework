@@ -13,24 +13,16 @@
 #pragma comment(lib, "dxguid.lib")
 
 #include "../Gbuffer.h"
+#include "../Overlay/DebugOverlay.h"
 #include "../LightSystem.h"
 #include "../MaterialSystem.h"
 #include "../RenderSettings.h"
-#include "../../../external/imgui/imgui.h"
 
 class GameTimer;
 
 class DirectX12App
 {
 public:
-	enum class DebugViewMode
-	{
-		Final = 0,
-		Albedo = 1,
-		Normal = 2,
-		Position = 3
-	};
-
 	DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd);
 	virtual ~DirectX12App();
 
@@ -68,10 +60,7 @@ protected:
 	void UpdateMainPassCB(const GameTimer& gt);
 	void DrawGeometryPass();
 	void DrawLightingPass();
-	void DrawDebugUi(const GameTimer& gt);
 	void TransitionGbuffer(D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
-	void InitializeImGui();
-	void ShutdownImGui();
 
 	struct ModelDrawItem
 	{
@@ -109,7 +98,7 @@ private:
 
 	struct LightingDebugSettings
 	{
-		float ViewMode = static_cast<float>(DebugViewMode::Final);
+		float ViewMode = static_cast<float>(DebugOverlay::DebugViewMode::Final);
 		float PositionVizScale = 0.05f;
 		float Padding[2] = { 0.0f, 0.0f };
 	};
@@ -159,7 +148,6 @@ protected:
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_lightingPSO;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_objectCB;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvDescriptorHeap;
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_imguiSrvHeap;
 	std::unique_ptr<Gbuffer> m_gbuffer;
 	D3D12_RESOURCE_STATES m_gbufferState = D3D12_RESOURCE_STATE_RENDER_TARGET;
 
@@ -189,6 +177,5 @@ protected:
 	float m_cameraMoveSpeed = 10.0f;
 	float m_cameraMouseSensitivity = 0.0035f;
 	bool m_isMouseCaptured = false;
-	bool m_isImGuiInitialized = false;
-	DebugViewMode m_debugViewMode = DebugViewMode::Final;
+	DebugOverlay m_debugOverlay;
 };

@@ -1,9 +1,6 @@
 #include "DirectX12App.h"
 #include "../ObjModelLoader.h"
 #include "../../Core/GameTimer.h"
-#include "../../../external/imgui/imgui.h"
-#include "../../../external/imgui/backends/imgui_impl_dx12.h"
-#include "../../../external/imgui/backends/imgui_impl_win32.h"
 #include <limits>
 #include <stdexcept>
 
@@ -181,7 +178,7 @@ DirectX12App::DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd) : m_hAppInst(mhA
 
 DirectX12App::~DirectX12App()
 {
-	ShutdownImGui();
+	m_debugOverlay.Shutdown();
 
 	if (m_objectCB != nullptr && m_mappedObjectCB != nullptr)
 	{
@@ -235,7 +232,7 @@ bool DirectX12App::Initialize()
 	BuildGbuffer();
 	BuildRootSignature();
 	BuildPSO();
-	InitializeImGui();
+	m_debugOverlay.Initialize(m_hMainWnd, m_device.Get(), m_commandQueue.Get(), m_backBufferFormat, SwapChainBufferCount);
 
 	ThrowIfFailed(m_commandList->Close());
 	ID3D12CommandList* initCmdsLists[] = { m_commandList.Get() };
@@ -287,7 +284,18 @@ void DirectX12App::Draw(const GameTimer& gt)
 	const float clearColor[] = { 0.03f, 0.05f, 0.08f, 1.0f };
 	m_commandList->ClearRenderTargetView(CurrentBackBufferView(), clearColor, 0, nullptr);
 	DrawLightingPass();
-	DrawDebugUi(gt);
+	m_debugOverlay.Draw(
+		m_commandList.Get(),
+		gt,
+		m_eyePos,
+		m_lookDirection,
+		m_yaw,
+		m_pitch,
+		m_cameraMoveSpeed,
+		m_cameraMouseSensitivity,
+		m_materialSystem,
+		m_renderSettings,
+		m_lightSystem);
 
 	auto transitionToPresent = CD3DX12_RESOURCE_BARRIER::Transition(
 		CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
@@ -1047,140 +1055,11 @@ void DirectX12App::DrawLightingPass()
 	m_commandList->SetGraphicsRootConstantBufferView(0, m_objectCB->GetGPUVirtualAddress());
 	m_commandList->SetGraphicsRootDescriptorTable(1, m_gbuffer->GetSrvGpuHandle(Gbuffer::Target::Albedo));
 	LightingDebugSettings debugSettings;
-	debugSettings.ViewMode = static_cast<float>(m_debugViewMode);
+	debugSettings.ViewMode = static_cast<float>(m_debugOverlay.GetDebugViewMode());
 	debugSettings.PositionVizScale = 0.05f;
 	m_commandList->SetGraphicsRoot32BitConstants(2, 4, &debugSettings, 0);
 	m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	m_commandList->DrawInstanced(3, 1, 0, 0);
-}
-
-void DirectX12App::DrawDebugUi(const GameTimer& gt)
-{
-	ImGui_ImplDX12_NewFrame();
-	ImGui_ImplWin32_NewFrame();
-	ImGui::NewFrame();
-
-	ImGui::Begin("Debug");
-	ImGui::Text("Renderer: DirectX 12 + Dear ImGui");
-	ImGui::Separator();
-	ImGui::Text("FPS: %.1f", gt.DeltaTime() > 0.0 ? (1.0 / gt.DeltaTime()) : 0.0);
-	ImGui::Text("Frame time: %.3f ms", gt.DeltaTime() * 1000.0);
-	if (ImGui::CollapsingHeader("View", ImGuiTreeNodeFlags_DefaultOpen))
-	{
-		const char* viewModeLabels[] = { "Final", "Albedo", "Normal", "Position" };
-		int debugViewMode = static_cast<int>(m_debugViewMode);
-		if (ImGui::Combo("Debug view", &debugViewMode, viewModeLabels, IM_ARRAYSIZE(viewModeLabels)))
-		{
-			m_debugViewMode = static_cast<DebugViewMode>(debugViewMode);
-		}
-	}
-
-	if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
-	{
-		ImGui::DragFloat3("Position", &m_eyePos.x, 0.1f);
-		ImGui::DragFloat3("Look direction", &m_lookDirection.x, 0.01f);
-		ImGui::TextUnformatted("Use actions below to realign the camera.");
-		if (ImGui::Button("Reset look forward"))
-		{
-			m_lookDirection = XMFLOAT3(0.0f, 0.0f, 1.0f);
-			m_yaw = 0.0f;
-			m_pitch = 0.0f;
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("Reset camera"))
-		{
-			m_eyePos = XMFLOAT3(0.0f, 0.0f, 0.0f);
-			m_lookDirection = XMFLOAT3(0.0f, 0.0f, 1.0f);
-			m_yaw = 0.0f;
-			m_pitch = 0.0f;
-		}
-		ImGui::SliderFloat("Move speed", &m_cameraMoveSpeed, 1.0f, 50.0f);
-		ImGui::SliderFloat("Mouse sensitivity", &m_cameraMouseSensitivity, 0.0005f, 0.02f, "%.4f");
-	}
-
-	if (ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_DefaultOpen))
-	{
-		MaterialSystem::MaterialState materialState = m_materialSystem.GetMaterialState();
-		if (ImGui::ColorEdit3("Diffuse", &materialState.DiffuseAlbedo.x))
-		{
-			m_materialSystem.SetMaterialState(materialState);
-		}
-		if (ImGui::SliderFloat("Opacity", &materialState.DiffuseAlbedo.w, 0.0f, 1.0f))
-		{
-			m_materialSystem.SetMaterialState(materialState);
-		}
-		if (ImGui::ColorEdit3("Specular", &materialState.SpecularAlbedo.x))
-		{
-			m_materialSystem.SetMaterialState(materialState);
-		}
-		if (ImGui::SliderFloat("Shininess", &materialState.SpecularAlbedo.w, 1.0f, 128.0f))
-		{
-			m_materialSystem.SetMaterialState(materialState);
-		}
-	}
-
-	if (ImGui::CollapsingHeader("Lighting", ImGuiTreeNodeFlags_DefaultOpen))
-	{
-		RenderSettings::LightingSettings lightingSettings = m_renderSettings.GetLightingSettings();
-		LightSystem::LightEnableState lightEnableState = m_lightSystem.GetLightEnableState();
-		if (ImGui::ColorEdit3("Ambient", &lightingSettings.AmbientLight.x))
-		{
-			m_renderSettings.SetLightingSettings(lightingSettings);
-		}
-		if (ImGui::SliderFloat("Ambient intensity", &lightingSettings.AmbientLight.w, 0.0f, 2.0f))
-		{
-			m_renderSettings.SetLightingSettings(lightingSettings);
-		}
-
-		if (ImGui::TreeNodeEx("Directional", ImGuiTreeNodeFlags_DefaultOpen))
-		{
-			bool enableDirectionalLight = lightEnableState.DirectionalLights[0];
-			if (ImGui::Checkbox("Directional 0", &enableDirectionalLight))
-			{
-				lightEnableState.DirectionalLights[0] = enableDirectionalLight;
-				m_lightSystem.SetLightEnableState(lightEnableState);
-			}
-			ImGui::TreePop();
-		}
-
-		if (ImGui::TreeNodeEx("Point", ImGuiTreeNodeFlags_DefaultOpen))
-		{
-			for (int lightIndex = 0; lightIndex < static_cast<int>(LightSystem::PointLightCount); ++lightIndex)
-			{
-				bool isEnabled = lightEnableState.PointLights[lightIndex];
-				std::string label = "Point " + std::to_string(lightIndex);
-				if (ImGui::Checkbox(label.c_str(), &isEnabled))
-				{
-					lightEnableState.PointLights[lightIndex] = isEnabled;
-					m_lightSystem.SetLightEnableState(lightEnableState);
-				}
-			}
-			ImGui::TreePop();
-		}
-
-		if (ImGui::TreeNodeEx("Spot", ImGuiTreeNodeFlags_DefaultOpen))
-		{
-			for (int lightIndex = 0; lightIndex < static_cast<int>(LightSystem::SpotLightCount); ++lightIndex)
-			{
-				bool isEnabled = lightEnableState.SpotLights[lightIndex];
-				std::string label = "Spot " + std::to_string(lightIndex);
-				if (ImGui::Checkbox(label.c_str(), &isEnabled))
-				{
-					lightEnableState.SpotLights[lightIndex] = isEnabled;
-					m_lightSystem.SetLightEnableState(lightEnableState);
-				}
-			}
-			ImGui::TreePop();
-		}
-
-	}
-	ImGui::End();
-
-	ImGui::Render();
-
-	ID3D12DescriptorHeap* descriptorHeaps[] = { m_imguiSrvHeap.Get() };
-	m_commandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
-	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_commandList.Get());
 }
 
 void DirectX12App::TransitionGbuffer(D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState)
@@ -1192,54 +1071,6 @@ void DirectX12App::TransitionGbuffer(D3D12_RESOURCE_STATES beforeState, D3D12_RE
 		CD3DX12_RESOURCE_BARRIER::Transition(m_gbuffer->GetResource(Gbuffer::Target::Position), beforeState, afterState)
 	};
 	m_commandList->ResourceBarrier(_countof(barriers), barriers);
-}
-
-void DirectX12App::InitializeImGui()
-{
-	if (m_isImGuiInitialized)
-	{
-		return;
-	}
-
-	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.NumDescriptors = 1;
-	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	ThrowIfFailed(m_device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_imguiSrvHeap)));
-
-	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
-	ImGui::StyleColorsDark();
-
-	ImGuiIO& io = ImGui::GetIO();
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-
-	ImGui_ImplWin32_Init(m_hMainWnd);
-	ImGui_ImplDX12_InitInfo initInfo = {};
-	initInfo.Device = m_device.Get();
-	initInfo.CommandQueue = m_commandQueue.Get();
-	initInfo.NumFramesInFlight = SwapChainBufferCount;
-	initInfo.RTVFormat = m_backBufferFormat;
-	initInfo.DSVFormat = DXGI_FORMAT_UNKNOWN;
-	initInfo.SrvDescriptorHeap = m_imguiSrvHeap.Get();
-	initInfo.LegacySingleSrvCpuDescriptor = m_imguiSrvHeap->GetCPUDescriptorHandleForHeapStart();
-	initInfo.LegacySingleSrvGpuDescriptor = m_imguiSrvHeap->GetGPUDescriptorHandleForHeapStart();
-	ImGui_ImplDX12_Init(&initInfo);
-
-	m_isImGuiInitialized = true;
-}
-
-void DirectX12App::ShutdownImGui()
-{
-	if (!m_isImGuiInitialized)
-	{
-		return;
-	}
-
-	ImGui_ImplDX12_Shutdown();
-	ImGui_ImplWin32_Shutdown();
-	ImGui::DestroyContext();
-	m_isImGuiInitialized = false;
 }
 
 void DirectX12App::UpdateCamera(const GameTimer& gt)
