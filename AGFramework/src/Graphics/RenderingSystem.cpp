@@ -18,7 +18,6 @@ bool RenderingSystem::Initialize(HINSTANCE hInstance, HWND hWnd)
         return false;
     }
 
-    m_renderer->OnResize();
     return true;
 }
 
@@ -49,9 +48,4 @@ void RenderingSystem::OnWindowResize(int width, int height)
 void RenderingSystem::Shutdown()
 {
     m_renderer.reset();
-}
-
-bool RenderingSystem::IsInitialized() const
-{
-    return m_renderer != nullptr;
 }

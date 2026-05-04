@@ -19,8 +19,6 @@ public:
     void OnWindowResize(int width, int height);
     void Shutdown();
 
-    bool IsInitialized() const;
-
 private:
     std::unique_ptr<DirectX12App> m_renderer;
 };

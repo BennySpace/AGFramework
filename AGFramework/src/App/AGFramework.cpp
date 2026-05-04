@@ -2,7 +2,7 @@
 
 #include <stdexcept>
 
-AGFramework::AGFramework() : m_running(false), m_isPaused(false)
+AGFramework::AGFramework() : m_isPaused(false)
 {
 	m_window = std::make_shared<Window>();
 	m_renderingSystem = std::make_unique<RenderingSystem>();
@@ -41,7 +41,6 @@ void AGFramework::Initialize()
 	m_window->OnClose.AddLambda([](bool& canClose) { canClose = true; });
 
 	m_window->Show();
-	m_running = true;
 
 	if (!m_renderingSystem->Initialize(m_hInstance, m_hWnd))
 		throw std::runtime_error("Failed to initialize rendering system");
@@ -51,7 +50,7 @@ void AGFramework::Run()
 {
 	m_timer.Reset();
 
-	while (m_running && !m_window->ShouldClose())
+	while (!m_window->ShouldClose())
 	{
 		m_timer.Tick();
 		m_window->ProcessMessages();

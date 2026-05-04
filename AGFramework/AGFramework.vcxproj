@@ -30,18 +30,16 @@
     <ClCompile Include="external\imgui\imgui_tables.cpp" />
     <ClCompile Include="external\imgui\imgui_widgets.cpp" />
     <ClCompile Include="src\Utils\Delegates.cpp" />
+    <ClCompile Include="src\Graphics\DeferredRenderer.cpp" />
     <ClCompile Include="src\Graphics\dx12\DirectX12App.cpp" />
     <ClCompile Include="src\Core\GameTimer.cpp" />
     <ClCompile Include="src\Graphics\Gbuffer.cpp" />
     <ClCompile Include="src\Graphics\GeometryGenerator.cpp" />
     <ClCompile Include="src\Graphics\LightSystem.cpp" />
-    <ClCompile Include="src\Graphics\MaterialSystem.cpp" />
     <ClCompile Include="src\Graphics\ObjModelLoader.cpp" />
-    <ClCompile Include="src\Graphics\RenderSettings.cpp" />
     <ClCompile Include="src\Core\InputDevice.cpp" />
     <ClCompile Include="src\Math\MathHelper.cpp" />
     <ClCompile Include="src\App\AGFramework.cpp" />
-    <ClCompile Include="src\Graphics\Renderer.cpp" />
     <ClCompile Include="src\Graphics\RenderingSystem.cpp" />
     <ClCompile Include="src\Core\Window.cpp" />
     <ClCompile Include="src\main.cpp" />
@@ -61,6 +59,7 @@
     <ClInclude Include="external\imgui\imstb_textedit.h" />
     <ClInclude Include="external\imgui\imstb_truetype.h" />
     <ClInclude Include="src\Utils\Delegates.h" />
+    <ClInclude Include="src\Graphics\DeferredRenderer.h" />
     <ClInclude Include="src\Graphics\dx12\DirectX12App.h" />
     <ClInclude Include="src\Utils\Exports.h" />
     <ClInclude Include="src\Core\GameTimer.h" />
@@ -74,7 +73,6 @@
     <ClInclude Include="src\Core\Keys.h" />
     <ClInclude Include="src\Math\MathHelper.h" />
     <ClInclude Include="src\App\AGFramework.h" />
-    <ClInclude Include="src\Graphics\Renderer.h" />
     <ClInclude Include="src\Graphics\RenderingSystem.h" />
     <ClInclude Include="src\Core\Window.h" />
   </ItemGroup>

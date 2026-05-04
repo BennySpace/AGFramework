@@ -12,11 +12,9 @@ public:
 
     void Initialize();
     void Run();
-    void Shutdown();
-
-    std::shared_ptr<Window> GetWindow() const { return m_window; }
     
 private:
+    void Shutdown();
 	void Update();
 	void Draw();
 	void CalculateFrameStats();
@@ -32,6 +30,5 @@ private:
     HINSTANCE m_hInstance;
 
     std::string m_title = "Another Graphics Framework";
-    bool m_running;
     bool m_isPaused;
 };
