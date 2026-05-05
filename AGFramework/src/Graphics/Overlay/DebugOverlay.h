@@ -46,4 +46,6 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvHeap;
 	bool m_isInitialized = false;
 	DebugViewMode m_debugViewMode = DebugViewMode::Final;
+	bool m_showLightMarkers = true;
+	float m_lightMarkerScale = 1.0f;
 };

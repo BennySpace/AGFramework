@@ -182,10 +182,11 @@ FullscreenVertexOut FullscreenVS(uint vertexId : SV_VertexID)
 
 float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
 {
+    const float3 backgroundColor = float3(0.03f, 0.05f, 0.08f);
     float4 albedoSample = gTexture0.Sample(gsamLinearWrap, pin.TexC);
     if (albedoSample.a < 0.001f)
     {
-        return float4(0.03f, 0.05f, 0.08f, 1.0f);
+        return float4(backgroundColor, 1.0f);
     }
 
     float3 normalW = normalize(gTexture1.Sample(gsamLinearWrap, pin.TexC).xyz * 2.0f - 1.0f);
@@ -193,20 +194,23 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
 
     const int debugViewMode = (int)round(gAuxiliarySettings.x);
     const float positionVizScale = gAuxiliarySettings.y;
+    const float opacity = saturate(albedoSample.a);
 
     if (debugViewMode == 1)
     {
-        return float4(albedoSample.rgb, 1.0f);
+        return float4(lerp(backgroundColor, albedoSample.rgb, opacity), 1.0f);
     }
 
     if (debugViewMode == 2)
     {
-        return float4(normalW * 0.5f + 0.5f, 1.0f);
+        const float3 normalViz = normalW * 0.5f + 0.5f;
+        return float4(lerp(backgroundColor, normalViz, opacity), 1.0f);
     }
 
     if (debugViewMode == 3)
     {
-        return float4(saturate(posW * positionVizScale + 0.5f), 1.0f);
+        const float3 positionViz = saturate(posW * positionVizScale + 0.5f);
+        return float4(lerp(backgroundColor, positionViz, opacity), 1.0f);
     }
 
     float3 toEye = normalize(gEyePosW - posW);
@@ -233,5 +237,7 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
         spotLighting += ApplySpotLight(albedoSample.rgb, normalW, toEye, posW, gSpotLights[lightIndex]);
     }
 
-    return float4(ambient + directionalLighting + pointLighting + spotLighting, albedoSample.a);
+    const float3 litColor = ambient + directionalLighting + pointLighting + spotLighting;
+    const float3 finalColor = lerp(backgroundColor, litColor, opacity);
+    return float4(finalColor, 1.0f);
 }
