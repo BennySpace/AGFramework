@@ -23,6 +23,7 @@
     <ClCompile Include="src\Graphics\dx12\DirectX12Context.cpp" />
     <ClCompile Include="src\Graphics\dx12\DDSTextureLoader.cpp" />
     <ClCompile Include="src\Graphics\Overlay\DebugOverlay.cpp" />
+    <ClCompile Include="src\Graphics\Scene\SponzaScene.cpp" />
     <ClCompile Include="external\imgui\backends\imgui_impl_dx12.cpp" />
     <ClCompile Include="external\imgui\backends\imgui_impl_win32.cpp" />
     <ClCompile Include="external\imgui\imgui.cpp" />
@@ -50,6 +51,7 @@
     <ClInclude Include="src\Graphics\dx12\DirectX12Context.h" />
     <ClInclude Include="src\Graphics\dx12\DDSTextureLoader.h" />
     <ClInclude Include="src\Graphics\Overlay\DebugOverlay.h" />
+    <ClInclude Include="src\Graphics\Scene\SponzaScene.h" />
     <ClInclude Include="external\imgui\backends\imgui_impl_dx12.h" />
     <ClInclude Include="external\imgui\backends\imgui_impl_win32.h" />
     <ClInclude Include="external\imgui\imconfig.h" />

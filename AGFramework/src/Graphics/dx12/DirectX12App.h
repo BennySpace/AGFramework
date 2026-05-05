@@ -18,6 +18,7 @@
 #include "../LightSystem.h"
 #include "../MaterialSystem.h"
 #include "../RenderSettings.h"
+#include "../Scene/SponzaScene.h"
 
 class GameTimer;
 
@@ -35,10 +36,6 @@ public:
 
 	float AspectRatio() const;
 
-	void BuildModelGeometry();
-	void BuildTextures();
-	void BuildDescriptorHeaps();
-	void CreateTextureResource(Texture& texture, const void* pixelData, UINT width, UINT height);
 	void UpdateCamera(const GameTimer& gt);
 	void UpdateMouseCaptureState();
 	void UpdateMouseLook();
@@ -56,12 +53,6 @@ protected:
 
 	static const int SwapChainBufferCount = 2;
 
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvDescriptorHeap;
-
-	std::unique_ptr<MeshGeometry> m_sceneGeo;
-	std::unordered_map<std::string, std::unique_ptr<Texture>> m_textures;
-	std::vector<Texture*> m_orderedTextures;
-	std::vector<DeferredRenderer::ModelDrawItem> m_modelDrawItems;
 	LightSystem m_lightSystem;
 	MaterialSystem m_materialSystem;
 	RenderSettings m_renderSettings;
@@ -70,14 +61,13 @@ protected:
 	DirectX::XMFLOAT4X4 m_proj = MathHelper::Identity4x4();
 	DirectX::XMFLOAT3 m_eyePos = { 0.0f, 8.0f, -30.0f };
 	DirectX::XMFLOAT3 m_lookDirection = { 0.0f, 0.0f, 1.0f };
-	DirectX::XMFLOAT3 m_sceneCenter = { 0.0f, 0.0f, 0.0f };
-	float m_sceneScale = 1.0f;
 	float m_yaw = 0.0f;
 	float m_pitch = 0.0f;
 	float m_cameraMoveSpeed = 10.0f;
 	float m_cameraMouseSensitivity = 0.0035f;
 	bool m_isMouseCaptured = false;
 	DirectX12Context m_context;
+	SponzaScene m_scene;
 	DeferredRenderer m_deferredRenderer;
 	DebugOverlay m_debugOverlay;
 };
