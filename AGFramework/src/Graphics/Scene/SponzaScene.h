@@ -30,7 +30,6 @@ private:
 	void BuildGeometry(DirectX12Context& context);
 	void BuildTextures(DirectX12Context& context);
 	void BuildDescriptorHeap(DirectX12Context& context);
-	void CreateTextureResource(DirectX12Context& context, Texture& texture, const void* pixelData, UINT width, UINT height);
 
 	std::unique_ptr<MeshGeometry> m_geometry;
 	std::unordered_map<std::string, std::unique_ptr<Texture>> m_textures;
