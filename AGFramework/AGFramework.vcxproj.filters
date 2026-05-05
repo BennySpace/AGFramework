@@ -32,6 +32,8 @@
     <ClInclude Include="src\Graphics\Overlay\DebugOverlay.h" />
     <ClInclude Include="src\Graphics\Resources\ResourceUploader.h" />
     <ClInclude Include="src\Graphics\Resources\TextureLoader.h" />
+    <ClInclude Include="src\Graphics\Scene\SceneData.h" />
+    <ClInclude Include="src\Graphics\Scene\SceneResources.h" />
     <ClInclude Include="src\Graphics\Scene\SponzaScene.h" />
     <ClInclude Include="external\imgui\backends\imgui_impl_dx12.h" />
     <ClInclude Include="external\imgui\backends\imgui_impl_win32.h" />

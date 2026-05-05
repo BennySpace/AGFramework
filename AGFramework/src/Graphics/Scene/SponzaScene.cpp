@@ -62,15 +62,7 @@ void SponzaScene::Initialize(DirectX12Context& context)
 
 void SponzaScene::DisposeUploaders()
 {
-	if (m_geometry)
-	{
-		m_geometry->DisposeUploaders();
-	}
-
-	for (auto& textureEntry : m_textures)
-	{
-		textureEntry.second->UploadHeap.Reset();
-	}
+	m_resources.DisposeUploaders();
 }
 
 void SponzaScene::BuildGeometry(DirectX12Context& context)
@@ -84,7 +76,7 @@ void SponzaScene::BuildGeometry(DirectX12Context& context)
 
 	std::vector<GeometryGenerator::Vertex> vertices;
 	std::vector<std::uint32_t> indices;
-	m_drawItems.clear();
+	m_data.DrawItems.clear();
 
 	XMFLOAT3 minPoint(
 		(std::numeric_limits<float>::max)(),
@@ -115,10 +107,10 @@ void SponzaScene::BuildGeometry(DirectX12Context& context)
 		drawItem.DrawName = "mesh_" + std::to_string(meshIndex);
 		drawItem.DiffuseTexturePath = mesh.DiffuseTexturePath;
 		drawItem.HasAlphaCutout = mesh.HasAlphaCutout;
-		m_drawItems.push_back(std::move(drawItem));
+		m_data.DrawItems.push_back(std::move(drawItem));
 	}
 
-	m_sceneCenter = XMFLOAT3(
+	m_data.SceneCenter = XMFLOAT3(
 		0.5f * (minPoint.x + maxPoint.x),
 		0.5f * (minPoint.y + maxPoint.y),
 		0.5f * (minPoint.z + maxPoint.z));
@@ -127,23 +119,23 @@ void SponzaScene::BuildGeometry(DirectX12Context& context)
 	const float extentY = maxPoint.y - minPoint.y;
 	const float extentZ = maxPoint.z - minPoint.z;
 	const float maxExtent = (std::max)(extentX, (std::max)(extentY, extentZ));
-	m_sceneScale = maxExtent > 0.0f ? 20.0f / maxExtent : 1.0f;
+	m_data.SceneScale = maxExtent > 0.0f ? 20.0f / maxExtent : 1.0f;
 
-	const float scaledHeight = extentY * m_sceneScale;
-	const float scaledDepth = extentZ * m_sceneScale;
+	const float scaledHeight = extentY * m_data.SceneScale;
+	const float scaledDepth = extentZ * m_data.SceneScale;
 	const float cameraDistance = (std::max)(18.0f, scaledDepth + 12.0f);
-	m_initialCamera.EyePos = XMFLOAT3(
+	m_data.InitialCamera.EyePos = XMFLOAT3(
 		0.0f,
 		(std::max)(6.0f, 0.35f * scaledHeight + 4.0f),
 		-cameraDistance);
-	m_initialCamera.LookDirection = XMFLOAT3(
-		-m_initialCamera.EyePos.x,
-		-m_initialCamera.EyePos.y,
-		-m_initialCamera.EyePos.z);
+	m_data.InitialCamera.LookDirection = XMFLOAT3(
+		-m_data.InitialCamera.EyePos.x,
+		-m_data.InitialCamera.EyePos.y,
+		-m_data.InitialCamera.EyePos.z);
 
-	const XMVECTOR initialLook = XMVector3Normalize(XMLoadFloat3(&m_initialCamera.LookDirection));
-	m_initialCamera.Yaw = atan2f(XMVectorGetX(initialLook), XMVectorGetZ(initialLook));
-	m_initialCamera.Pitch = -asinf(XMVectorGetY(initialLook));
+	const XMVECTOR initialLook = XMVector3Normalize(XMLoadFloat3(&m_data.InitialCamera.LookDirection));
+	m_data.InitialCamera.Yaw = atan2f(XMVectorGetX(initialLook), XMVectorGetZ(initialLook));
+	m_data.InitialCamera.Pitch = -asinf(XMVectorGetY(initialLook));
 
 	const UINT vbByteSize = static_cast<UINT>(vertices.size() * sizeof(GeometryGenerator::Vertex));
 	const UINT ibByteSize = static_cast<UINT>(indices.size() * sizeof(std::uint32_t));
@@ -175,24 +167,24 @@ void SponzaScene::BuildGeometry(DirectX12Context& context)
 		submesh.IndexCount = static_cast<UINT>(meshes[meshIndex].Indices32.size());
 		submesh.StartIndexLocation = runningStartIndex;
 		submesh.BaseVertexLocation = runningBaseVertex;
-		geometry->DrawArgs[m_drawItems[meshIndex].DrawName] = submesh;
+		geometry->DrawArgs[m_data.DrawItems[meshIndex].DrawName] = submesh;
 
 		runningBaseVertex += static_cast<UINT>(meshes[meshIndex].Vertices.size());
 		runningStartIndex += static_cast<UINT>(meshes[meshIndex].Indices32.size());
 	}
 
-	m_geometry = std::move(geometry);
+	m_resources.Geometry = std::move(geometry);
 }
 
 void SponzaScene::BuildTextures(DirectX12Context& context)
 {
-	m_textures.clear();
-	m_orderedTextures.clear();
+	m_resources.Textures.clear();
+	m_resources.OrderedTextures.clear();
 
 	const std::array<std::uint8_t, 4> whitePixel = { 255, 255, 255, 255 };
 	std::unordered_map<std::string, UINT> textureIndices;
 
-	for (DeferredRenderer::ModelDrawItem& drawItem : m_drawItems)
+	for (DeferredRenderer::ModelDrawItem& drawItem : m_data.DrawItems)
 	{
 		const std::string textureKey = drawItem.DiffuseTexturePath.empty() ? "__default_white__" : drawItem.DiffuseTexturePath;
 		const auto existing = textureIndices.find(textureKey);
@@ -223,25 +215,25 @@ void SponzaScene::BuildTextures(DirectX12Context& context)
 				textureData.Height);
 		}
 
-		const UINT textureIndex = static_cast<UINT>(m_orderedTextures.size());
+		const UINT textureIndex = static_cast<UINT>(m_resources.OrderedTextures.size());
 		drawItem.DiffuseSrvHeapIndex = textureIndex;
 		textureIndices[textureKey] = textureIndex;
-		m_orderedTextures.push_back(texture.get());
-		m_textures[textureKey] = std::move(texture);
+		m_resources.OrderedTextures.push_back(texture.get());
+		m_resources.Textures[textureKey] = std::move(texture);
 	}
 }
 
 void SponzaScene::BuildDescriptorHeap(DirectX12Context& context)
 {
 	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.NumDescriptors = static_cast<UINT>(m_orderedTextures.size());
+	srvHeapDesc.NumDescriptors = static_cast<UINT>(m_resources.OrderedTextures.size());
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	srvHeapDesc.NodeMask = 0;
-	ThrowIfFailed(context.GetDevice()->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_srvDescriptorHeap)));
+	ThrowIfFailed(context.GetDevice()->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&m_resources.SrvDescriptorHeap)));
 
-	CD3DX12_CPU_DESCRIPTOR_HANDLE handle(m_srvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
-	for (Texture* texture : m_orderedTextures)
+	CD3DX12_CPU_DESCRIPTOR_HANDLE handle(m_resources.SrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
+	for (Texture* texture : m_resources.OrderedTextures)
 	{
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
