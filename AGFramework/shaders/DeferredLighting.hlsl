@@ -1,0 +1,80 @@
+#include "LightingCommon.hlsli"
+
+struct FullscreenVertexOut
+{
+    float4 PosH : SV_POSITION;
+    float2 TexC : TEXCOORD;
+};
+
+FullscreenVertexOut FullscreenVS(uint vertexId : SV_VertexID)
+{
+    FullscreenVertexOut vout;
+
+    float2 texCoord = float2((vertexId << 1) & 2, vertexId & 2);
+    vout.TexC = texCoord;
+    vout.PosH = float4(texCoord * float2(2.0f, -2.0f) + float2(-1.0f, 1.0f), 0.0f, 1.0f);
+
+    return vout;
+}
+
+float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
+{
+    const float3 backgroundColor = float3(0.03f, 0.05f, 0.08f);
+    float4 albedoSample = gTexture0.Sample(gsamLinearWrap, pin.TexC);
+    if (albedoSample.a < 0.001f)
+    {
+        return float4(backgroundColor, 1.0f);
+    }
+
+    float3 normalW = normalize(gTexture1.Sample(gsamLinearWrap, pin.TexC).xyz * 2.0f - 1.0f);
+    float3 posW = gTexture2.Sample(gsamLinearWrap, pin.TexC).xyz;
+
+    const int debugViewMode = (int)round(gAuxiliarySettings.x);
+    const float positionVizScale = gAuxiliarySettings.y;
+    const float opacity = saturate(albedoSample.a);
+
+    if (debugViewMode == 1)
+    {
+        return float4(lerp(backgroundColor, albedoSample.rgb, opacity), 1.0f);
+    }
+
+    if (debugViewMode == 2)
+    {
+        const float3 normalViz = normalW * 0.5f + 0.5f;
+        return float4(lerp(backgroundColor, normalViz, opacity), 1.0f);
+    }
+
+    if (debugViewMode == 3)
+    {
+        const float3 positionViz = saturate(posW * positionVizScale + 0.5f);
+        return float4(lerp(backgroundColor, positionViz, opacity), 1.0f);
+    }
+
+    float3 toEye = normalize(gEyePosW - posW);
+    float3 ambient = gAmbientLight.rgb * albedoSample.rgb;
+    float3 directionalLighting = 0.0f;
+    float3 pointLighting = 0.0f;
+    float3 spotLighting = 0.0f;
+
+    [unroll]
+    for (uint lightIndex = 0; lightIndex < DIRECTIONAL_LIGHT_COUNT; ++lightIndex)
+    {
+        directionalLighting += ApplyDirectionalLight(albedoSample.rgb, normalW, toEye, gDirectionalLights[lightIndex]);
+    }
+
+    [unroll]
+    for (uint lightIndex = 0; lightIndex < POINT_LIGHT_COUNT; ++lightIndex)
+    {
+        pointLighting += ApplyPointLight(albedoSample.rgb, normalW, toEye, posW, gPointLights[lightIndex]);
+    }
+
+    [unroll]
+    for (uint lightIndex = 0; lightIndex < SPOT_LIGHT_COUNT; ++lightIndex)
+    {
+        spotLighting += ApplySpotLight(albedoSample.rgb, normalW, toEye, posW, gSpotLights[lightIndex]);
+    }
+
+    const float3 litColor = ambient + directionalLighting + pointLighting + spotLighting;
+    const float3 finalColor = lerp(backgroundColor, litColor, opacity);
+    return float4(finalColor, 1.0f);
+}

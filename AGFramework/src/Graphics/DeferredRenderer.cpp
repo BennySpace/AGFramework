@@ -172,13 +172,13 @@ void DeferredRenderer::TransitionGbuffer(DirectX12Context& context, D3D12_RESOUR
 void DeferredRenderer::BuildShadersAndInputLayout()
 {
 	m_shaders["standardVS"] = d3dUtil::CompileShader(
-		ResolveShaderPath(L"shaders\\Phong.hlsl"), nullptr, "GeometryVS", "vs_5_1");
+		ResolveShaderPath(L"shaders\\GeometryPass.hlsl"), nullptr, "GeometryVS", "vs_5_1");
 	m_shaders["gbufferPS"] = d3dUtil::CompileShader(
-		ResolveShaderPath(L"shaders\\Phong.hlsl"), nullptr, "GeometryPS", "ps_5_1");
+		ResolveShaderPath(L"shaders\\GeometryPass.hlsl"), nullptr, "GeometryPS", "ps_5_1");
 	m_shaders["fullscreenVS"] = d3dUtil::CompileShader(
-		ResolveShaderPath(L"shaders\\Phong.hlsl"), nullptr, "FullscreenVS", "vs_5_1");
+		ResolveShaderPath(L"shaders\\DeferredLighting.hlsl"), nullptr, "FullscreenVS", "vs_5_1");
 	m_shaders["deferredLightingPS"] = d3dUtil::CompileShader(
-		ResolveShaderPath(L"shaders\\Phong.hlsl"), nullptr, "DeferredLightingPS", "ps_5_1");
+		ResolveShaderPath(L"shaders\\DeferredLighting.hlsl"), nullptr, "DeferredLightingPS", "ps_5_1");
 
 	m_inputLayout =
 	{

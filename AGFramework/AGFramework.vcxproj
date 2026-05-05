@@ -89,7 +89,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-    <None Include="shaders\Phong.hlsl" />
+    <None Include="shaders\DeferredLighting.hlsl" />
+    <None Include="shaders\GeometryPass.hlsl" />
+    <None Include="shaders\LightingCommon.hlsli" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>
