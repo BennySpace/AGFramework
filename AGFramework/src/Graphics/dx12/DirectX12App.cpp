@@ -266,10 +266,9 @@ void DirectX12App::UpdateMainPassCB(const GameTimer& gt)
 {
 	(void)gt;
 
-	XMVECTOR eyePos = XMLoadFloat3(&m_eyePos);
 	const XMVECTOR safeLookDirection = GetSafeNormalizedDirection(m_lookDirection);
 	XMStoreFloat3(&m_lookDirection, safeLookDirection);
-	m_lightSystem.Update(m_eyePos, m_lookDirection, m_scene.GetSceneCenter());
+	m_lightSystem.Update(m_eyePos, m_lookDirection);
 
 	DeferredRenderer::FrameData frameData;
 	frameData.EyePos = m_eyePos;

@@ -46,7 +46,7 @@ public:
         std::array<bool, SpotLightCount> SpotLights = { false, false };
     };
 
-    void Update(const DirectX::XMFLOAT3& eyePosition, const DirectX::XMFLOAT3& lookDirection, const DirectX::XMFLOAT3& sceneCenter);
+    void Update(const DirectX::XMFLOAT3& eyePosition, const DirectX::XMFLOAT3& lookDirection);
     const LightingState& GetLightingState() const { return m_lightingState; }
     const LightEnableState& GetLightEnableState() const { return m_lightEnableState; }
     void SetLightEnableState(const LightEnableState& lightEnableState) { m_lightEnableState = lightEnableState; }

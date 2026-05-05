@@ -2,10 +2,8 @@
 
 using namespace DirectX;
 
-void LightSystem::Update(const XMFLOAT3& eyePosition, const XMFLOAT3& lookDirection, const XMFLOAT3& sceneCenter)
+void LightSystem::Update(const XMFLOAT3& eyePosition, const XMFLOAT3& lookDirection)
 {
-    (void)sceneCenter;
-
     m_lightingState.DirectionalLights[0].Direction = XMFLOAT4(0.45f, -0.82f, 0.35f, 0.0f);
     m_lightingState.DirectionalLights[0].Color =
         m_lightEnableState.DirectionalLights[0] ?

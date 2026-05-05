@@ -57,7 +57,6 @@ protected:
 	MaterialSystem m_materialSystem;
 	RenderSettings m_renderSettings;
 
-	DirectX::XMFLOAT4X4 m_world = MathHelper::Identity4x4();
 	DirectX::XMFLOAT4X4 m_proj = MathHelper::Identity4x4();
 	DirectX::XMFLOAT3 m_eyePos = { 0.0f, 8.0f, -30.0f };
 	DirectX::XMFLOAT3 m_lookDirection = { 0.0f, 0.0f, 1.0f };
