@@ -1,5 +1,6 @@
 #include "DirectX12App.h"
 #include "../../Core/GameTimer.h"
+#include <cfloat>
 using namespace DirectX;
 
 namespace
@@ -19,7 +20,8 @@ namespace
 		const RenderSettings::ShadowSettings& shadowSettings,
 		const XMFLOAT3& eyePosition,
 		const XMFLOAT3& lookDirection,
-		const XMFLOAT4X4& projection)
+		const XMFLOAT4X4& projection,
+		const LightSystem::DirectionalLightData& directionalLight)
 	{
 		RenderSettings::CascadedShadowData shadowData;
 
@@ -111,6 +113,71 @@ namespace
 			}
 
 			cascadeNearDistance = cascadeFarDistance;
+		}
+
+		XMVECTOR lightDirection = XMLoadFloat4(&directionalLight.Direction);
+		lightDirection = XMVectorSetW(lightDirection, 0.0f);
+		if (XMVector3NearEqual(lightDirection, XMVectorZero(), XMVectorReplicate(0.0001f)))
+		{
+			lightDirection = XMVectorSet(0.45f, -0.82f, 0.35f, 0.0f);
+		}
+		lightDirection = XMVector3Normalize(lightDirection);
+
+		const XMVECTOR worldUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+		XMVECTOR lightUp = worldUp;
+		if (fabsf(XMVectorGetX(XMVector3Dot(lightDirection, worldUp))) > 0.99f)
+		{
+			lightUp = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
+		}
+
+		for (std::uint32_t cascadeIndex = 0; cascadeIndex < cascadeCount; ++cascadeIndex)
+		{
+			XMVECTOR cascadeCenter = XMVectorZero();
+			for (int cornerIndex = 0; cornerIndex < 8; ++cornerIndex)
+			{
+				cascadeCenter += XMLoadFloat3(&shadowData.FrustumCornersWorldSpace[cascadeIndex][cornerIndex]);
+			}
+			cascadeCenter = XMVectorScale(cascadeCenter, 1.0f / 8.0f);
+
+			float cascadeRadius = 0.0f;
+			for (int cornerIndex = 0; cornerIndex < 8; ++cornerIndex)
+			{
+				const XMVECTOR corner = XMLoadFloat3(&shadowData.FrustumCornersWorldSpace[cascadeIndex][cornerIndex]);
+				const float cornerDistance = XMVectorGetX(XMVector3Length(corner - cascadeCenter));
+				cascadeRadius = (std::max)(cascadeRadius, cornerDistance);
+			}
+			cascadeRadius = ceilf(cascadeRadius * 16.0f) / 16.0f;
+
+			const XMVECTOR lightPosition = cascadeCenter - lightDirection * (cascadeRadius * 2.0f + 100.0f);
+			const XMMATRIX lightView = XMMatrixLookAtLH(lightPosition, cascadeCenter, lightUp);
+
+			XMFLOAT3 minBounds(FLT_MAX, FLT_MAX, FLT_MAX);
+			XMFLOAT3 maxBounds(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+			for (int cornerIndex = 0; cornerIndex < 8; ++cornerIndex)
+			{
+				const XMVECTOR corner = XMLoadFloat3(&shadowData.FrustumCornersWorldSpace[cascadeIndex][cornerIndex]);
+				const XMVECTOR cornerLightSpace = XMVector3TransformCoord(corner, lightView);
+				XMFLOAT3 cornerLight;
+				XMStoreFloat3(&cornerLight, cornerLightSpace);
+
+				minBounds.x = (std::min)(minBounds.x, cornerLight.x);
+				minBounds.y = (std::min)(minBounds.y, cornerLight.y);
+				minBounds.z = (std::min)(minBounds.z, cornerLight.z);
+				maxBounds.x = (std::max)(maxBounds.x, cornerLight.x);
+				maxBounds.y = (std::max)(maxBounds.y, cornerLight.y);
+				maxBounds.z = (std::max)(maxBounds.z, cornerLight.z);
+			}
+
+			const float depthPadding = (std::max)(10.0f, cascadeRadius);
+			const float left = minBounds.x;
+			const float right = maxBounds.x;
+			const float bottom = minBounds.y;
+			const float top = maxBounds.y;
+			const float nearZ = (std::max)(0.1f, minBounds.z - depthPadding);
+			const float farZ = maxBounds.z + depthPadding;
+			const XMMATRIX lightProj = XMMatrixOrthographicOffCenterLH(left, right, bottom, top, nearZ, farZ);
+			const XMMATRIX lightViewProj = lightView * lightProj;
+			XMStoreFloat4x4(&shadowData.LightViewProjMatrices[cascadeIndex], lightViewProj);
 		}
 
 		return shadowData;
@@ -398,7 +465,8 @@ void DirectX12App::UpdateMainPassCB(const GameTimer& gt)
 		frameData.ShadowSettings,
 		frameData.EyePos,
 		frameData.LookDirection,
-		frameData.Projection);
+		frameData.Projection,
+		m_lightSystem.GetShadowCastingDirectionalLight());
 	frameData.Material = m_materialSystem.GetMaterialState();
 	frameData.LightState = m_lightSystem.GetLightingState();
 
