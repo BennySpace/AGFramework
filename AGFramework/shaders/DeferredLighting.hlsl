@@ -53,6 +53,7 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
     const float3 posV = mul(float4(posW, 1.0f), gView).xyz;
     const float viewDepth = abs(posV.z);
     const uint shadowCascadeIndex = SelectShadowCascade(viewDepth);
+    const float directionalShadowFactor = ComputeDirectionalShadowFactor(posW, shadowCascadeIndex);
 
     float3 toEye = normalize(gEyePosW - posW);
     float3 ambient = gAmbientLight.rgb * albedoSample.rgb;
@@ -63,7 +64,7 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
     [unroll]
     for (uint lightIndex = 0; lightIndex < DIRECTIONAL_LIGHT_COUNT; ++lightIndex)
     {
-        directionalLighting += ApplyDirectionalLight(albedoSample.rgb, normalW, toEye, gDirectionalLights[lightIndex]);
+        directionalLighting += directionalShadowFactor * ApplyDirectionalLight(albedoSample.rgb, normalW, toEye, gDirectionalLights[lightIndex]);
     }
 
     [unroll]

@@ -54,7 +54,9 @@ cbuffer AuxiliarySettings : register(b1)
 Texture2D gTexture0 : register(t0);
 Texture2D gTexture1 : register(t1);
 Texture2D gTexture2 : register(t2);
+Texture2DArray gShadowMap : register(t3);
 SamplerState gsamLinearWrap : register(s0);
+SamplerComparisonState gsamShadow : register(s1);
 
 uint GetShadowCascadeCount()
 {
@@ -82,6 +84,38 @@ uint SelectShadowCascade(float viewDepth)
     }
 
     return cascadeIndex;
+}
+
+float ComputeDirectionalShadowFactor(float3 posW, uint cascadeIndex)
+{
+    if (gShadowSettings0.w < 0.5f)
+    {
+        return 1.0f;
+    }
+
+    float4 shadowPosH = mul(float4(posW, 1.0f), gShadowLightViewProj[cascadeIndex]);
+    shadowPosH.xyz /= max(shadowPosH.w, 0.0001f);
+
+    float2 shadowUv = float2(
+        shadowPosH.x * 0.5f + 0.5f,
+        -shadowPosH.y * 0.5f + 0.5f);
+
+    if (shadowUv.x < 0.0f || shadowUv.x > 1.0f || shadowUv.y < 0.0f || shadowUv.y > 1.0f)
+    {
+        return 1.0f;
+    }
+
+    if (shadowPosH.z <= 0.0f || shadowPosH.z >= 1.0f)
+    {
+        return 1.0f;
+    }
+
+    const float visibility = gShadowMap.SampleCmpLevelZero(
+        gsamShadow,
+        float3(shadowUv, cascadeIndex),
+        shadowPosH.z);
+
+    return lerp(1.0f, visibility, saturate(gShadowSettings0.z));
 }
 
 float3 ComputeSpecular(float3 normalW, float3 lightVector, float3 toEye, float shininess)

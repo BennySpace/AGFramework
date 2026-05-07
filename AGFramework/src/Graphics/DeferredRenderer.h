@@ -69,6 +69,7 @@ private:
 	void BuildConstantBuffer(DirectX12Context& context);
 	void BuildGbuffer(DirectX12Context& context);
 	void BuildCascadedShadowMap(DirectX12Context& context);
+	void BuildLightingSrvHeap(DirectX12Context& context);
 	void BuildRootSignature(DirectX12Context& context);
 	void BuildPSO(DirectX12Context& context, bool enable4xMsaa, UINT msaaQuality);
 	void BuildShadowPSO(DirectX12Context& context);
@@ -122,6 +123,7 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_shadowAlphaCutoutPSO;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_objectCB;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_shadowPassCB;
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_lightingSrvHeap;
 	std::unique_ptr<CascadedShadowMap> m_cascadedShadowMap;
 	std::unique_ptr<Gbuffer> m_gbuffer;
 	D3D12_RESOURCE_STATES m_cascadedShadowMapState = D3D12_RESOURCE_STATE_DEPTH_WRITE;

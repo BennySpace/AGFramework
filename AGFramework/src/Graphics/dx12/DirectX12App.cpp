@@ -309,6 +309,14 @@ void DirectX12App::Draw(const GameTimer& gt)
 		m_scene.GetDrawItems());
 	m_deferredRenderer.TransitionGbuffer(m_context, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	m_deferredRenderer.SetGbufferState(D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	if (m_deferredRenderer.GetCascadedShadowMapState() != D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
+	{
+		m_deferredRenderer.TransitionCascadedShadowMap(
+			m_context,
+			m_deferredRenderer.GetCascadedShadowMapState(),
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		m_deferredRenderer.SetCascadedShadowMapState(D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	}
 
 	const float clearColor[] = { 0.03f, 0.05f, 0.08f, 1.0f };
 	m_context.GetCommandList()->ClearRenderTargetView(m_context.CurrentBackBufferView(), clearColor, 0, nullptr);

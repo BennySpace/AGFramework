@@ -51,6 +51,7 @@ void DeferredRenderer::Initialize(DirectX12Context& context, bool enable4xMsaa, 
 	BuildConstantBuffer(context);
 	BuildGbuffer(context);
 	BuildCascadedShadowMap(context);
+	BuildLightingSrvHeap(context);
 	BuildRootSignature(context);
 	BuildPSO(context, enable4xMsaa, msaaQuality);
 }
@@ -59,6 +60,7 @@ void DeferredRenderer::Resize(DirectX12Context& context)
 {
 	BuildGbuffer(context);
 	BuildCascadedShadowMap(context);
+	BuildLightingSrvHeap(context);
 }
 
 void DeferredRenderer::UpdateMainPassCB(const FrameData& frameData)
@@ -163,6 +165,61 @@ void DeferredRenderer::BuildCascadedShadowMap(DirectX12Context& context)
 	}
 
 	m_cascadedShadowMapState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+	BuildLightingSrvHeap(context);
+}
+
+void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context& context)
+{
+	if (m_gbuffer == nullptr || m_cascadedShadowMap == nullptr)
+	{
+		return;
+	}
+
+	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
+	srvHeapDesc.NumDescriptors = 4;
+	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	srvHeapDesc.NodeMask = 0;
+	ThrowIfFailed(context.GetDevice()->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(m_lightingSrvHeap.ReleaseAndGetAddressOf())));
+
+	CD3DX12_CPU_DESCRIPTOR_HANDLE handle(m_lightingSrvHeap->GetCPUDescriptorHandleForHeapStart());
+	const DXGI_FORMAT gbufferFormats[] =
+	{
+		m_gbuffer->GetFormat(Gbuffer::Target::Albedo),
+		m_gbuffer->GetFormat(Gbuffer::Target::Normal),
+		m_gbuffer->GetFormat(Gbuffer::Target::Position)
+	};
+	ID3D12Resource* gbufferResources[] =
+	{
+		m_gbuffer->GetResource(Gbuffer::Target::Albedo),
+		m_gbuffer->GetResource(Gbuffer::Target::Normal),
+		m_gbuffer->GetResource(Gbuffer::Target::Position)
+	};
+
+	for (int targetIndex = 0; targetIndex < 3; ++targetIndex)
+	{
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Format = gbufferFormats[targetIndex];
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MostDetailedMip = 0;
+		srvDesc.Texture2D.MipLevels = 1;
+		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+		context.GetDevice()->CreateShaderResourceView(gbufferResources[targetIndex], &srvDesc, handle);
+		handle.Offset(1, context.GetCbvSrvUavDescriptorSize());
+	}
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC shadowSrvDesc = {};
+	shadowSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	shadowSrvDesc.Format = m_cascadedShadowMap->GetDesc().SrvFormat;
+	shadowSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
+	shadowSrvDesc.Texture2DArray.MostDetailedMip = 0;
+	shadowSrvDesc.Texture2DArray.MipLevels = 1;
+	shadowSrvDesc.Texture2DArray.FirstArraySlice = 0;
+	shadowSrvDesc.Texture2DArray.ArraySize = m_cascadedShadowMap->GetDesc().CascadeCount;
+	shadowSrvDesc.Texture2DArray.PlaneSlice = 0;
+	shadowSrvDesc.Texture2DArray.ResourceMinLODClamp = 0.0f;
+	context.GetDevice()->CreateShaderResourceView(m_cascadedShadowMap->GetResource(), &shadowSrvDesc, handle);
 }
 
 void DeferredRenderer::RenderShadowMapPass(
@@ -298,10 +355,12 @@ void DeferredRenderer::DrawLightingPass(DirectX12Context& context, DebugOverlay:
 	context.GetCommandList()->SetPipelineState(m_lightingPSO.Get());
 	context.GetCommandList()->SetGraphicsRootSignature(m_lightingRootSignature.Get());
 
-	ID3D12DescriptorHeap* descriptorHeaps[] = { m_gbuffer->GetSrvHeap() };
+	BuildLightingSrvHeap(context);
+
+	ID3D12DescriptorHeap* descriptorHeaps[] = { m_lightingSrvHeap.Get() };
 	context.GetCommandList()->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
 	context.GetCommandList()->SetGraphicsRootConstantBufferView(0, m_objectCB->GetGPUVirtualAddress());
-	context.GetCommandList()->SetGraphicsRootDescriptorTable(1, m_gbuffer->GetSrvGpuHandle(Gbuffer::Target::Albedo));
+	context.GetCommandList()->SetGraphicsRootDescriptorTable(1, m_lightingSrvHeap->GetGPUDescriptorHandleForHeapStart());
 	LightingDebugSettings debugSettings;
 	debugSettings.ViewMode = static_cast<float>(debugViewMode);
 	debugSettings.PositionVizScale = 0.05f;
@@ -428,6 +487,17 @@ void DeferredRenderer::BuildRootSignature(DirectX12Context& context)
 		D3D12_TEXTURE_ADDRESS_MODE_WRAP,
 		D3D12_TEXTURE_ADDRESS_MODE_WRAP,
 		D3D12_TEXTURE_ADDRESS_MODE_WRAP);
+	CD3DX12_STATIC_SAMPLER_DESC shadowComparisonSampler(
+		1,
+		D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT,
+		D3D12_TEXTURE_ADDRESS_MODE_BORDER,
+		D3D12_TEXTURE_ADDRESS_MODE_BORDER,
+		D3D12_TEXTURE_ADDRESS_MODE_BORDER,
+		0.0f,
+		16,
+		D3D12_COMPARISON_FUNC_LESS_EQUAL,
+		D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE);
+	CD3DX12_STATIC_SAMPLER_DESC lightingStaticSamplers[] = { linearWrapSampler, shadowComparisonSampler };
 
 	CD3DX12_DESCRIPTOR_RANGE geometryTexTable;
 	geometryTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
@@ -459,7 +529,7 @@ void DeferredRenderer::BuildRootSignature(DirectX12Context& context)
 		IID_PPV_ARGS(m_geometryRootSignature.GetAddressOf())));
 
 	CD3DX12_DESCRIPTOR_RANGE lightingTexTable;
-	lightingTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0);
+	lightingTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, 0);
 
 	CD3DX12_ROOT_PARAMETER lightingRootParameters[3];
 	lightingRootParameters[0].InitAsConstantBufferView(0);
@@ -469,8 +539,8 @@ void DeferredRenderer::BuildRootSignature(DirectX12Context& context)
 	CD3DX12_ROOT_SIGNATURE_DESC lightingRootSigDesc(
 		3,
 		lightingRootParameters,
-		1,
-		&linearWrapSampler,
+		_countof(lightingStaticSamplers),
+		lightingStaticSamplers,
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 	serializedRootSig.Reset();
