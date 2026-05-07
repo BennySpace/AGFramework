@@ -107,6 +107,7 @@ void SponzaScene::BuildGeometry(DirectX12Context& context)
 		drawItem.DrawName = "mesh_" + std::to_string(meshIndex);
 		drawItem.DiffuseTexturePath = mesh.DiffuseTexturePath;
 		drawItem.HasAlphaCutout = mesh.HasAlphaCutout;
+		drawItem.CastShadows = true;
 		m_data.DrawItems.push_back(std::move(drawItem));
 	}
 

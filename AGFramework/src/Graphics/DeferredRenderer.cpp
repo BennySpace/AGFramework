@@ -187,6 +187,11 @@ void DeferredRenderer::RenderShadowMapPass(
 
 		for (const ModelDrawItem& drawItem : drawItems)
 		{
+			if (!drawItem.CastShadows)
+			{
+				continue;
+			}
+
 			ShadowPassConstants shadowConstants;
 			XMStoreFloat4x4(&shadowConstants.WorldLightViewProj, XMMatrixTranspose(worldLightViewProj));
 			XMStoreFloat4x4(&shadowConstants.TexTransform, XMMatrixTranspose(texTransform));

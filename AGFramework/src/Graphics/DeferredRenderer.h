@@ -20,6 +20,7 @@ public:
 		std::string DiffuseTexturePath;
 		UINT DiffuseSrvHeapIndex = 0;
 		bool HasAlphaCutout = false;
+		bool CastShadows = true;
 	};
 
 	struct FrameData
