@@ -14,6 +14,40 @@ namespace
 
 		return XMVector3Normalize(directionVector);
 	}
+
+	RenderSettings::CascadedShadowData BuildCascadedShadowData(const RenderSettings::ShadowSettings& shadowSettings)
+	{
+		RenderSettings::CascadedShadowData shadowData;
+
+		const float nearPlane = 1.0f;
+		const float farPlane = (std::max)(nearPlane + 0.001f, shadowSettings.MaxShadowDistance);
+		const std::uint32_t cascadeCount = (std::min)(shadowSettings.CascadeCount, RenderSettings::MaxShadowCascadeCount);
+		const float cascadeCountF = static_cast<float>((std::max)(1u, cascadeCount));
+		const float lambda = (std::max)(0.0f, (std::min)(1.0f, shadowSettings.CascadeSplitLambda));
+
+		for (std::uint32_t cascadeIndex = 0; cascadeIndex < RenderSettings::MaxShadowCascadeCount; ++cascadeIndex)
+		{
+			if (cascadeIndex >= cascadeCount)
+			{
+				shadowData.SplitDistances[cascadeIndex] = farPlane;
+				continue;
+			}
+
+			const float splitFactor = static_cast<float>(cascadeIndex + 1) / cascadeCountF;
+			const float logarithmicSplit = nearPlane * powf(farPlane / nearPlane, splitFactor);
+			const float uniformSplit = nearPlane + (farPlane - nearPlane) * splitFactor;
+			shadowData.SplitDistances[cascadeIndex] = lambda * logarithmicSplit + (1.0f - lambda) * uniformSplit;
+		}
+
+		const float shadowMapSize = static_cast<float>((std::max)(1u, shadowSettings.ShadowMapSize));
+		shadowData.ShadowMapMetrics = XMFLOAT4(
+			shadowMapSize,
+			shadowMapSize,
+			1.0f / shadowMapSize,
+			1.0f / shadowMapSize);
+
+		return shadowData;
+	}
 }
 
 DirectX12App::DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd) : m_hAppInst(mhAppInst), m_hMainWnd(mhMainWnd)
@@ -293,6 +327,7 @@ void DirectX12App::UpdateMainPassCB(const GameTimer& gt)
 	frameData.Projection = m_proj;
 	frameData.LightingSettings = m_renderSettings.GetLightingSettings();
 	frameData.ShadowSettings = m_renderSettings.GetShadowSettings();
+	frameData.CascadedShadowData = BuildCascadedShadowData(frameData.ShadowSettings);
 	frameData.Material = m_materialSystem.GetMaterialState();
 	frameData.LightState = m_lightSystem.GetLightingState();
 
