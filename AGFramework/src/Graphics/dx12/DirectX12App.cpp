@@ -169,12 +169,34 @@ namespace
 			}
 
 			const float depthPadding = (std::max)(10.0f, cascadeRadius);
-			const float left = minBounds.x;
-			const float right = maxBounds.x;
-			const float bottom = minBounds.y;
-			const float top = maxBounds.y;
+			float left = minBounds.x;
+			float right = maxBounds.x;
+			float bottom = minBounds.y;
+			float top = maxBounds.y;
 			const float nearZ = (std::max)(0.1f, minBounds.z - depthPadding);
 			const float farZ = maxBounds.z + depthPadding;
+
+			const float shadowMapResolution = static_cast<float>((std::max)(1u, shadowSettings.ShadowMapSize));
+			const float projectionWidth = right - left;
+			const float projectionHeight = top - bottom;
+			const float texelSizeX = projectionWidth / shadowMapResolution;
+			const float texelSizeY = projectionHeight / shadowMapResolution;
+
+			if (texelSizeX > 0.0f && texelSizeY > 0.0f)
+			{
+				const float centerX = 0.5f * (left + right);
+				const float centerY = 0.5f * (bottom + top);
+				const float snappedCenterX = floorf(centerX / texelSizeX + 0.5f) * texelSizeX;
+				const float snappedCenterY = floorf(centerY / texelSizeY + 0.5f) * texelSizeY;
+				const float offsetX = snappedCenterX - centerX;
+				const float offsetY = snappedCenterY - centerY;
+
+				left += offsetX;
+				right += offsetX;
+				bottom += offsetY;
+				top += offsetY;
+			}
+
 			const XMMATRIX lightProj = XMMatrixOrthographicOffCenterLH(left, right, bottom, top, nearZ, farZ);
 			const XMMATRIX lightViewProj = lightView * lightProj;
 			XMStoreFloat4x4(&shadowData.LightViewProjMatrices[cascadeIndex], lightViewProj);
