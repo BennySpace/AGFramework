@@ -70,6 +70,10 @@
     <Natvis Include="src\Utils\Delegates.natvis" />
   </ItemGroup>
   <ItemGroup>
+    <ResourceCompile Include="AGFramework.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Assets\icons\favicon.ico" />
     <None Include="packages.config" />
     <None Include="shaders\Phong.hlsl" />
     <None Include="shaders\ShadowMap.hlsl" />

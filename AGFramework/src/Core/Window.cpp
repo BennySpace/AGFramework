@@ -1,4 +1,5 @@
 #include "Window.h"
+#include "../../resource.h"
 #include "../../external/imgui/backends/imgui_impl_win32.h"
 #include <windowsx.h>
 
@@ -66,6 +67,21 @@ void Window::ProcessMessages() {
 }
 
 bool Window::RegisterWindowClass() {
+    HICON largeIcon = static_cast<HICON>(LoadImageW(
+        m_instance,
+        MAKEINTRESOURCEW(IDI_APP_ICON),
+        IMAGE_ICON,
+        GetSystemMetrics(SM_CXICON),
+        GetSystemMetrics(SM_CYICON),
+        LR_DEFAULTCOLOR));
+    HICON smallIcon = static_cast<HICON>(LoadImageW(
+        m_instance,
+        MAKEINTRESOURCEW(IDI_APP_ICON),
+        IMAGE_ICON,
+        GetSystemMetrics(SM_CXSMICON),
+        GetSystemMetrics(SM_CYSMICON),
+        LR_DEFAULTCOLOR));
+
     WNDCLASSEX wc = {};
     wc.cbSize = sizeof(WNDCLASSEX);
     wc.style = CS_HREDRAW | CS_VREDRAW;
@@ -73,12 +89,12 @@ bool Window::RegisterWindowClass() {
     wc.cbClsExtra = 0;
     wc.cbWndExtra = 0;
     wc.hInstance = m_instance;
-    wc.hIcon = LoadIcon(nullptr, IDI_WINLOGO);
+    wc.hIcon = largeIcon != nullptr ? largeIcon : LoadIcon(nullptr, IDI_APPLICATION);
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
     wc.lpszMenuName = nullptr;
     wc.lpszClassName = kWindowClassName;
-    wc.hIconSm = wc.hIcon;
+    wc.hIconSm = smallIcon != nullptr ? smallIcon : wc.hIcon;
 
     const ATOM classAtom = RegisterClassEx(&wc);
     if (classAtom != 0)
