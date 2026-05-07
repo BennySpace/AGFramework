@@ -1,6 +1,7 @@
 static const uint DIRECTIONAL_LIGHT_COUNT = 1;
 static const uint POINT_LIGHT_COUNT = 6;
 static const uint SPOT_LIGHT_COUNT = 2;
+static const uint SHADOW_CASCADE_COUNT = 4;
 
 struct DirectionalLightData
 {
@@ -28,6 +29,7 @@ cbuffer ObjectConstants : register(b0)
     float4x4 gWorld;
     float4x4 gWorldInvTranspose;
     float4x4 gWorldViewProj;
+    float4x4 gView;
     float4x4 gTexTransform;
     float3 gEyePosW;
     float gPad0;
@@ -37,6 +39,11 @@ cbuffer ObjectConstants : register(b0)
     DirectionalLightData gDirectionalLights[DIRECTIONAL_LIGHT_COUNT];
     PointLightData gPointLights[POINT_LIGHT_COUNT];
     SpotLightData gSpotLights[SPOT_LIGHT_COUNT];
+    float4x4 gShadowLightViewProj[SHADOW_CASCADE_COUNT];
+    float4 gShadowCascadeSplits;
+    float4 gShadowMapMetrics;
+    float4 gShadowSettings0;
+    float4 gShadowSettings1;
 }
 
 cbuffer AuxiliarySettings : register(b1)

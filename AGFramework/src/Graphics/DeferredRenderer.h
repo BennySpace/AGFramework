@@ -78,6 +78,7 @@ private:
 		DirectX::XMFLOAT4X4 World = MathHelper::Identity4x4();
 		DirectX::XMFLOAT4X4 WorldInvTranspose = MathHelper::Identity4x4();
 		DirectX::XMFLOAT4X4 WorldViewProj = MathHelper::Identity4x4();
+		DirectX::XMFLOAT4X4 View = MathHelper::Identity4x4();
 		DirectX::XMFLOAT4X4 TexTransform = MathHelper::Identity4x4();
 		DirectX::XMFLOAT3 EyePosW = { 0.0f, 0.0f, 0.0f };
 		float Pad0 = 0.0f;
@@ -86,6 +87,11 @@ private:
 		LightSystem::DirectionalLightData DirectionalLights[LightSystem::DirectionalLightCount];
 		LightSystem::PointLightData PointLights[LightSystem::PointLightCount];
 		LightSystem::SpotLightData SpotLights[LightSystem::SpotLightCount];
+		DirectX::XMFLOAT4X4 ShadowLightViewProj[RenderSettings::MaxShadowCascadeCount];
+		DirectX::XMFLOAT4 ShadowCascadeSplits = { 0.0f, 0.0f, 0.0f, 0.0f };
+		DirectX::XMFLOAT4 ShadowMapMetrics = { 0.0f, 0.0f, 0.0f, 0.0f };
+		DirectX::XMFLOAT4 ShadowSettings0 = { 0.0f, 0.0f, 0.0f, 0.0f };
+		DirectX::XMFLOAT4 ShadowSettings1 = { 0.0f, 0.0f, 0.0f, 0.0f };
 	};
 
 	struct DrawSettings

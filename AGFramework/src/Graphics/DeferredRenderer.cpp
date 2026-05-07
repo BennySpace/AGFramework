@@ -87,6 +87,7 @@ void DeferredRenderer::UpdateMainPassCB(const FrameData& frameData)
 	XMStoreFloat4x4(&objectConstants.World, XMMatrixTranspose(world));
 	XMStoreFloat4x4(&objectConstants.WorldInvTranspose, XMMatrixTranspose(worldInvTranspose));
 	XMStoreFloat4x4(&objectConstants.WorldViewProj, XMMatrixTranspose(worldViewProj));
+	XMStoreFloat4x4(&objectConstants.View, XMMatrixTranspose(view));
 	XMStoreFloat4x4(&objectConstants.TexTransform, XMMatrixTranspose(texTransform));
 	objectConstants.EyePosW = frameData.EyePos;
 	objectConstants.LightingSettings = frameData.LightingSettings;
@@ -104,6 +105,28 @@ void DeferredRenderer::UpdateMainPassCB(const FrameData& frameData)
 	{
 		objectConstants.SpotLights[lightIndex] = frameData.LightState.SpotLights[lightIndex];
 	}
+
+	for (std::uint32_t cascadeIndex = 0; cascadeIndex < RenderSettings::MaxShadowCascadeCount; ++cascadeIndex)
+	{
+		objectConstants.ShadowLightViewProj[cascadeIndex] = frameData.CascadedShadowData.LightViewProjMatrices[cascadeIndex];
+	}
+
+	objectConstants.ShadowCascadeSplits = XMFLOAT4(
+		frameData.CascadedShadowData.SplitDistances[0],
+		frameData.CascadedShadowData.SplitDistances[1],
+		frameData.CascadedShadowData.SplitDistances[2],
+		frameData.CascadedShadowData.SplitDistances[3]);
+	objectConstants.ShadowMapMetrics = frameData.CascadedShadowData.ShadowMapMetrics;
+	objectConstants.ShadowSettings0 = XMFLOAT4(
+		static_cast<float>(frameData.ShadowSettings.CascadeCount),
+		frameData.ShadowSettings.PcfRadius,
+		frameData.ShadowSettings.ShadowStrength,
+		frameData.ShadowSettings.EnableDirectionalShadows ? 1.0f : 0.0f);
+	objectConstants.ShadowSettings1 = XMFLOAT4(
+		frameData.ShadowSettings.DepthBias,
+		frameData.ShadowSettings.SlopeScaledDepthBias,
+		frameData.ShadowSettings.DepthBiasClamp,
+		frameData.ShadowSettings.CascadeSplitLambda);
 
 	memcpy(m_mappedObjectCB, &objectConstants, sizeof(objectConstants));
 }
