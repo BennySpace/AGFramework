@@ -277,6 +277,7 @@ void DirectX12App::UpdateMainPassCB(const GameTimer& gt)
 	frameData.SceneScale = m_scene.GetSceneScale();
 	frameData.Projection = m_proj;
 	frameData.LightingSettings = m_renderSettings.GetLightingSettings();
+	frameData.ShadowSettings = m_renderSettings.GetShadowSettings();
 	frameData.Material = m_materialSystem.GetMaterialState();
 	frameData.LightState = m_lightSystem.GetLightingState();
 

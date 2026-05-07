@@ -29,6 +29,8 @@ public:
 		float SceneScale = 1.0f;
 		DirectX::XMFLOAT4X4 Projection = MathHelper::Identity4x4();
 		RenderSettings::LightingSettings LightingSettings;
+		RenderSettings::ShadowSettings ShadowSettings;
+		RenderSettings::CascadedShadowData CascadedShadowData;
 		MaterialSystem::MaterialState Material;
 		LightSystem::LightingState LightState;
 	};
@@ -95,6 +97,8 @@ private:
 	D3D12_RESOURCE_STATES m_gbufferState = D3D12_RESOURCE_STATE_RENDER_TARGET;
 	std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID3DBlob>> m_shaders;
 	std::vector<D3D12_INPUT_ELEMENT_DESC> m_inputLayout;
+	RenderSettings::ShadowSettings m_shadowSettings;
+	RenderSettings::CascadedShadowData m_cascadedShadowData;
 	UINT8* m_mappedObjectCB = nullptr;
 	UINT m_objectCBByteSize = 0;
 };

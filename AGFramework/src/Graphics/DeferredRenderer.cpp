@@ -55,6 +55,9 @@ void DeferredRenderer::Resize(DirectX12Context& context)
 
 void DeferredRenderer::UpdateMainPassCB(const FrameData& frameData)
 {
+	m_shadowSettings = frameData.ShadowSettings;
+	m_cascadedShadowData = frameData.CascadedShadowData;
+
 	XMMATRIX world =
 		XMMatrixTranslation(-frameData.SceneCenter.x, -frameData.SceneCenter.y, -frameData.SceneCenter.z) *
 		XMMatrixScaling(frameData.SceneScale, frameData.SceneScale, frameData.SceneScale);

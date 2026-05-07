@@ -375,6 +375,26 @@ void DebugOverlay::Draw(
 		{
 			renderSettings.SetShadowSettings(shadowSettings);
 		}
+		if (ImGui::SliderFloat("Depth bias", &shadowSettings.DepthBias, 0.0f, 10000.0f, "%.0f"))
+		{
+			renderSettings.SetShadowSettings(shadowSettings);
+		}
+		if (ImGui::SliderFloat("Slope bias", &shadowSettings.SlopeScaledDepthBias, 0.0f, 8.0f, "%.2f"))
+		{
+			renderSettings.SetShadowSettings(shadowSettings);
+		}
+		if (ImGui::SliderFloat("Bias clamp", &shadowSettings.DepthBiasClamp, 0.0f, 10.0f, "%.3f"))
+		{
+			renderSettings.SetShadowSettings(shadowSettings);
+		}
+		if (ImGui::SliderFloat("PCF radius", &shadowSettings.PcfRadius, 0.0f, 4.0f, "%.2f"))
+		{
+			renderSettings.SetShadowSettings(shadowSettings);
+		}
+		if (ImGui::SliderFloat("Shadow strength", &shadowSettings.ShadowStrength, 0.0f, 1.0f, "%.2f"))
+		{
+			renderSettings.SetShadowSettings(shadowSettings);
+		}
 
 		ImGui::SeparatorText("Lights");
 		ImGui::Checkbox("Show light markers", &m_showLightMarkers);
