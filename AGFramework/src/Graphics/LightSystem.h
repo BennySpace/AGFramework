@@ -10,6 +10,7 @@ public:
     static constexpr std::size_t DirectionalLightCount = 1;
     static constexpr std::size_t PointLightCount = 6;
     static constexpr std::size_t SpotLightCount = 2;
+    static constexpr std::size_t ShadowCastingDirectionalLightIndex = 0;
 
     struct DirectionalLightData
     {
@@ -48,6 +49,10 @@ public:
 
     void Update(const DirectX::XMFLOAT3& eyePosition, const DirectX::XMFLOAT3& lookDirection);
     const LightingState& GetLightingState() const { return m_lightingState; }
+    const DirectionalLightData& GetShadowCastingDirectionalLight() const
+    {
+        return m_lightingState.DirectionalLights[ShadowCastingDirectionalLightIndex];
+    }
     const LightEnableState& GetLightEnableState() const { return m_lightEnableState; }
     void SetLightEnableState(const LightEnableState& lightEnableState) { m_lightEnableState = lightEnableState; }
 

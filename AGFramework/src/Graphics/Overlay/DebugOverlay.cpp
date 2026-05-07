@@ -336,6 +336,7 @@ void DebugOverlay::Draw(
 	if (ImGui::CollapsingHeader("Lighting"))
 	{
 		RenderSettings::LightingSettings lightingSettings = renderSettings.GetLightingSettings();
+		RenderSettings::ShadowSettings shadowSettings = renderSettings.GetShadowSettings();
 		LightSystem::LightEnableState lightEnableState = lightSystem.GetLightEnableState();
 		if (ImGui::ColorEdit3("Ambient", &lightingSettings.AmbientLight.x))
 		{
@@ -345,6 +346,37 @@ void DebugOverlay::Draw(
 		{
 			renderSettings.SetLightingSettings(lightingSettings);
 		}
+
+		ImGui::SeparatorText("Shadows");
+		ImGui::TextUnformatted("Current scope: directional light only");
+		if (ImGui::Checkbox("Enable directional shadows", &shadowSettings.EnableDirectionalShadows))
+		{
+			renderSettings.SetShadowSettings(shadowSettings);
+		}
+		int cascadeCount = static_cast<int>(shadowSettings.CascadeCount);
+		if (ImGui::SliderInt("Cascade count", &cascadeCount, 1, 4))
+		{
+			shadowSettings.CascadeCount = static_cast<std::uint32_t>(cascadeCount);
+			renderSettings.SetShadowSettings(shadowSettings);
+		}
+		int shadowMapSize = static_cast<int>(shadowSettings.ShadowMapSize);
+		if (ImGui::SliderInt("Shadow map size", &shadowMapSize, 512, 4096))
+		{
+			shadowMapSize = (std::max)(512, shadowMapSize);
+			shadowMapSize = ((shadowMapSize + 255) / 256) * 256;
+			shadowSettings.ShadowMapSize = static_cast<std::uint32_t>(shadowMapSize);
+			renderSettings.SetShadowSettings(shadowSettings);
+		}
+		if (ImGui::SliderFloat("Cascade split lambda", &shadowSettings.CascadeSplitLambda, 0.0f, 1.0f, "%.2f"))
+		{
+			renderSettings.SetShadowSettings(shadowSettings);
+		}
+		if (ImGui::SliderFloat("Max shadow distance", &shadowSettings.MaxShadowDistance, 25.0f, 500.0f, "%.1f"))
+		{
+			renderSettings.SetShadowSettings(shadowSettings);
+		}
+
+		ImGui::SeparatorText("Lights");
 		ImGui::Checkbox("Show light markers", &m_showLightMarkers);
 		ImGui::SliderFloat("Marker scale", &m_lightMarkerScale, 0.5f, 2.5f, "%.2f");
 
