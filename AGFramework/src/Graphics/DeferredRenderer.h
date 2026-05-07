@@ -42,6 +42,7 @@ public:
 	void Initialize(DirectX12Context& context, bool enable4xMsaa, UINT msaaQuality);
 	void Resize(DirectX12Context& context);
 	void UpdateMainPassCB(const FrameData& frameData);
+	void RenderShadowMapPass(DirectX12Context& context);
 	void DrawGeometryPass(
 		DirectX12Context& context,
 		ID3D12DescriptorHeap* srvDescriptorHeap,
@@ -49,10 +50,13 @@ public:
 		const MeshGeometry& sceneGeometry,
 		const std::vector<ModelDrawItem>& drawItems);
 	void DrawLightingPass(DirectX12Context& context, DebugOverlay::DebugViewMode debugViewMode);
+	void TransitionCascadedShadowMap(DirectX12Context& context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
 	void TransitionGbuffer(DirectX12Context& context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
 
 	D3D12_RESOURCE_STATES GetGbufferState() const { return m_gbufferState; }
 	void SetGbufferState(D3D12_RESOURCE_STATES state) { m_gbufferState = state; }
+	D3D12_RESOURCE_STATES GetCascadedShadowMapState() const { return m_cascadedShadowMapState; }
+	void SetCascadedShadowMapState(D3D12_RESOURCE_STATES state) { m_cascadedShadowMapState = state; }
 
 private:
 	void BuildShadersAndInputLayout();
@@ -97,6 +101,7 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_objectCB;
 	std::unique_ptr<CascadedShadowMap> m_cascadedShadowMap;
 	std::unique_ptr<Gbuffer> m_gbuffer;
+	D3D12_RESOURCE_STATES m_cascadedShadowMapState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
 	D3D12_RESOURCE_STATES m_gbufferState = D3D12_RESOURCE_STATE_RENDER_TARGET;
 	std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID3DBlob>> m_shaders;
 	std::vector<D3D12_INPUT_ELEMENT_DESC> m_inputLayout;

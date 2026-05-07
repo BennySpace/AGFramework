@@ -91,6 +91,16 @@ void DirectX12App::Draw(const GameTimer& gt)
 	m_context.GetCommandList()->RSSetViewports(1, &m_context.GetViewport());
 	m_context.GetCommandList()->RSSetScissorRects(1, &m_context.GetScissorRect());
 
+	if (m_deferredRenderer.GetCascadedShadowMapState() != D3D12_RESOURCE_STATE_DEPTH_WRITE)
+	{
+		m_deferredRenderer.TransitionCascadedShadowMap(
+			m_context,
+			m_deferredRenderer.GetCascadedShadowMapState(),
+			D3D12_RESOURCE_STATE_DEPTH_WRITE);
+		m_deferredRenderer.SetCascadedShadowMapState(D3D12_RESOURCE_STATE_DEPTH_WRITE);
+	}
+	m_deferredRenderer.RenderShadowMapPass(m_context);
+
 	if (m_deferredRenderer.GetGbufferState() != D3D12_RESOURCE_STATE_RENDER_TARGET)
 	{
 		m_deferredRenderer.TransitionGbuffer(m_context, m_deferredRenderer.GetGbufferState(), D3D12_RESOURCE_STATE_RENDER_TARGET);

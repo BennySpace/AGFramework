@@ -130,6 +130,32 @@ void DeferredRenderer::BuildCascadedShadowMap(DirectX12Context& context)
 	{
 		throw std::runtime_error("Failed to initialize cascaded shadow map array.");
 	}
+
+	m_cascadedShadowMapState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+}
+
+void DeferredRenderer::RenderShadowMapPass(DirectX12Context& context)
+{
+	BuildCascadedShadowMap(context);
+
+	if (!m_shadowSettings.EnableDirectionalShadows || m_cascadedShadowMap == nullptr)
+	{
+		return;
+	}
+
+	ID3D12GraphicsCommandList* commandList = context.GetCommandList();
+	commandList->RSSetViewports(1, &m_cascadedShadowMap->GetViewport());
+	commandList->RSSetScissorRects(1, &m_cascadedShadowMap->GetScissorRect());
+
+	for (std::uint32_t cascadeIndex = 0; cascadeIndex < m_shadowSettings.CascadeCount; ++cascadeIndex)
+	{
+		const D3D12_CPU_DESCRIPTOR_HANDLE cascadeDsv = m_cascadedShadowMap->GetDsv(cascadeIndex);
+		commandList->OMSetRenderTargets(0, nullptr, FALSE, &cascadeDsv);
+		m_cascadedShadowMap->ClearCascade(commandList, cascadeIndex);
+	}
+
+	commandList->RSSetViewports(1, &context.GetViewport());
+	commandList->RSSetScissorRects(1, &context.GetScissorRect());
 }
 
 void DeferredRenderer::DrawGeometryPass(
@@ -194,6 +220,20 @@ void DeferredRenderer::DrawLightingPass(DirectX12Context& context, DebugOverlay:
 	context.GetCommandList()->SetGraphicsRoot32BitConstants(2, 4, &debugSettings, 0);
 	context.GetCommandList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	context.GetCommandList()->DrawInstanced(3, 1, 0, 0);
+}
+
+void DeferredRenderer::TransitionCascadedShadowMap(DirectX12Context& context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState)
+{
+	if (m_cascadedShadowMap == nullptr || beforeState == afterState)
+	{
+		return;
+	}
+
+	D3D12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_cascadedShadowMap->GetResource(),
+		beforeState,
+		afterState);
+	context.GetCommandList()->ResourceBarrier(1, &barrier);
 }
 
 void DeferredRenderer::TransitionGbuffer(DirectX12Context& context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState)
