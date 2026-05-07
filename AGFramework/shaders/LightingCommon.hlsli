@@ -56,6 +56,34 @@ Texture2D gTexture1 : register(t1);
 Texture2D gTexture2 : register(t2);
 SamplerState gsamLinearWrap : register(s0);
 
+uint GetShadowCascadeCount()
+{
+    return clamp((uint)round(gShadowSettings0.x), 1u, SHADOW_CASCADE_COUNT);
+}
+
+uint SelectShadowCascade(float viewDepth)
+{
+    const uint cascadeCount = GetShadowCascadeCount();
+    uint cascadeIndex = cascadeCount - 1;
+
+    [unroll]
+    for (uint index = 0; index < SHADOW_CASCADE_COUNT; ++index)
+    {
+        if (index >= cascadeCount)
+        {
+            break;
+        }
+
+        if (viewDepth <= gShadowCascadeSplits[index])
+        {
+            cascadeIndex = index;
+            break;
+        }
+    }
+
+    return cascadeIndex;
+}
+
 float3 ComputeSpecular(float3 normalW, float3 lightVector, float3 toEye, float shininess)
 {
     float3 halfVector = normalize(lightVector + toEye);

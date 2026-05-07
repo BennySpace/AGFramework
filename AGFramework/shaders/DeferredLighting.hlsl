@@ -50,6 +50,10 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
         return float4(lerp(backgroundColor, positionViz, opacity), 1.0f);
     }
 
+    const float3 posV = mul(float4(posW, 1.0f), gView).xyz;
+    const float viewDepth = abs(posV.z);
+    const uint shadowCascadeIndex = SelectShadowCascade(viewDepth);
+
     float3 toEye = normalize(gEyePosW - posW);
     float3 ambient = gAmbientLight.rgb * albedoSample.rgb;
     float3 directionalLighting = 0.0f;
