@@ -15,12 +15,17 @@ namespace
 		return XMVector3Normalize(directionVector);
 	}
 
-	RenderSettings::CascadedShadowData BuildCascadedShadowData(const RenderSettings::ShadowSettings& shadowSettings)
+	RenderSettings::CascadedShadowData BuildCascadedShadowData(
+		const RenderSettings::ShadowSettings& shadowSettings,
+		const XMFLOAT3& eyePosition,
+		const XMFLOAT3& lookDirection,
+		const XMFLOAT4X4& projection)
 	{
 		RenderSettings::CascadedShadowData shadowData;
 
-		const float nearPlane = 1.0f;
-		const float farPlane = (std::max)(nearPlane + 0.001f, shadowSettings.MaxShadowDistance);
+		const float cameraNearPlane = 1.0f;
+		const float cameraFarPlane = 1000.0f;
+		const float farPlane = (std::max)(cameraNearPlane + 0.001f, shadowSettings.MaxShadowDistance);
 		const std::uint32_t cascadeCount = (std::min)(shadowSettings.CascadeCount, RenderSettings::MaxShadowCascadeCount);
 		const float cascadeCountF = static_cast<float>((std::max)(1u, cascadeCount));
 		const float lambda = (std::max)(0.0f, (std::min)(1.0f, shadowSettings.CascadeSplitLambda));
@@ -34,8 +39,8 @@ namespace
 			}
 
 			const float splitFactor = static_cast<float>(cascadeIndex + 1) / cascadeCountF;
-			const float logarithmicSplit = nearPlane * powf(farPlane / nearPlane, splitFactor);
-			const float uniformSplit = nearPlane + (farPlane - nearPlane) * splitFactor;
+			const float logarithmicSplit = cameraNearPlane * powf(farPlane / cameraNearPlane, splitFactor);
+			const float uniformSplit = cameraNearPlane + (farPlane - cameraNearPlane) * splitFactor;
 			shadowData.SplitDistances[cascadeIndex] = lambda * logarithmicSplit + (1.0f - lambda) * uniformSplit;
 		}
 
@@ -45,6 +50,68 @@ namespace
 			shadowMapSize,
 			1.0f / shadowMapSize,
 			1.0f / shadowMapSize);
+
+		const XMVECTOR eye = XMLoadFloat3(&eyePosition);
+		XMVECTOR safeLookDirection = XMLoadFloat3(&lookDirection);
+		if (XMVector3NearEqual(safeLookDirection, XMVectorZero(), XMVectorReplicate(0.0001f)))
+		{
+			safeLookDirection = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
+		}
+		else
+		{
+			safeLookDirection = XMVector3Normalize(safeLookDirection);
+		}
+
+		const XMVECTOR target = eye + safeLookDirection;
+		const XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+		const XMMATRIX view = XMMatrixLookAtLH(eye, target, up);
+		const XMMATRIX proj = XMLoadFloat4x4(&projection);
+		const XMMATRIX invViewProj = XMMatrixInverse(nullptr, view * proj);
+
+		const XMVECTOR fullFrustumCornersNdc[8] =
+		{
+			XMVectorSet(-1.0f, -1.0f, 0.0f, 1.0f),
+			XMVectorSet(-1.0f,  1.0f, 0.0f, 1.0f),
+			XMVectorSet( 1.0f,  1.0f, 0.0f, 1.0f),
+			XMVectorSet( 1.0f, -1.0f, 0.0f, 1.0f),
+			XMVectorSet(-1.0f, -1.0f, 1.0f, 1.0f),
+			XMVectorSet(-1.0f,  1.0f, 1.0f, 1.0f),
+			XMVectorSet( 1.0f,  1.0f, 1.0f, 1.0f),
+			XMVectorSet( 1.0f, -1.0f, 1.0f, 1.0f)
+		};
+
+		XMVECTOR fullFrustumCornersWorld[8];
+		for (int cornerIndex = 0; cornerIndex < 8; ++cornerIndex)
+		{
+			XMVECTOR cornerWorld = XMVector4Transform(fullFrustumCornersNdc[cornerIndex], invViewProj);
+			cornerWorld = XMVectorScale(cornerWorld, 1.0f / XMVectorGetW(cornerWorld));
+			fullFrustumCornersWorld[cornerIndex] = cornerWorld;
+		}
+
+		float cascadeNearDistance = cameraNearPlane;
+		for (std::uint32_t cascadeIndex = 0; cascadeIndex < cascadeCount; ++cascadeIndex)
+		{
+			const float cascadeFarDistance = shadowData.SplitDistances[cascadeIndex];
+			const float nearT = (cascadeNearDistance - cameraNearPlane) / (cameraFarPlane - cameraNearPlane);
+			const float farT = (cascadeFarDistance - cameraNearPlane) / (cameraFarPlane - cameraNearPlane);
+
+			for (int cornerIndex = 0; cornerIndex < 4; ++cornerIndex)
+			{
+				const XMVECTOR nearCorner = fullFrustumCornersWorld[cornerIndex];
+				const XMVECTOR farCorner = fullFrustumCornersWorld[cornerIndex + 4];
+				const XMVECTOR cornerRay = farCorner - nearCorner;
+
+				XMFLOAT3 cascadeNearCorner;
+				XMFLOAT3 cascadeFarCorner;
+				XMStoreFloat3(&cascadeNearCorner, nearCorner + cornerRay * nearT);
+				XMStoreFloat3(&cascadeFarCorner, nearCorner + cornerRay * farT);
+
+				shadowData.FrustumCornersWorldSpace[cascadeIndex][cornerIndex] = cascadeNearCorner;
+				shadowData.FrustumCornersWorldSpace[cascadeIndex][cornerIndex + 4] = cascadeFarCorner;
+			}
+
+			cascadeNearDistance = cascadeFarDistance;
+		}
 
 		return shadowData;
 	}
@@ -327,7 +394,11 @@ void DirectX12App::UpdateMainPassCB(const GameTimer& gt)
 	frameData.Projection = m_proj;
 	frameData.LightingSettings = m_renderSettings.GetLightingSettings();
 	frameData.ShadowSettings = m_renderSettings.GetShadowSettings();
-	frameData.CascadedShadowData = BuildCascadedShadowData(frameData.ShadowSettings);
+	frameData.CascadedShadowData = BuildCascadedShadowData(
+		frameData.ShadowSettings,
+		frameData.EyePos,
+		frameData.LookDirection,
+		frameData.Projection);
 	frameData.Material = m_materialSystem.GetMaterialState();
 	frameData.LightState = m_lightSystem.GetLightingState();
 

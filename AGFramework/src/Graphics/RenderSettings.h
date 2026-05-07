@@ -33,6 +33,7 @@ public:
     {
         std::array<float, MaxShadowCascadeCount> SplitDistances = { 12.0f, 36.0f, 90.0f, 180.0f };
         std::array<DirectX::XMFLOAT4X4, MaxShadowCascadeCount> LightViewProjMatrices;
+        std::array<std::array<DirectX::XMFLOAT3, 8>, MaxShadowCascadeCount> FrustumCornersWorldSpace = {};
         std::array<DirectX::XMFLOAT4, MaxShadowCascadeCount> CascadeScaleOffsets = {};
         DirectX::XMFLOAT4 ShadowMapMetrics = { 2048.0f, 2048.0f, 1.0f / 2048.0f, 1.0f / 2048.0f };
 
