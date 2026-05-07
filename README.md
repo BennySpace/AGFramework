@@ -1,4 +1,4 @@
-# Another Graphics Framework
+![AGFramework Banner](assets/readme/banner.jpg)
 
 **A DirectX 12 rendering framework** for experimenting with modern real-time rendering techniques and graphics architecture on Windows.
 
