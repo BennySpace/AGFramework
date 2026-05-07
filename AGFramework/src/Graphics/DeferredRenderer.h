@@ -42,7 +42,12 @@ public:
 	void Initialize(DirectX12Context& context, bool enable4xMsaa, UINT msaaQuality);
 	void Resize(DirectX12Context& context);
 	void UpdateMainPassCB(const FrameData& frameData);
-	void RenderShadowMapPass(DirectX12Context& context);
+	void RenderShadowMapPass(
+		DirectX12Context& context,
+		ID3D12DescriptorHeap* srvDescriptorHeap,
+		UINT cbvSrvUavDescriptorSize,
+		const MeshGeometry& sceneGeometry,
+		const std::vector<ModelDrawItem>& drawItems);
 	void DrawGeometryPass(
 		DirectX12Context& context,
 		ID3D12DescriptorHeap* srvDescriptorHeap,
@@ -65,6 +70,7 @@ private:
 	void BuildCascadedShadowMap(DirectX12Context& context);
 	void BuildRootSignature(DirectX12Context& context);
 	void BuildPSO(DirectX12Context& context, bool enable4xMsaa, UINT msaaQuality);
+	void BuildShadowPSO(DirectX12Context& context);
 
 	struct ObjectConstants
 	{
@@ -87,6 +93,12 @@ private:
 		float Padding[3] = { 0.0f, 0.0f, 0.0f };
 	};
 
+	struct ShadowPassConstants
+	{
+		DirectX::XMFLOAT4X4 WorldLightViewProj = MathHelper::Identity4x4();
+		DirectX::XMFLOAT4X4 TexTransform = MathHelper::Identity4x4();
+	};
+
 	struct LightingDebugSettings
 	{
 		float ViewMode = static_cast<float>(DebugOverlay::DebugViewMode::Final);
@@ -96,9 +108,13 @@ private:
 
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_geometryRootSignature;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_lightingRootSignature;
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_shadowRootSignature;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_geometryPSO;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_lightingPSO;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_shadowOpaquePSO;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_shadowAlphaCutoutPSO;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_objectCB;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_shadowPassCB;
 	std::unique_ptr<CascadedShadowMap> m_cascadedShadowMap;
 	std::unique_ptr<Gbuffer> m_gbuffer;
 	D3D12_RESOURCE_STATES m_cascadedShadowMapState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
@@ -106,7 +122,12 @@ private:
 	std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID3DBlob>> m_shaders;
 	std::vector<D3D12_INPUT_ELEMENT_DESC> m_inputLayout;
 	RenderSettings::ShadowSettings m_shadowSettings;
+	RenderSettings::ShadowSettings m_shadowPsoSettings;
 	RenderSettings::CascadedShadowData m_cascadedShadowData;
+	DirectX::XMFLOAT3 m_sceneCenter = { 0.0f, 0.0f, 0.0f };
+	float m_sceneScale = 1.0f;
+	UINT8* m_mappedShadowPassCB = nullptr;
 	UINT8* m_mappedObjectCB = nullptr;
 	UINT m_objectCBByteSize = 0;
+	UINT m_shadowPassCBByteSize = 0;
 };

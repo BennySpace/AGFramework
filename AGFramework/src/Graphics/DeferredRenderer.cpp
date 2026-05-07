@@ -37,6 +37,12 @@ DeferredRenderer::~DeferredRenderer()
 		m_objectCB->Unmap(0, nullptr);
 		m_mappedObjectCB = nullptr;
 	}
+
+	if (m_shadowPassCB != nullptr && m_mappedShadowPassCB != nullptr)
+	{
+		m_shadowPassCB->Unmap(0, nullptr);
+		m_mappedShadowPassCB = nullptr;
+	}
 }
 
 void DeferredRenderer::Initialize(DirectX12Context& context, bool enable4xMsaa, UINT msaaQuality)
@@ -59,6 +65,8 @@ void DeferredRenderer::UpdateMainPassCB(const FrameData& frameData)
 {
 	m_shadowSettings = frameData.ShadowSettings;
 	m_cascadedShadowData = frameData.CascadedShadowData;
+	m_sceneCenter = frameData.SceneCenter;
+	m_sceneScale = frameData.SceneScale;
 
 	XMMATRIX world =
 		XMMatrixTranslation(-frameData.SceneCenter.x, -frameData.SceneCenter.y, -frameData.SceneCenter.z) *
@@ -134,9 +142,15 @@ void DeferredRenderer::BuildCascadedShadowMap(DirectX12Context& context)
 	m_cascadedShadowMapState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
 }
 
-void DeferredRenderer::RenderShadowMapPass(DirectX12Context& context)
+void DeferredRenderer::RenderShadowMapPass(
+	DirectX12Context& context,
+	ID3D12DescriptorHeap* srvDescriptorHeap,
+	UINT cbvSrvUavDescriptorSize,
+	const MeshGeometry& sceneGeometry,
+	const std::vector<ModelDrawItem>& drawItems)
 {
 	BuildCascadedShadowMap(context);
+	BuildShadowPSO(context);
 
 	if (!m_shadowSettings.EnableDirectionalShadows || m_cascadedShadowMap == nullptr)
 	{
@@ -144,14 +158,60 @@ void DeferredRenderer::RenderShadowMapPass(DirectX12Context& context)
 	}
 
 	ID3D12GraphicsCommandList* commandList = context.GetCommandList();
+	commandList->SetGraphicsRootSignature(m_shadowRootSignature.Get());
 	commandList->RSSetViewports(1, &m_cascadedShadowMap->GetViewport());
 	commandList->RSSetScissorRects(1, &m_cascadedShadowMap->GetScissorRect());
+	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	ID3D12DescriptorHeap* descriptorHeaps[] = { srvDescriptorHeap };
+	commandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
+
+	const D3D12_VERTEX_BUFFER_VIEW vertexBufferView = sceneGeometry.VertexBufferView();
+	const D3D12_INDEX_BUFFER_VIEW indexBufferView = sceneGeometry.IndexBufferView();
+	commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
+	commandList->IASetIndexBuffer(&indexBufferView);
+
+	const XMMATRIX world =
+		XMMatrixTranslation(-m_sceneCenter.x, -m_sceneCenter.y, -m_sceneCenter.z) *
+		XMMatrixScaling(m_sceneScale, m_sceneScale, m_sceneScale);
+	const XMMATRIX texTransform = XMMatrixIdentity();
 
 	for (std::uint32_t cascadeIndex = 0; cascadeIndex < m_shadowSettings.CascadeCount; ++cascadeIndex)
 	{
 		const D3D12_CPU_DESCRIPTOR_HANDLE cascadeDsv = m_cascadedShadowMap->GetDsv(cascadeIndex);
 		commandList->OMSetRenderTargets(0, nullptr, FALSE, &cascadeDsv);
 		m_cascadedShadowMap->ClearCascade(commandList, cascadeIndex);
+
+		const XMMATRIX lightViewProj = XMLoadFloat4x4(&m_cascadedShadowData.LightViewProjMatrices[cascadeIndex]);
+		const XMMATRIX worldLightViewProj = world * lightViewProj;
+
+		for (const ModelDrawItem& drawItem : drawItems)
+		{
+			ShadowPassConstants shadowConstants;
+			XMStoreFloat4x4(&shadowConstants.WorldLightViewProj, XMMatrixTranspose(worldLightViewProj));
+			XMStoreFloat4x4(&shadowConstants.TexTransform, XMMatrixTranspose(texTransform));
+			memcpy(m_mappedShadowPassCB, &shadowConstants, sizeof(shadowConstants));
+			commandList->SetGraphicsRootConstantBufferView(0, m_shadowPassCB->GetGPUVirtualAddress());
+
+			DrawSettings drawSettings;
+			drawSettings.AlphaCutoff = drawItem.HasAlphaCutout ? 0.5f : -1.0f;
+			commandList->SetGraphicsRoot32BitConstants(2, 4, &drawSettings, 0);
+
+			if (drawItem.HasAlphaCutout)
+			{
+				CD3DX12_GPU_DESCRIPTOR_HANDLE textureHandle(srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+				textureHandle.Offset(static_cast<INT>(drawItem.DiffuseSrvHeapIndex), cbvSrvUavDescriptorSize);
+				commandList->SetPipelineState(m_shadowAlphaCutoutPSO.Get());
+				commandList->SetGraphicsRootDescriptorTable(1, textureHandle);
+			}
+			else
+			{
+				commandList->SetPipelineState(m_shadowOpaquePSO.Get());
+			}
+
+			const auto& submesh = sceneGeometry.DrawArgs.at(drawItem.DrawName);
+			commandList->DrawIndexedInstanced(submesh.IndexCount, 1, submesh.StartIndexLocation, submesh.BaseVertexLocation, 0);
+		}
 	}
 
 	commandList->RSSetViewports(1, &context.GetViewport());
@@ -257,6 +317,10 @@ void DeferredRenderer::BuildShadersAndInputLayout()
 		ResolveShaderPath(L"shaders\\DeferredLighting.hlsl"), nullptr, "FullscreenVS", "vs_5_1");
 	m_shaders["deferredLightingPS"] = d3dUtil::CompileShader(
 		ResolveShaderPath(L"shaders\\DeferredLighting.hlsl"), nullptr, "DeferredLightingPS", "ps_5_1");
+	m_shaders["shadowVS"] = d3dUtil::CompileShader(
+		ResolveShaderPath(L"shaders\\ShadowMap.hlsl"), nullptr, "ShadowVS", "vs_5_1");
+	m_shaders["shadowAlphaCutoutPS"] = d3dUtil::CompileShader(
+		ResolveShaderPath(L"shaders\\ShadowMap.hlsl"), nullptr, "ShadowAlphaCutoutPS", "ps_5_1");
 
 	m_inputLayout =
 	{
@@ -275,7 +339,15 @@ void DeferredRenderer::BuildConstantBuffer(DirectX12Context& context)
 		m_objectCB.Reset();
 	}
 
+	if (m_shadowPassCB != nullptr && m_mappedShadowPassCB != nullptr)
+	{
+		m_shadowPassCB->Unmap(0, nullptr);
+		m_mappedShadowPassCB = nullptr;
+		m_shadowPassCB.Reset();
+	}
+
 	m_objectCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(ObjectConstants));
+	m_shadowPassCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(ShadowPassConstants));
 
 	ThrowIfFailed(context.GetDevice()->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
@@ -286,6 +358,16 @@ void DeferredRenderer::BuildConstantBuffer(DirectX12Context& context)
 		IID_PPV_ARGS(&m_objectCB)));
 
 	ThrowIfFailed(m_objectCB->Map(0, nullptr, reinterpret_cast<void**>(&m_mappedObjectCB)));
+
+	ThrowIfFailed(context.GetDevice()->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+		D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Buffer(m_shadowPassCBByteSize),
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&m_shadowPassCB)));
+
+	ThrowIfFailed(m_shadowPassCB->Map(0, nullptr, reinterpret_cast<void**>(&m_mappedShadowPassCB)));
 }
 
 void DeferredRenderer::BuildGbuffer(DirectX12Context& context)
@@ -376,6 +458,35 @@ void DeferredRenderer::BuildRootSignature(DirectX12Context& context)
 		serializedRootSig->GetBufferPointer(),
 		serializedRootSig->GetBufferSize(),
 		IID_PPV_ARGS(m_lightingRootSignature.GetAddressOf())));
+
+	CD3DX12_DESCRIPTOR_RANGE shadowTexTable;
+	shadowTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
+
+	CD3DX12_ROOT_PARAMETER shadowRootParameters[3];
+	shadowRootParameters[0].InitAsConstantBufferView(0);
+	shadowRootParameters[1].InitAsDescriptorTable(1, &shadowTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
+	shadowRootParameters[2].InitAsConstants(4, 1);
+
+	CD3DX12_ROOT_SIGNATURE_DESC shadowRootSigDesc(
+		3,
+		shadowRootParameters,
+		1,
+		&linearWrapSampler,
+		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
+	serializedRootSig.Reset();
+	errorBlob.Reset();
+	ThrowIfFailed(D3D12SerializeRootSignature(
+		&shadowRootSigDesc,
+		D3D_ROOT_SIGNATURE_VERSION_1,
+		serializedRootSig.GetAddressOf(),
+		errorBlob.GetAddressOf()));
+
+	ThrowIfFailed(context.GetDevice()->CreateRootSignature(
+		0,
+		serializedRootSig->GetBufferPointer(),
+		serializedRootSig->GetBufferSize(),
+		IID_PPV_ARGS(m_shadowRootSignature.GetAddressOf())));
 }
 
 void DeferredRenderer::BuildPSO(DirectX12Context& context, bool enable4xMsaa, UINT msaaQuality)
@@ -434,4 +545,50 @@ void DeferredRenderer::BuildPSO(DirectX12Context& context, bool enable4xMsaa, UI
 	lightingPsoDesc.SampleDesc.Quality = 0;
 
 	ThrowIfFailed(context.GetDevice()->CreateGraphicsPipelineState(&lightingPsoDesc, IID_PPV_ARGS(&m_lightingPSO)));
+	BuildShadowPSO(context);
+}
+
+void DeferredRenderer::BuildShadowPSO(DirectX12Context& context)
+{
+	if (m_shadowOpaquePSO != nullptr &&
+		m_shadowAlphaCutoutPSO != nullptr &&
+		m_shadowPsoSettings.DepthBias == m_shadowSettings.DepthBias &&
+		m_shadowPsoSettings.SlopeScaledDepthBias == m_shadowSettings.SlopeScaledDepthBias &&
+		m_shadowPsoSettings.DepthBiasClamp == m_shadowSettings.DepthBiasClamp)
+	{
+		return;
+	}
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC shadowPsoDesc = {};
+	shadowPsoDesc.InputLayout = { m_inputLayout.data(), static_cast<UINT>(m_inputLayout.size()) };
+	shadowPsoDesc.pRootSignature = m_shadowRootSignature.Get();
+	shadowPsoDesc.VS =
+	{
+		reinterpret_cast<BYTE*>(m_shaders["shadowVS"]->GetBufferPointer()),
+		m_shaders["shadowVS"]->GetBufferSize()
+	};
+	shadowPsoDesc.PS = { nullptr, 0 };
+	shadowPsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	shadowPsoDesc.RasterizerState.DepthBias = static_cast<INT>(m_shadowSettings.DepthBias);
+	shadowPsoDesc.RasterizerState.SlopeScaledDepthBias = m_shadowSettings.SlopeScaledDepthBias;
+	shadowPsoDesc.RasterizerState.DepthBiasClamp = m_shadowSettings.DepthBiasClamp;
+	shadowPsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	shadowPsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+	shadowPsoDesc.SampleMask = UINT_MAX;
+	shadowPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	shadowPsoDesc.NumRenderTargets = 0;
+	shadowPsoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+	shadowPsoDesc.SampleDesc.Count = 1;
+	shadowPsoDesc.SampleDesc.Quality = 0;
+
+	ThrowIfFailed(context.GetDevice()->CreateGraphicsPipelineState(&shadowPsoDesc, IID_PPV_ARGS(&m_shadowOpaquePSO)));
+
+	shadowPsoDesc.PS =
+	{
+		reinterpret_cast<BYTE*>(m_shaders["shadowAlphaCutoutPS"]->GetBufferPointer()),
+		m_shaders["shadowAlphaCutoutPS"]->GetBufferSize()
+	};
+	ThrowIfFailed(context.GetDevice()->CreateGraphicsPipelineState(&shadowPsoDesc, IID_PPV_ARGS(&m_shadowAlphaCutoutPSO)));
+
+	m_shadowPsoSettings = m_shadowSettings;
 }

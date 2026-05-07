@@ -94,6 +94,7 @@
     <None Include="shaders\DeferredLighting.hlsl" />
     <None Include="shaders\GeometryPass.hlsl" />
     <None Include="shaders\LightingCommon.hlsli" />
+    <None Include="shaders\ShadowMap.hlsl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>

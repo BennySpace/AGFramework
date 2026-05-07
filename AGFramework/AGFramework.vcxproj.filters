@@ -72,5 +72,6 @@
   <ItemGroup>
     <None Include="packages.config" />
     <None Include="shaders\Phong.hlsl" />
+    <None Include="shaders\ShadowMap.hlsl" />
   </ItemGroup>
 </Project>

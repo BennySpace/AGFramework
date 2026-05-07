@@ -99,7 +99,12 @@ void DirectX12App::Draw(const GameTimer& gt)
 			D3D12_RESOURCE_STATE_DEPTH_WRITE);
 		m_deferredRenderer.SetCascadedShadowMapState(D3D12_RESOURCE_STATE_DEPTH_WRITE);
 	}
-	m_deferredRenderer.RenderShadowMapPass(m_context);
+	m_deferredRenderer.RenderShadowMapPass(
+		m_context,
+		m_scene.GetSrvDescriptorHeap(),
+		m_context.GetCbvSrvUavDescriptorSize(),
+		m_scene.GetGeometry(),
+		m_scene.GetDrawItems());
 
 	if (m_deferredRenderer.GetGbufferState() != D3D12_RESOURCE_STATE_RENDER_TARGET)
 	{
