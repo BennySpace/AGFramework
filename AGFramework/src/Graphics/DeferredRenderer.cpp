@@ -44,6 +44,7 @@ void DeferredRenderer::Initialize(DirectX12Context& context, bool enable4xMsaa, 
 	BuildShadersAndInputLayout();
 	BuildConstantBuffer(context);
 	BuildGbuffer(context);
+	BuildCascadedShadowMap(context);
 	BuildRootSignature(context);
 	BuildPSO(context, enable4xMsaa, msaaQuality);
 }
@@ -51,6 +52,7 @@ void DeferredRenderer::Initialize(DirectX12Context& context, bool enable4xMsaa, 
 void DeferredRenderer::Resize(DirectX12Context& context)
 {
 	BuildGbuffer(context);
+	BuildCascadedShadowMap(context);
 }
 
 void DeferredRenderer::UpdateMainPassCB(const FrameData& frameData)
@@ -98,6 +100,38 @@ void DeferredRenderer::UpdateMainPassCB(const FrameData& frameData)
 	memcpy(m_mappedObjectCB, &objectConstants, sizeof(objectConstants));
 }
 
+void DeferredRenderer::BuildCascadedShadowMap(DirectX12Context& context)
+{
+	CascadedShadowMap::Desc shadowMapDesc;
+	shadowMapDesc.Width = m_shadowSettings.ShadowMapSize;
+	shadowMapDesc.Height = m_shadowSettings.ShadowMapSize;
+	shadowMapDesc.CascadeCount = m_shadowSettings.CascadeCount;
+
+	if (m_cascadedShadowMap != nullptr)
+	{
+		const CascadedShadowMap::Desc& currentDesc = m_cascadedShadowMap->GetDesc();
+		if (currentDesc.Width == shadowMapDesc.Width &&
+			currentDesc.Height == shadowMapDesc.Height &&
+			currentDesc.CascadeCount == shadowMapDesc.CascadeCount &&
+			currentDesc.ResourceFormat == shadowMapDesc.ResourceFormat &&
+			currentDesc.DsvFormat == shadowMapDesc.DsvFormat &&
+			currentDesc.SrvFormat == shadowMapDesc.SrvFormat)
+		{
+			return;
+		}
+	}
+
+	if (!m_cascadedShadowMap)
+	{
+		m_cascadedShadowMap = std::make_unique<CascadedShadowMap>();
+	}
+
+	if (!m_cascadedShadowMap->Initialize(context.GetDevice(), shadowMapDesc))
+	{
+		throw std::runtime_error("Failed to initialize cascaded shadow map array.");
+	}
+}
+
 void DeferredRenderer::DrawGeometryPass(
 	DirectX12Context& context,
 	ID3D12DescriptorHeap* srvDescriptorHeap,
@@ -105,6 +139,7 @@ void DeferredRenderer::DrawGeometryPass(
 	const MeshGeometry& sceneGeometry,
 	const std::vector<ModelDrawItem>& drawItems)
 {
+	BuildCascadedShadowMap(context);
 	m_gbuffer->Clear(context.GetCommandList());
 
 	D3D12_CPU_DESCRIPTOR_HANDLE gbufferRtvs[3] =

@@ -15,6 +15,7 @@
     <ClCompile Include="src\Graphics\dx12\DirectX12Context.cpp" />
     <ClCompile Include="src\Graphics\dx12\DDSTextureLoader.cpp" />
     <ClCompile Include="src\Utils\Delegates.cpp" />
+    <ClCompile Include="src\Graphics\CascadedShadowMap.cpp" />
     <ClCompile Include="src\Graphics\DeferredRenderer.cpp" />
     <ClCompile Include="src\Graphics\dx12\DirectX12App.cpp" />
     <ClCompile Include="src\Core\GameTimer.cpp" />
@@ -48,6 +49,7 @@
     <ClInclude Include="src\Graphics\dx12\DirectX12Context.h" />
     <ClInclude Include="src\Graphics\dx12\DDSTextureLoader.h" />
     <ClInclude Include="src\Utils\Delegates.h" />
+    <ClInclude Include="src\Graphics\CascadedShadowMap.h" />
     <ClInclude Include="src\Graphics\DeferredRenderer.h" />
     <ClInclude Include="src\Graphics\dx12\DirectX12App.h" />
     <ClInclude Include="src\Core\GameTimer.h" />

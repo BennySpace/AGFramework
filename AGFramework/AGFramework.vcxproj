@@ -33,6 +33,7 @@
     <ClCompile Include="external\imgui\imgui_tables.cpp" />
     <ClCompile Include="external\imgui\imgui_widgets.cpp" />
     <ClCompile Include="src\Utils\Delegates.cpp" />
+    <ClCompile Include="src\Graphics\CascadedShadowMap.cpp" />
     <ClCompile Include="src\Graphics\DeferredRenderer.cpp" />
     <ClCompile Include="src\Graphics\dx12\DirectX12App.cpp" />
     <ClCompile Include="src\Core\GameTimer.cpp" />
@@ -67,6 +68,7 @@
     <ClInclude Include="external\imgui\imstb_textedit.h" />
     <ClInclude Include="external\imgui\imstb_truetype.h" />
     <ClInclude Include="src\Utils\Delegates.h" />
+    <ClInclude Include="src\Graphics\CascadedShadowMap.h" />
     <ClInclude Include="src\Graphics\DeferredRenderer.h" />
     <ClInclude Include="src\Graphics\dx12\DirectX12App.h" />
     <ClInclude Include="src\Utils\Exports.h" />
