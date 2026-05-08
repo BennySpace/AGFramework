@@ -110,10 +110,28 @@ float ComputeDirectionalShadowFactor(float3 posW, uint cascadeIndex)
         return 1.0f;
     }
 
-    const float visibility = gShadowMap.SampleCmpLevelZero(
-        gsamShadow,
-        float3(shadowUv, cascadeIndex),
-        shadowPosH.z);
+    const float2 shadowTexelSize = gShadowMapMetrics.zw;
+    const float pcfRadius = max(gShadowSettings0.y, 0.0f);
+
+    float visibility = 0.0f;
+    float sampleCount = 0.0f;
+
+    [unroll]
+    for (int offsetY = -1; offsetY <= 1; ++offsetY)
+    {
+        [unroll]
+        for (int offsetX = -1; offsetX <= 1; ++offsetX)
+        {
+            const float2 sampleOffset = float2((float)offsetX, (float)offsetY) * shadowTexelSize * pcfRadius;
+            visibility += gShadowMap.SampleCmpLevelZero(
+                gsamShadow,
+                float3(shadowUv + sampleOffset, cascadeIndex),
+                shadowPosH.z);
+            sampleCount += 1.0f;
+        }
+    }
+
+    visibility /= max(sampleCount, 1.0f);
 
     return lerp(1.0f, visibility, saturate(gShadowSettings0.z));
 }
