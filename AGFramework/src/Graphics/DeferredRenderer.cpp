@@ -51,6 +51,7 @@ void DeferredRenderer::Initialize(DirectX12Context& context, bool enable4xMsaa, 
 	BuildConstantBuffer(context);
 	BuildGbuffer(context);
 	BuildCascadedShadowMap(context);
+	BuildSpotShadowMap(context);
 	BuildLightingSrvHeap(context);
 	BuildRootSignature(context);
 	BuildPSO(context, enable4xMsaa, msaaQuality);
@@ -60,6 +61,7 @@ void DeferredRenderer::Resize(DirectX12Context& context)
 {
 	BuildGbuffer(context);
 	BuildCascadedShadowMap(context);
+	BuildSpotShadowMap(context);
 	BuildLightingSrvHeap(context);
 }
 
@@ -170,6 +172,38 @@ void DeferredRenderer::BuildCascadedShadowMap(DirectX12Context& context)
 
 	m_cascadedShadowMapState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
 	BuildLightingSrvHeap(context);
+}
+
+void DeferredRenderer::BuildSpotShadowMap(DirectX12Context& context)
+{
+	SpotShadowMap::Desc shadowMapDesc;
+	shadowMapDesc.Width = m_spotShadowSettings.ShadowMapSize;
+	shadowMapDesc.Height = m_spotShadowSettings.ShadowMapSize;
+
+	if (m_spotShadowMap != nullptr)
+	{
+		const SpotShadowMap::Desc& currentDesc = m_spotShadowMap->GetDesc();
+		if (currentDesc.Width == shadowMapDesc.Width &&
+			currentDesc.Height == shadowMapDesc.Height &&
+			currentDesc.ResourceFormat == shadowMapDesc.ResourceFormat &&
+			currentDesc.DsvFormat == shadowMapDesc.DsvFormat &&
+			currentDesc.SrvFormat == shadowMapDesc.SrvFormat)
+		{
+			return;
+		}
+	}
+
+	if (!m_spotShadowMap)
+	{
+		m_spotShadowMap = std::make_unique<SpotShadowMap>();
+	}
+
+	if (!m_spotShadowMap->Initialize(context.GetDevice(), shadowMapDesc))
+	{
+		throw std::runtime_error("Failed to initialize spot shadow map.");
+	}
+
+	m_spotShadowMapState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
 }
 
 void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context& context)

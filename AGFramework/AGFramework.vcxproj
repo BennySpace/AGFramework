@@ -35,6 +35,7 @@
     <ClCompile Include="src\Utils\Delegates.cpp" />
     <ClCompile Include="src\Graphics\CascadedShadowMap.cpp" />
     <ClCompile Include="src\Graphics\DeferredRenderer.cpp" />
+    <ClCompile Include="src\Graphics\SpotShadowMap.cpp" />
     <ClCompile Include="src\Graphics\dx12\DirectX12App.cpp" />
     <ClCompile Include="src\Core\GameTimer.cpp" />
     <ClCompile Include="src\Graphics\Gbuffer.cpp" />
@@ -70,6 +71,7 @@
     <ClInclude Include="src\Utils\Delegates.h" />
     <ClInclude Include="src\Graphics\CascadedShadowMap.h" />
     <ClInclude Include="src\Graphics\DeferredRenderer.h" />
+    <ClInclude Include="src\Graphics\SpotShadowMap.h" />
     <ClInclude Include="src\Graphics\dx12\DirectX12App.h" />
     <ClInclude Include="src\Utils\Exports.h" />
     <ClInclude Include="src\Core\GameTimer.h" />
