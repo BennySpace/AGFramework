@@ -15,7 +15,9 @@ public:
 		Final = 0,
 		Albedo = 1,
 		Normal = 2,
-		Position = 3
+		Position = 3,
+		ShadowCascade = 4,
+		ShadowFactor = 5
 	};
 
 	DebugOverlay() = default;

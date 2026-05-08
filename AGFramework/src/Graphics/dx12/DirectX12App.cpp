@@ -148,8 +148,12 @@ namespace
 			}
 			cascadeRadius = ceilf(cascadeRadius * 16.0f) / 16.0f;
 
-			const XMVECTOR lightPosition = cascadeCenter - lightDirection * (cascadeRadius * 2.0f + 100.0f);
+			const XMVECTOR lightPosition = cascadeCenter - lightDirection * (cascadeRadius * 2.0f + 50.0f);
 			const XMMATRIX lightView = XMMatrixLookAtLH(lightPosition, cascadeCenter, lightUp);
+
+			const XMVECTOR cascadeCenterLightSpace = XMVector3TransformCoord(cascadeCenter, lightView);
+			XMFLOAT3 cascadeCenterLight;
+			XMStoreFloat3(&cascadeCenterLight, cascadeCenterLightSpace);
 
 			XMFLOAT3 minBounds(FLT_MAX, FLT_MAX, FLT_MAX);
 			XMFLOAT3 maxBounds(-FLT_MAX, -FLT_MAX, -FLT_MAX);
@@ -168,13 +172,13 @@ namespace
 				maxBounds.z = (std::max)(maxBounds.z, cornerLight.z);
 			}
 
-			const float depthPadding = (std::max)(10.0f, cascadeRadius);
-			float left = minBounds.x;
-			float right = maxBounds.x;
-			float bottom = minBounds.y;
-			float top = maxBounds.y;
-			const float nearZ = (std::max)(0.1f, minBounds.z - depthPadding);
-			const float farZ = maxBounds.z + depthPadding;
+			const float depthPadding = cascadeRadius * 3.0f + 100.0f;
+			float left = cascadeCenterLight.x - cascadeRadius;
+			float right = cascadeCenterLight.x + cascadeRadius;
+			float bottom = cascadeCenterLight.y - cascadeRadius;
+			float top = cascadeCenterLight.y + cascadeRadius;
+			const float nearZ = (std::max)(0.1f, cascadeCenterLight.z - depthPadding);
+			const float farZ = (std::max)(nearZ + 0.1f, cascadeCenterLight.z + depthPadding);
 
 			const float shadowMapResolution = static_cast<float>((std::max)(1u, shadowSettings.ShadowMapSize));
 			const float projectionWidth = right - left;

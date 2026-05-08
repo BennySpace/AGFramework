@@ -6,6 +6,24 @@ struct FullscreenVertexOut
     float2 TexC : TEXCOORD;
 };
 
+float3 GetCascadeDebugColor(uint cascadeIndex)
+{
+    if (cascadeIndex == 0)
+    {
+        return float3(0.95f, 0.25f, 0.2f);
+    }
+    if (cascadeIndex == 1)
+    {
+        return float3(0.2f, 0.8f, 0.3f);
+    }
+    if (cascadeIndex == 2)
+    {
+        return float3(0.2f, 0.45f, 0.95f);
+    }
+
+    return float3(0.95f, 0.85f, 0.2f);
+}
+
 FullscreenVertexOut FullscreenVS(uint vertexId : SV_VertexID)
 {
     FullscreenVertexOut vout;
@@ -53,7 +71,19 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
     const float3 posV = mul(float4(posW, 1.0f), gView).xyz;
     const float viewDepth = abs(posV.z);
     const uint shadowCascadeIndex = SelectShadowCascade(viewDepth);
-    const float directionalShadowFactor = ComputeDirectionalShadowFactor(posW, shadowCascadeIndex);
+    const float directionalShadowFactor = ComputeDirectionalShadowFactor(posW, normalW, viewDepth, shadowCascadeIndex);
+
+    if (debugViewMode == 4)
+    {
+        const float3 cascadeColor = GetCascadeDebugColor(shadowCascadeIndex);
+        return float4(lerp(backgroundColor, cascadeColor, opacity), 1.0f);
+    }
+
+    if (debugViewMode == 5)
+    {
+        const float3 shadowViz = directionalShadowFactor.xxx;
+        return float4(lerp(backgroundColor, shadowViz, opacity), 1.0f);
+    }
 
     float3 toEye = normalize(gEyePosW - posW);
     float3 ambient = gAmbientLight.rgb * albedoSample.rgb;

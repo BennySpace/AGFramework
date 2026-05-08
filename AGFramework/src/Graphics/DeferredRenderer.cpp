@@ -110,7 +110,8 @@ void DeferredRenderer::UpdateMainPassCB(const FrameData& frameData)
 
 	for (std::uint32_t cascadeIndex = 0; cascadeIndex < RenderSettings::MaxShadowCascadeCount; ++cascadeIndex)
 	{
-		objectConstants.ShadowLightViewProj[cascadeIndex] = frameData.CascadedShadowData.LightViewProjMatrices[cascadeIndex];
+		const XMMATRIX shadowLightViewProj = XMLoadFloat4x4(&frameData.CascadedShadowData.LightViewProjMatrices[cascadeIndex]);
+		XMStoreFloat4x4(&objectConstants.ShadowLightViewProj[cascadeIndex], XMMatrixTranspose(shadowLightViewProj));
 	}
 
 	objectConstants.ShadowCascadeSplits = XMFLOAT4(
@@ -119,8 +120,9 @@ void DeferredRenderer::UpdateMainPassCB(const FrameData& frameData)
 		frameData.CascadedShadowData.SplitDistances[2],
 		frameData.CascadedShadowData.SplitDistances[3]);
 	objectConstants.ShadowMapMetrics = frameData.CascadedShadowData.ShadowMapMetrics;
+	const std::uint32_t cascadeCount = (std::min)(frameData.ShadowSettings.CascadeCount, RenderSettings::MaxShadowCascadeCount);
 	objectConstants.ShadowSettings0 = XMFLOAT4(
-		static_cast<float>(frameData.ShadowSettings.CascadeCount),
+		static_cast<float>(cascadeCount),
 		frameData.ShadowSettings.PcfRadius,
 		frameData.ShadowSettings.ShadowStrength,
 		frameData.ShadowSettings.EnableDirectionalShadows ? 1.0f : 0.0f);
@@ -138,7 +140,7 @@ void DeferredRenderer::BuildCascadedShadowMap(DirectX12Context& context)
 	CascadedShadowMap::Desc shadowMapDesc;
 	shadowMapDesc.Width = m_shadowSettings.ShadowMapSize;
 	shadowMapDesc.Height = m_shadowSettings.ShadowMapSize;
-	shadowMapDesc.CascadeCount = m_shadowSettings.CascadeCount;
+	shadowMapDesc.CascadeCount = (std::min)(m_shadowSettings.CascadeCount, RenderSettings::MaxShadowCascadeCount);
 
 	if (m_cascadedShadowMap != nullptr)
 	{
@@ -256,7 +258,8 @@ void DeferredRenderer::RenderShadowMapPass(
 		XMMatrixScaling(m_sceneScale, m_sceneScale, m_sceneScale);
 	const XMMATRIX texTransform = XMMatrixIdentity();
 
-	for (std::uint32_t cascadeIndex = 0; cascadeIndex < m_shadowSettings.CascadeCount; ++cascadeIndex)
+	const std::uint32_t cascadeCount = (std::min)(m_shadowSettings.CascadeCount, RenderSettings::MaxShadowCascadeCount);
+	for (std::uint32_t cascadeIndex = 0; cascadeIndex < cascadeCount; ++cascadeIndex)
 	{
 		const D3D12_CPU_DESCRIPTOR_HANDLE cascadeDsv = m_cascadedShadowMap->GetDsv(cascadeIndex);
 		commandList->OMSetRenderTargets(0, nullptr, FALSE, &cascadeDsv);
@@ -264,6 +267,13 @@ void DeferredRenderer::RenderShadowMapPass(
 
 		const XMMATRIX lightViewProj = XMLoadFloat4x4(&m_cascadedShadowData.LightViewProjMatrices[cascadeIndex]);
 		const XMMATRIX worldLightViewProj = world * lightViewProj;
+		ShadowPassConstants shadowConstants;
+		XMStoreFloat4x4(&shadowConstants.WorldLightViewProj, XMMatrixTranspose(worldLightViewProj));
+		XMStoreFloat4x4(&shadowConstants.TexTransform, XMMatrixTranspose(texTransform));
+
+		const UINT cascadeCbOffset = cascadeIndex * m_shadowPassCBStride;
+		memcpy(m_mappedShadowPassCB + cascadeCbOffset, &shadowConstants, sizeof(shadowConstants));
+		commandList->SetGraphicsRootConstantBufferView(0, m_shadowPassCB->GetGPUVirtualAddress() + cascadeCbOffset);
 
 		for (const ModelDrawItem& drawItem : drawItems)
 		{
@@ -271,12 +281,6 @@ void DeferredRenderer::RenderShadowMapPass(
 			{
 				continue;
 			}
-
-			ShadowPassConstants shadowConstants;
-			XMStoreFloat4x4(&shadowConstants.WorldLightViewProj, XMMatrixTranspose(worldLightViewProj));
-			XMStoreFloat4x4(&shadowConstants.TexTransform, XMMatrixTranspose(texTransform));
-			memcpy(m_mappedShadowPassCB, &shadowConstants, sizeof(shadowConstants));
-			commandList->SetGraphicsRootConstantBufferView(0, m_shadowPassCB->GetGPUVirtualAddress());
 
 			DrawSettings drawSettings;
 			drawSettings.AlphaCutoff = drawItem.HasAlphaCutout ? 0.5f : -1.0f;
@@ -434,7 +438,8 @@ void DeferredRenderer::BuildConstantBuffer(DirectX12Context& context)
 	}
 
 	m_objectCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(ObjectConstants));
-	m_shadowPassCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(ShadowPassConstants));
+	m_shadowPassCBStride = d3dUtil::CalcConstantBufferByteSize(sizeof(ShadowPassConstants));
+	m_shadowPassCBByteSize = m_shadowPassCBStride * RenderSettings::MaxShadowCascadeCount;
 
 	ThrowIfFailed(context.GetDevice()->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
@@ -667,6 +672,7 @@ void DeferredRenderer::BuildShadowPSO(DirectX12Context& context)
 	};
 	shadowPsoDesc.PS = { nullptr, 0 };
 	shadowPsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	shadowPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 	shadowPsoDesc.RasterizerState.DepthBias = static_cast<INT>(m_shadowSettings.DepthBias);
 	shadowPsoDesc.RasterizerState.SlopeScaledDepthBias = m_shadowSettings.SlopeScaledDepthBias;
 	shadowPsoDesc.RasterizerState.DepthBiasClamp = m_shadowSettings.DepthBiasClamp;

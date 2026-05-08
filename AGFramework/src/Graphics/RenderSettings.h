@@ -22,8 +22,8 @@ public:
         std::uint32_t ShadowMapSize = 2048;
         float CascadeSplitLambda = 0.65f;
         float MaxShadowDistance = 180.0f;
-        float DepthBias = 1000.0f;
-        float SlopeScaledDepthBias = 2.5f;
+        float DepthBias = 64.0f;
+        float SlopeScaledDepthBias = 1.0f;
         float DepthBiasClamp = 0.0f;
         float PcfRadius = 1.5f;
         float ShadowStrength = 1.0f;

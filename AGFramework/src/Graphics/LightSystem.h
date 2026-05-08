@@ -42,7 +42,7 @@ public:
 
     struct LightEnableState
     {
-        std::array<bool, DirectionalLightCount> DirectionalLights = { false };
+        std::array<bool, DirectionalLightCount> DirectionalLights = { true };
         std::array<bool, PointLightCount> PointLights = { false, false, false, false, false, false };
         std::array<bool, SpotLightCount> SpotLights = { false, false };
     };

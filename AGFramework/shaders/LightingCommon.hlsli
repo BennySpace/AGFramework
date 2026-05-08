@@ -86,13 +86,8 @@ uint SelectShadowCascade(float viewDepth)
     return cascadeIndex;
 }
 
-float ComputeDirectionalShadowFactor(float3 posW, uint cascadeIndex)
+float SampleDirectionalShadowVisibility(float3 posW, float3 normalW, uint cascadeIndex)
 {
-    if (gShadowSettings0.w < 0.5f)
-    {
-        return 1.0f;
-    }
-
     float4 shadowPosH = mul(float4(posW, 1.0f), gShadowLightViewProj[cascadeIndex]);
     shadowPosH.xyz /= max(shadowPosH.w, 0.0001f);
 
@@ -110,8 +105,14 @@ float ComputeDirectionalShadowFactor(float3 posW, uint cascadeIndex)
         return 1.0f;
     }
 
+    const float3 lightVector = normalize(-gDirectionalLights[0].Direction.xyz);
+    const float normalAlignment = saturate(dot(normalW, lightVector));
     const float2 shadowTexelSize = gShadowMapMetrics.zw;
     const float pcfRadius = max(gShadowSettings0.y, 0.0f);
+    const float receiverBias =
+        max(0.00005f, 0.00035f * (1.0f - normalAlignment)) +
+        max(shadowTexelSize.x, shadowTexelSize.y) * 0.75f;
+    const float compareDepth = shadowPosH.z - receiverBias;
 
     float visibility = 0.0f;
     float sampleCount = 0.0f;
@@ -126,12 +127,44 @@ float ComputeDirectionalShadowFactor(float3 posW, uint cascadeIndex)
             visibility += gShadowMap.SampleCmpLevelZero(
                 gsamShadow,
                 float3(shadowUv + sampleOffset, cascadeIndex),
-                shadowPosH.z);
+                compareDepth);
             sampleCount += 1.0f;
         }
     }
 
-    visibility /= max(sampleCount, 1.0f);
+    return visibility / max(sampleCount, 1.0f);
+}
+
+float ComputeDirectionalShadowFactor(float3 posW, float3 normalW, float viewDepth, uint cascadeIndex)
+{
+    if (gShadowSettings0.w < 0.5f)
+    {
+        return 1.0f;
+    }
+
+    const uint cascadeCount = GetShadowCascadeCount();
+    if (viewDepth > gShadowCascadeSplits[cascadeCount - 1u])
+    {
+        return 1.0f;
+    }
+
+    float visibility = SampleDirectionalShadowVisibility(posW, normalW, cascadeIndex);
+
+    if (cascadeIndex + 1u < cascadeCount)
+    {
+        const float cascadeNear = cascadeIndex == 0u ? 1.0f : gShadowCascadeSplits[cascadeIndex - 1u];
+        const float cascadeFar = gShadowCascadeSplits[cascadeIndex];
+        const float cascadeRange = max(cascadeFar - cascadeNear, 0.001f);
+        const float blendBand = max(0.5f, cascadeRange * 0.1f);
+        const float blendStart = cascadeFar - blendBand;
+
+        if (viewDepth > blendStart)
+        {
+            const float nextVisibility = SampleDirectionalShadowVisibility(posW, normalW, cascadeIndex + 1u);
+            const float blendFactor = saturate((viewDepth - blendStart) / blendBand);
+            visibility = lerp(visibility, nextVisibility, blendFactor);
+        }
+    }
 
     return lerp(1.0f, visibility, saturate(gShadowSettings0.z));
 }

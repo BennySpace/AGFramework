@@ -138,5 +138,6 @@ private:
 	UINT8* m_mappedShadowPassCB = nullptr;
 	UINT8* m_mappedObjectCB = nullptr;
 	UINT m_objectCBByteSize = 0;
+	UINT m_shadowPassCBStride = 0;
 	UINT m_shadowPassCBByteSize = 0;
 };

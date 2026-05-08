@@ -268,7 +268,7 @@ void DebugOverlay::Draw(
 	ImGui::Text("Frame time: %.3f ms", gameTimer.DeltaTime() * 1000.0);
 	if (ImGui::CollapsingHeader("View"))
 	{
-		const char* viewModeLabels[] = { "Final", "Albedo", "Normal", "Position" };
+		const char* viewModeLabels[] = { "Final", "Albedo", "Normal", "Position", "Shadow cascade", "Shadow factor" };
 		int debugViewMode = static_cast<int>(m_debugViewMode);
 		if (ImGui::Combo("Debug view", &debugViewMode, viewModeLabels, IM_ARRAYSIZE(viewModeLabels)))
 		{
