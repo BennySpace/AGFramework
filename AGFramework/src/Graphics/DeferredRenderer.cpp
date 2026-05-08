@@ -66,7 +66,9 @@ void DeferredRenderer::Resize(DirectX12Context& context)
 void DeferredRenderer::UpdateMainPassCB(const FrameData& frameData)
 {
 	m_shadowSettings = frameData.ShadowSettings;
+	m_spotShadowSettings = frameData.SpotShadowSettings;
 	m_cascadedShadowData = frameData.CascadedShadowData;
+	m_spotShadowData = frameData.SpotShadowData;
 	m_sceneCenter = frameData.SceneCenter;
 	m_sceneScale = frameData.SceneScale;
 

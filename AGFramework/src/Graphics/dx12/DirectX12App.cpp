@@ -495,12 +495,14 @@ void DirectX12App::UpdateMainPassCB(const GameTimer& gt)
 	frameData.Projection = m_proj;
 	frameData.LightingSettings = m_renderSettings.GetLightingSettings();
 	frameData.ShadowSettings = m_renderSettings.GetShadowSettings();
+	frameData.SpotShadowSettings = m_renderSettings.GetSpotShadowSettings();
 	frameData.CascadedShadowData = BuildCascadedShadowData(
 		frameData.ShadowSettings,
 		frameData.EyePos,
 		frameData.LookDirection,
 		frameData.Projection,
 		m_lightSystem.GetShadowCastingDirectionalLight());
+	frameData.SpotShadowData = RenderSettings::SpotShadowData();
 	frameData.Material = m_materialSystem.GetMaterialState();
 	frameData.LightState = m_lightSystem.GetLightingState();
 

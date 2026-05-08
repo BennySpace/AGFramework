@@ -32,7 +32,9 @@ public:
 		DirectX::XMFLOAT4X4 Projection = MathHelper::Identity4x4();
 		RenderSettings::LightingSettings LightingSettings;
 		RenderSettings::ShadowSettings ShadowSettings;
+		RenderSettings::SpotShadowSettings SpotShadowSettings;
 		RenderSettings::CascadedShadowData CascadedShadowData;
+		RenderSettings::SpotShadowData SpotShadowData;
 		MaterialSystem::MaterialState Material;
 		LightSystem::LightingState LightState;
 	};
@@ -131,8 +133,10 @@ private:
 	std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID3DBlob>> m_shaders;
 	std::vector<D3D12_INPUT_ELEMENT_DESC> m_inputLayout;
 	RenderSettings::ShadowSettings m_shadowSettings;
+	RenderSettings::SpotShadowSettings m_spotShadowSettings;
 	RenderSettings::ShadowSettings m_shadowPsoSettings;
 	RenderSettings::CascadedShadowData m_cascadedShadowData;
+	RenderSettings::SpotShadowData m_spotShadowData;
 	DirectX::XMFLOAT3 m_sceneCenter = { 0.0f, 0.0f, 0.0f };
 	float m_sceneScale = 1.0f;
 	UINT8* m_mappedShadowPassCB = nullptr;
