@@ -106,7 +106,8 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
     [unroll]
     for (uint lightIndex = 0; lightIndex < SPOT_LIGHT_COUNT; ++lightIndex)
     {
-        spotLighting += ApplySpotLight(albedoSample.rgb, normalW, toEye, posW, gSpotLights[lightIndex]);
+        const float spotShadowFactor = ComputeSpotShadowFactor(posW, normalW, lightIndex);
+        spotLighting += spotShadowFactor * ApplySpotLight(albedoSample.rgb, normalW, toEye, posW, gSpotLights[lightIndex]);
     }
 
     const float3 litColor = ambient + directionalLighting + pointLighting + spotLighting;

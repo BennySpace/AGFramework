@@ -102,10 +102,14 @@ private:
 		LightSystem::PointLightData PointLights[LightSystem::PointLightCount];
 		LightSystem::SpotLightData SpotLights[LightSystem::SpotLightCount];
 		DirectX::XMFLOAT4X4 ShadowLightViewProj[RenderSettings::MaxShadowCascadeCount];
+		DirectX::XMFLOAT4X4 SpotShadowLightViewProj = MathHelper::Identity4x4();
 		DirectX::XMFLOAT4 ShadowCascadeSplits = { 0.0f, 0.0f, 0.0f, 0.0f };
 		DirectX::XMFLOAT4 ShadowMapMetrics = { 0.0f, 0.0f, 0.0f, 0.0f };
 		DirectX::XMFLOAT4 ShadowSettings0 = { 0.0f, 0.0f, 0.0f, 0.0f };
 		DirectX::XMFLOAT4 ShadowSettings1 = { 0.0f, 0.0f, 0.0f, 0.0f };
+		DirectX::XMFLOAT4 SpotShadowMapMetrics = { 0.0f, 0.0f, 0.0f, 0.0f };
+		DirectX::XMFLOAT4 SpotShadowSettings0 = { 0.0f, 0.0f, 0.0f, 0.0f };
+		DirectX::XMFLOAT4 SpotShadowSettings1 = { 0.0f, 0.0f, 0.0f, 0.0f };
 	};
 
 	struct DrawSettings

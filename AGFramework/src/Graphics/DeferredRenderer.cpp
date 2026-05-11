@@ -117,6 +117,8 @@ void DeferredRenderer::UpdateMainPassCB(const FrameData& frameData)
 		const XMMATRIX shadowLightViewProj = XMLoadFloat4x4(&frameData.CascadedShadowData.LightViewProjMatrices[cascadeIndex]);
 		XMStoreFloat4x4(&objectConstants.ShadowLightViewProj[cascadeIndex], XMMatrixTranspose(shadowLightViewProj));
 	}
+	const XMMATRIX spotShadowLightViewProj = XMLoadFloat4x4(&frameData.SpotShadowData.LightViewProjMatrix);
+	XMStoreFloat4x4(&objectConstants.SpotShadowLightViewProj, XMMatrixTranspose(spotShadowLightViewProj));
 
 	objectConstants.ShadowCascadeSplits = XMFLOAT4(
 		frameData.CascadedShadowData.SplitDistances[0],
@@ -135,6 +137,17 @@ void DeferredRenderer::UpdateMainPassCB(const FrameData& frameData)
 		frameData.ShadowSettings.SlopeScaledDepthBias,
 		frameData.ShadowSettings.DepthBiasClamp,
 		frameData.ShadowSettings.CascadeSplitLambda);
+	objectConstants.SpotShadowMapMetrics = frameData.SpotShadowData.ShadowMapMetrics;
+	objectConstants.SpotShadowSettings0 = XMFLOAT4(
+		frameData.SpotShadowSettings.EnableSpotShadows ? 1.0f : 0.0f,
+		frameData.SpotShadowSettings.PcfRadius,
+		frameData.SpotShadowSettings.ShadowStrength,
+		0.0f);
+	objectConstants.SpotShadowSettings1 = XMFLOAT4(
+		frameData.SpotShadowData.NearZ,
+		frameData.SpotShadowData.FarZ,
+		0.0f,
+		0.0f);
 
 	memcpy(m_mappedObjectCB, &objectConstants, sizeof(objectConstants));
 }
@@ -208,13 +221,13 @@ void DeferredRenderer::BuildSpotShadowMap(DirectX12Context& context)
 
 void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context& context)
 {
-	if (m_gbuffer == nullptr || m_cascadedShadowMap == nullptr)
+	if (m_gbuffer == nullptr || m_cascadedShadowMap == nullptr || m_spotShadowMap == nullptr)
 	{
 		return;
 	}
 
 	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.NumDescriptors = 4;
+	srvHeapDesc.NumDescriptors = 5;
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	srvHeapDesc.NodeMask = 0;
@@ -258,6 +271,17 @@ void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context& context)
 	shadowSrvDesc.Texture2DArray.PlaneSlice = 0;
 	shadowSrvDesc.Texture2DArray.ResourceMinLODClamp = 0.0f;
 	context.GetDevice()->CreateShaderResourceView(m_cascadedShadowMap->GetResource(), &shadowSrvDesc, handle);
+	handle.Offset(1, context.GetCbvSrvUavDescriptorSize());
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC spotShadowSrvDesc = {};
+	spotShadowSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	spotShadowSrvDesc.Format = m_spotShadowMap->GetDesc().SrvFormat;
+	spotShadowSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	spotShadowSrvDesc.Texture2D.MostDetailedMip = 0;
+	spotShadowSrvDesc.Texture2D.MipLevels = 1;
+	spotShadowSrvDesc.Texture2D.PlaneSlice = 0;
+	spotShadowSrvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+	context.GetDevice()->CreateShaderResourceView(m_spotShadowMap->GetResource(), &spotShadowSrvDesc, handle);
 }
 
 void DeferredRenderer::RenderShadowMapPass(
@@ -663,7 +687,7 @@ void DeferredRenderer::BuildRootSignature(DirectX12Context& context)
 		IID_PPV_ARGS(m_geometryRootSignature.GetAddressOf())));
 
 	CD3DX12_DESCRIPTOR_RANGE lightingTexTable;
-	lightingTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, 0);
+	lightingTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 5, 0);
 
 	CD3DX12_ROOT_PARAMETER lightingRootParameters[3];
 	lightingRootParameters[0].InitAsConstantBufferView(0);
