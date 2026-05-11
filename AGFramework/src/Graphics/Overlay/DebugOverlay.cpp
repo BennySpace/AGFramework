@@ -268,7 +268,7 @@ void DebugOverlay::Draw(
 	ImGui::Text("Frame time: %.3f ms", gameTimer.DeltaTime() * 1000.0);
 	if (ImGui::CollapsingHeader("View"))
 	{
-		const char* viewModeLabels[] = { "Final", "Albedo", "Normal", "Position", "Shadow cascade", "Shadow factor" };
+		const char* viewModeLabels[] = { "Final", "Albedo", "Normal", "Position", "Shadow cascade", "Shadow factor", "Spot shadow factor" };
 		int debugViewMode = static_cast<int>(m_debugViewMode);
 		if (ImGui::Combo("Debug view", &debugViewMode, viewModeLabels, IM_ARRAYSIZE(viewModeLabels)))
 		{
@@ -337,6 +337,7 @@ void DebugOverlay::Draw(
 	{
 		RenderSettings::LightingSettings lightingSettings = renderSettings.GetLightingSettings();
 		RenderSettings::ShadowSettings shadowSettings = renderSettings.GetShadowSettings();
+		RenderSettings::SpotShadowSettings spotShadowSettings = renderSettings.GetSpotShadowSettings();
 		LightSystem::LightEnableState lightEnableState = lightSystem.GetLightEnableState();
 		if (ImGui::ColorEdit3("Ambient", &lightingSettings.AmbientLight.x))
 		{
@@ -394,6 +395,40 @@ void DebugOverlay::Draw(
 		if (ImGui::SliderFloat("Shadow strength", &shadowSettings.ShadowStrength, 0.0f, 1.0f, "%.2f"))
 		{
 			renderSettings.SetShadowSettings(shadowSettings);
+		}
+
+		ImGui::SeparatorText("Spot shadows");
+		if (ImGui::Checkbox("Enable spot shadows", &spotShadowSettings.EnableSpotShadows))
+		{
+			renderSettings.SetSpotShadowSettings(spotShadowSettings);
+		}
+		int spotShadowMapSize = static_cast<int>(spotShadowSettings.ShadowMapSize);
+		if (ImGui::SliderInt("Spot shadow map size", &spotShadowMapSize, 512, 4096))
+		{
+			spotShadowMapSize = (std::max)(512, spotShadowMapSize);
+			spotShadowMapSize = ((spotShadowMapSize + 255) / 256) * 256;
+			spotShadowSettings.ShadowMapSize = static_cast<std::uint32_t>(spotShadowMapSize);
+			renderSettings.SetSpotShadowSettings(spotShadowSettings);
+		}
+		if (ImGui::SliderFloat("Spot depth bias", &spotShadowSettings.DepthBias, 0.0f, 10000.0f, "%.0f"))
+		{
+			renderSettings.SetSpotShadowSettings(spotShadowSettings);
+		}
+		if (ImGui::SliderFloat("Spot slope bias", &spotShadowSettings.SlopeScaledDepthBias, 0.0f, 8.0f, "%.2f"))
+		{
+			renderSettings.SetSpotShadowSettings(spotShadowSettings);
+		}
+		if (ImGui::SliderFloat("Spot bias clamp", &spotShadowSettings.DepthBiasClamp, 0.0f, 10.0f, "%.3f"))
+		{
+			renderSettings.SetSpotShadowSettings(spotShadowSettings);
+		}
+		if (ImGui::SliderFloat("Spot PCF radius", &spotShadowSettings.PcfRadius, 0.0f, 4.0f, "%.2f"))
+		{
+			renderSettings.SetSpotShadowSettings(spotShadowSettings);
+		}
+		if (ImGui::SliderFloat("Spot shadow strength", &spotShadowSettings.ShadowStrength, 0.0f, 1.0f, "%.2f"))
+		{
+			renderSettings.SetSpotShadowSettings(spotShadowSettings);
 		}
 
 		ImGui::SeparatorText("Lights");
