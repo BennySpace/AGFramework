@@ -490,7 +490,7 @@ void DeferredRenderer::DrawGeometryPass(
 	}
 }
 
-void DeferredRenderer::DrawLightingPass(DirectX12Context& context, DebugOverlay::DebugViewMode debugViewMode)
+void DeferredRenderer::DrawLightingPass(DirectX12Context& context, DebugOverlay::DebugViewMode debugViewMode, int shadowDebugCascadeIndex)
 {
 	const D3D12_CPU_DESCRIPTOR_HANDLE currentBackBufferView = context.CurrentBackBufferView();
 	context.GetCommandList()->OMSetRenderTargets(1, &currentBackBufferView, true, nullptr);
@@ -506,6 +506,7 @@ void DeferredRenderer::DrawLightingPass(DirectX12Context& context, DebugOverlay:
 	LightingDebugSettings debugSettings;
 	debugSettings.ViewMode = static_cast<float>(debugViewMode);
 	debugSettings.PositionVizScale = 0.05f;
+	debugSettings.ShadowDebugCascadeIndex = static_cast<float>(shadowDebugCascadeIndex);
 	context.GetCommandList()->SetGraphicsRoot32BitConstants(2, 4, &debugSettings, 0);
 	context.GetCommandList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	context.GetCommandList()->DrawInstanced(3, 1, 0, 0);

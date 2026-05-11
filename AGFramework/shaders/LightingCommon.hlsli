@@ -140,6 +140,28 @@ float SampleDirectionalShadowVisibility(float3 posW, float3 normalW, uint cascad
     return visibility / max(sampleCount, 1.0f);
 }
 
+float4 ProjectIntoDirectionalShadowMap(float3 posW, uint cascadeIndex)
+{
+    float4 shadowPosH = mul(float4(posW, 1.0f), gShadowLightViewProj[cascadeIndex]);
+    shadowPosH.xyz /= max(shadowPosH.w, 0.0001f);
+    return shadowPosH;
+}
+
+float SampleDirectionalShadowMapDepth(float3 posW, uint cascadeIndex)
+{
+    float4 shadowPosH = ProjectIntoDirectionalShadowMap(posW, cascadeIndex);
+    float2 shadowUv = float2(
+        shadowPosH.x * 0.5f + 0.5f,
+        -shadowPosH.y * 0.5f + 0.5f);
+
+    if (shadowUv.x < 0.0f || shadowUv.x > 1.0f || shadowUv.y < 0.0f || shadowUv.y > 1.0f)
+    {
+        return 1.0f;
+    }
+
+    return gShadowMap.SampleLevel(gsamLinearWrap, float3(shadowUv, cascadeIndex), 0.0f).r;
+}
+
 float ComputeDirectionalShadowFactor(float3 posW, float3 normalW, float viewDepth, uint cascadeIndex)
 {
     if (gShadowSettings0.w < 0.5f)
@@ -200,6 +222,17 @@ SpotShadowProjectionInfo ProjectIntoSpotShadowMap(float3 posW)
         info.Uv.y >= 0.0f && info.Uv.y <= 1.0f &&
         info.Depth > 0.0f && info.Depth < 1.0f;
     return info;
+}
+
+float SampleSpotShadowMapDepth(float3 posW)
+{
+    SpotShadowProjectionInfo projectionInfo = ProjectIntoSpotShadowMap(posW);
+    if (!projectionInfo.IsInsideShadowMap)
+    {
+        return 1.0f;
+    }
+
+    return gSpotShadowMap.SampleLevel(gsamLinearWrap, projectionInfo.Uv, 0.0f).r;
 }
 
 float ComputeSpotShadowFactor(float3 posW, float3 normalW, uint lightIndex)

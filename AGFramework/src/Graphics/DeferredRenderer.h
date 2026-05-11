@@ -64,7 +64,7 @@ public:
 		UINT cbvSrvUavDescriptorSize,
 		const MeshGeometry& sceneGeometry,
 		const std::vector<ModelDrawItem>& drawItems);
-	void DrawLightingPass(DirectX12Context& context, DebugOverlay::DebugViewMode debugViewMode);
+	void DrawLightingPass(DirectX12Context& context, DebugOverlay::DebugViewMode debugViewMode, int shadowDebugCascadeIndex);
 	void TransitionCascadedShadowMap(DirectX12Context& context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
 	void TransitionSpotShadowMap(DirectX12Context& context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
 	void TransitionGbuffer(DirectX12Context& context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
@@ -128,7 +128,8 @@ private:
 	{
 		float ViewMode = static_cast<float>(DebugOverlay::DebugViewMode::Final);
 		float PositionVizScale = 0.05f;
-		float Padding[2] = { 0.0f, 0.0f };
+		float ShadowDebugCascadeIndex = 0.0f;
+		float Padding = 0.0f;
 	};
 
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_geometryRootSignature;

@@ -393,7 +393,10 @@ void DirectX12App::Draw(const GameTimer& gt)
 
 	const float clearColor[] = { 0.03f, 0.05f, 0.08f, 1.0f };
 	m_context.GetCommandList()->ClearRenderTargetView(m_context.CurrentBackBufferView(), clearColor, 0, nullptr);
-	m_deferredRenderer.DrawLightingPass(m_context, m_debugOverlay.GetDebugViewMode());
+	m_deferredRenderer.DrawLightingPass(
+		m_context,
+		m_debugOverlay.GetDebugViewMode(),
+		m_debugOverlay.GetShadowDebugCascadeIndex());
 	m_debugOverlay.Draw(
 		m_context.GetCommandList(),
 		gt,

@@ -268,12 +268,25 @@ void DebugOverlay::Draw(
 	ImGui::Text("Frame time: %.3f ms", gameTimer.DeltaTime() * 1000.0);
 	if (ImGui::CollapsingHeader("View"))
 	{
-		const char* viewModeLabels[] = { "Final", "Albedo", "Normal", "Position", "Shadow cascade", "Shadow factor", "Spot shadow factor", "Spot shadow frustum" };
+		const char* viewModeLabels[] =
+		{
+			"Final",
+			"Albedo",
+			"Normal",
+			"Position",
+			"Shadow cascade",
+			"Shadow factor",
+			"Spot shadow factor",
+			"Spot shadow frustum",
+			"Directional shadow map",
+			"Spot shadow map"
+		};
 		int debugViewMode = static_cast<int>(m_debugViewMode);
 		if (ImGui::Combo("Debug view", &debugViewMode, viewModeLabels, IM_ARRAYSIZE(viewModeLabels)))
 		{
 			m_debugViewMode = static_cast<DebugViewMode>(debugViewMode);
 		}
+		ImGui::SliderInt("Shadow debug cascade", &m_shadowDebugCascadeIndex, 0, 3);
 	}
 
 	if (ImGui::CollapsingHeader("Camera"))

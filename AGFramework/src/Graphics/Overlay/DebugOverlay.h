@@ -19,7 +19,9 @@ public:
 		ShadowCascade = 4,
 		ShadowFactor = 5,
 		SpotShadowFactor = 6,
-		SpotShadowFrustum = 7
+		SpotShadowFrustum = 7,
+		DirectionalShadowMap = 8,
+		SpotShadowMap = 9
 	};
 
 	DebugOverlay() = default;
@@ -45,6 +47,7 @@ public:
 		LightSystem& lightSystem);
 
 	DebugViewMode GetDebugViewMode() const { return m_debugViewMode; }
+	int GetShadowDebugCascadeIndex() const { return m_shadowDebugCascadeIndex; }
 
 private:
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvHeap;
@@ -52,4 +55,5 @@ private:
 	DebugViewMode m_debugViewMode = DebugViewMode::Final;
 	bool m_showLightMarkers = true;
 	float m_lightMarkerScale = 1.0f;
+	int m_shadowDebugCascadeIndex = 0;
 };
