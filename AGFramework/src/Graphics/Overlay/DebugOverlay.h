@@ -21,7 +21,8 @@ public:
 		SpotShadowFactor = 6,
 		SpotShadowFrustum = 7,
 		DirectionalShadowMap = 8,
-		SpotShadowMap = 9
+		SpotShadowMap = 9,
+		DirectionalShadowFrustum = 10
 	};
 
 	DebugOverlay() = default;

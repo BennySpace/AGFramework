@@ -71,8 +71,11 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
     const float3 posV = mul(float4(posW, 1.0f), gView).xyz;
     const float viewDepth = abs(posV.z);
     const uint shadowCascadeIndex = SelectShadowCascade(viewDepth);
+    const uint cascadeCount = GetShadowCascadeCount();
+    const uint debugCascadeIndex = min((uint)round(gAuxiliarySettings.z), cascadeCount - 1u);
     const float directionalShadowFactor = ComputeDirectionalShadowFactor(posW, normalW, viewDepth, shadowCascadeIndex);
     const float spot0ShadowFactor = ComputeSpotShadowFactor(posW, normalW, 0u);
+    const DirectionalShadowProjectionInfo directionalShadowProjection = ProjectIntoDirectionalShadowMap(posW, debugCascadeIndex);
     const SpotShadowProjectionInfo spotShadowProjection = ProjectIntoSpotShadowMap(posW);
 
     if (debugViewMode == 4)
@@ -110,8 +113,6 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
 
     if (debugViewMode == 8)
     {
-        const uint cascadeCount = GetShadowCascadeCount();
-        const uint debugCascadeIndex = min((uint)round(gAuxiliarySettings.z), cascadeCount - 1u);
         const float shadowDepth = SampleDirectionalShadowMapDepth(posW, debugCascadeIndex);
         const float3 shadowViz = shadowDepth.xxx;
         return float4(lerp(backgroundColor, shadowViz, opacity), 1.0f);
@@ -122,6 +123,21 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
         const float shadowDepth = SampleSpotShadowMapDepth(posW);
         const float3 shadowViz = shadowDepth.xxx;
         return float4(lerp(backgroundColor, shadowViz, opacity), 1.0f);
+    }
+
+    if (debugViewMode == 10)
+    {
+        if (!directionalShadowProjection.IsInsideShadowMap)
+        {
+            const float3 outsideViz = float3(0.85f, 0.15f, 0.2f);
+            return float4(lerp(backgroundColor, outsideViz, opacity), 1.0f);
+        }
+
+        const float3 frustumViz = float3(
+            directionalShadowProjection.Uv.x,
+            directionalShadowProjection.Uv.y,
+            saturate(directionalShadowProjection.Depth));
+        return float4(lerp(backgroundColor, frustumViz, opacity), 1.0f);
     }
 
     float3 toEye = normalize(gEyePosW - posW);

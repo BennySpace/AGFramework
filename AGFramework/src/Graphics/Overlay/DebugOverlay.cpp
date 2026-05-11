@@ -279,7 +279,8 @@ void DebugOverlay::Draw(
 			"Spot shadow factor",
 			"Spot shadow frustum",
 			"Directional shadow map",
-			"Spot shadow map"
+			"Spot shadow map",
+			"Directional shadow frustum"
 		};
 		int debugViewMode = static_cast<int>(m_debugViewMode);
 		if (ImGui::Combo("Debug view", &debugViewMode, viewModeLabels, IM_ARRAYSIZE(viewModeLabels)))
