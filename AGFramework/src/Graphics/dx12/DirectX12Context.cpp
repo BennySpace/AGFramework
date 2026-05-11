@@ -62,6 +62,11 @@ void DirectX12Context::Resize(int clientWidth, int clientHeight)
 	assert(m_swapChain);
 	assert(m_commandAllocator);
 
+	if (clientWidth <= 0 || clientHeight <= 0)
+	{
+		return;
+	}
+
 	m_clientWidth = clientWidth;
 	m_clientHeight = clientHeight;
 

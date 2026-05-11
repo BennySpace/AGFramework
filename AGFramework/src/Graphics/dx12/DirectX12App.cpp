@@ -425,6 +425,11 @@ void DirectX12App::Draw(const GameTimer& gt)
 
 void DirectX12App::ApplyResize(int width, int height)
 {
+	if (width <= 0 || height <= 0)
+	{
+		return;
+	}
+
 	m_context.Resize(width, height);
 	m_deferredRenderer.Resize(m_context);
 
@@ -434,6 +439,11 @@ void DirectX12App::ApplyResize(int width, int height)
 
 void DirectX12App::OnWindowResize(int width, int height)
 {
+	if (width <= 0 || height <= 0)
+	{
+		return;
+	}
+
 	if (width == m_context.GetClientWidth() && height == m_context.GetClientHeight())
 		return;
 
