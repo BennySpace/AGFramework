@@ -346,6 +346,20 @@ void DirectX12App::Draw(const GameTimer& gt)
 		m_context.GetCbvSrvUavDescriptorSize(),
 		m_scene.GetGeometry(),
 		m_scene.GetDrawItems());
+	if (m_deferredRenderer.GetSpotShadowMapState() != D3D12_RESOURCE_STATE_DEPTH_WRITE)
+	{
+		m_deferredRenderer.TransitionSpotShadowMap(
+			m_context,
+			m_deferredRenderer.GetSpotShadowMapState(),
+			D3D12_RESOURCE_STATE_DEPTH_WRITE);
+		m_deferredRenderer.SetSpotShadowMapState(D3D12_RESOURCE_STATE_DEPTH_WRITE);
+	}
+	m_deferredRenderer.RenderSpotShadowMapPass(
+		m_context,
+		m_scene.GetSrvDescriptorHeap(),
+		m_context.GetCbvSrvUavDescriptorSize(),
+		m_scene.GetGeometry(),
+		m_scene.GetDrawItems());
 
 	if (m_deferredRenderer.GetGbufferState() != D3D12_RESOURCE_STATE_RENDER_TARGET)
 	{
@@ -367,6 +381,14 @@ void DirectX12App::Draw(const GameTimer& gt)
 			m_deferredRenderer.GetCascadedShadowMapState(),
 			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 		m_deferredRenderer.SetCascadedShadowMapState(D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	}
+	if (m_deferredRenderer.GetSpotShadowMapState() != D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
+	{
+		m_deferredRenderer.TransitionSpotShadowMap(
+			m_context,
+			m_deferredRenderer.GetSpotShadowMapState(),
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		m_deferredRenderer.SetSpotShadowMapState(D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	}
 
 	const float clearColor[] = { 0.03f, 0.05f, 0.08f, 1.0f };

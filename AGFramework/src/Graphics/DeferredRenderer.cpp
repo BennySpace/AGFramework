@@ -343,6 +343,84 @@ void DeferredRenderer::RenderShadowMapPass(
 	commandList->RSSetScissorRects(1, &context.GetScissorRect());
 }
 
+void DeferredRenderer::RenderSpotShadowMapPass(
+	DirectX12Context& context,
+	ID3D12DescriptorHeap* srvDescriptorHeap,
+	UINT cbvSrvUavDescriptorSize,
+	const MeshGeometry& sceneGeometry,
+	const std::vector<ModelDrawItem>& drawItems)
+{
+	BuildSpotShadowMap(context);
+	BuildShadowPSO(context);
+
+	if (!m_spotShadowSettings.EnableSpotShadows || m_spotShadowMap == nullptr)
+	{
+		return;
+	}
+
+	ID3D12GraphicsCommandList* commandList = context.GetCommandList();
+	commandList->SetGraphicsRootSignature(m_shadowRootSignature.Get());
+	commandList->RSSetViewports(1, &m_spotShadowMap->GetViewport());
+	commandList->RSSetScissorRects(1, &m_spotShadowMap->GetScissorRect());
+	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	ID3D12DescriptorHeap* descriptorHeaps[] = { srvDescriptorHeap };
+	commandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
+
+	const D3D12_VERTEX_BUFFER_VIEW vertexBufferView = sceneGeometry.VertexBufferView();
+	const D3D12_INDEX_BUFFER_VIEW indexBufferView = sceneGeometry.IndexBufferView();
+	commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
+	commandList->IASetIndexBuffer(&indexBufferView);
+
+	const XMMATRIX world =
+		XMMatrixTranslation(-m_sceneCenter.x, -m_sceneCenter.y, -m_sceneCenter.z) *
+		XMMatrixScaling(m_sceneScale, m_sceneScale, m_sceneScale);
+	const XMMATRIX texTransform = XMMatrixIdentity();
+	const XMMATRIX lightViewProj = XMLoadFloat4x4(&m_spotShadowData.LightViewProjMatrix);
+	const XMMATRIX worldLightViewProj = world * lightViewProj;
+
+	ShadowPassConstants shadowConstants;
+	XMStoreFloat4x4(&shadowConstants.WorldLightViewProj, XMMatrixTranspose(worldLightViewProj));
+	XMStoreFloat4x4(&shadowConstants.TexTransform, XMMatrixTranspose(texTransform));
+
+	memcpy(m_mappedShadowPassCB + m_spotShadowPassCBOffset, &shadowConstants, sizeof(shadowConstants));
+	commandList->SetGraphicsRootConstantBufferView(0, m_shadowPassCB->GetGPUVirtualAddress() + m_spotShadowPassCBOffset);
+
+	const D3D12_CPU_DESCRIPTOR_HANDLE spotDsv = m_spotShadowMap->GetDsv();
+	commandList->OMSetRenderTargets(0, nullptr, FALSE, &spotDsv);
+	m_spotShadowMap->Clear(commandList);
+
+	for (const ModelDrawItem& drawItem : drawItems)
+	{
+		if (!drawItem.CastShadows)
+		{
+			continue;
+		}
+
+		DrawSettings drawSettings;
+		drawSettings.AlphaCutoff = drawItem.HasAlphaCutout ? 0.5f : -1.0f;
+		commandList->SetGraphicsRoot32BitConstants(2, 4, &drawSettings, 0);
+
+		if (drawItem.HasAlphaCutout)
+		{
+			CD3DX12_GPU_DESCRIPTOR_HANDLE textureHandle(srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+			textureHandle.Offset(static_cast<INT>(drawItem.DiffuseSrvHeapIndex), cbvSrvUavDescriptorSize);
+			commandList->SetPipelineState(m_shadowAlphaCutoutPSO.Get());
+			commandList->SetGraphicsRootDescriptorTable(1, textureHandle);
+		}
+		else
+		{
+			commandList->SetPipelineState(m_shadowOpaquePSO.Get());
+		}
+
+		const auto& submesh = sceneGeometry.DrawArgs.at(drawItem.DrawName);
+		commandList->DrawIndexedInstanced(submesh.IndexCount, 1, submesh.StartIndexLocation, submesh.BaseVertexLocation, 0);
+	}
+
+	commandList->RSSetViewports(1, &context.GetViewport());
+	commandList->RSSetScissorRects(1, &context.GetScissorRect());
+}
+
 void DeferredRenderer::DrawGeometryPass(
 	DirectX12Context& context,
 	ID3D12DescriptorHeap* srvDescriptorHeap,
@@ -423,6 +501,20 @@ void DeferredRenderer::TransitionCascadedShadowMap(DirectX12Context& context, D3
 	context.GetCommandList()->ResourceBarrier(1, &barrier);
 }
 
+void DeferredRenderer::TransitionSpotShadowMap(DirectX12Context& context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState)
+{
+	if (m_spotShadowMap == nullptr || beforeState == afterState)
+	{
+		return;
+	}
+
+	D3D12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_spotShadowMap->GetResource(),
+		beforeState,
+		afterState);
+	context.GetCommandList()->ResourceBarrier(1, &barrier);
+}
+
 void DeferredRenderer::TransitionGbuffer(DirectX12Context& context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState)
 {
 	D3D12_RESOURCE_BARRIER barriers[3] =
@@ -475,7 +567,8 @@ void DeferredRenderer::BuildConstantBuffer(DirectX12Context& context)
 
 	m_objectCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(ObjectConstants));
 	m_shadowPassCBStride = d3dUtil::CalcConstantBufferByteSize(sizeof(ShadowPassConstants));
-	m_shadowPassCBByteSize = m_shadowPassCBStride * RenderSettings::MaxShadowCascadeCount;
+	m_spotShadowPassCBOffset = m_shadowPassCBStride * RenderSettings::MaxShadowCascadeCount;
+	m_shadowPassCBByteSize = m_shadowPassCBStride * (RenderSettings::MaxShadowCascadeCount + 1);
 
 	ThrowIfFailed(context.GetDevice()->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),

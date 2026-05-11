@@ -52,6 +52,12 @@ public:
 		UINT cbvSrvUavDescriptorSize,
 		const MeshGeometry& sceneGeometry,
 		const std::vector<ModelDrawItem>& drawItems);
+	void RenderSpotShadowMapPass(
+		DirectX12Context& context,
+		ID3D12DescriptorHeap* srvDescriptorHeap,
+		UINT cbvSrvUavDescriptorSize,
+		const MeshGeometry& sceneGeometry,
+		const std::vector<ModelDrawItem>& drawItems);
 	void DrawGeometryPass(
 		DirectX12Context& context,
 		ID3D12DescriptorHeap* srvDescriptorHeap,
@@ -60,12 +66,15 @@ public:
 		const std::vector<ModelDrawItem>& drawItems);
 	void DrawLightingPass(DirectX12Context& context, DebugOverlay::DebugViewMode debugViewMode);
 	void TransitionCascadedShadowMap(DirectX12Context& context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
+	void TransitionSpotShadowMap(DirectX12Context& context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
 	void TransitionGbuffer(DirectX12Context& context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
 
 	D3D12_RESOURCE_STATES GetGbufferState() const { return m_gbufferState; }
 	void SetGbufferState(D3D12_RESOURCE_STATES state) { m_gbufferState = state; }
 	D3D12_RESOURCE_STATES GetCascadedShadowMapState() const { return m_cascadedShadowMapState; }
 	void SetCascadedShadowMapState(D3D12_RESOURCE_STATES state) { m_cascadedShadowMapState = state; }
+	D3D12_RESOURCE_STATES GetSpotShadowMapState() const { return m_spotShadowMapState; }
+	void SetSpotShadowMapState(D3D12_RESOURCE_STATES state) { m_spotShadowMapState = state; }
 
 private:
 	void BuildShadersAndInputLayout();
@@ -148,4 +157,5 @@ private:
 	UINT m_objectCBByteSize = 0;
 	UINT m_shadowPassCBStride = 0;
 	UINT m_shadowPassCBByteSize = 0;
+	UINT m_spotShadowPassCBOffset = 0;
 };
