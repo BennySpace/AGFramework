@@ -45,9 +45,11 @@ cbuffer ObjectConstants : register(b0)
     float4 gShadowMapMetrics;
     float4 gShadowSettings0;
     float4 gShadowSettings1;
+    float4 gShadowSettings2;
     float4 gSpotShadowMapMetrics;
     float4 gSpotShadowSettings0;
     float4 gSpotShadowSettings1;
+    float4 gSpotShadowSettings2;
 }
 
 cbuffer AuxiliarySettings : register(b1)
@@ -115,8 +117,8 @@ float SampleDirectionalShadowVisibility(float3 posW, float3 normalW, uint cascad
     const float2 shadowTexelSize = gShadowMapMetrics.zw;
     const float pcfRadius = max(gShadowSettings0.y, 0.0f);
     const float receiverBias =
-        max(0.00005f, 0.00035f * (1.0f - normalAlignment)) +
-        max(shadowTexelSize.x, shadowTexelSize.y) * 0.75f;
+        max(gShadowSettings2.x, gShadowSettings2.y * (1.0f - normalAlignment)) +
+        max(shadowTexelSize.x, shadowTexelSize.y) * gShadowSettings2.z;
     const float compareDepth = shadowPosH.z - receiverBias;
 
     float visibility = 0.0f;
@@ -253,8 +255,8 @@ float ComputeSpotShadowFactor(float3 posW, float3 normalW, uint lightIndex)
     const float2 shadowTexelSize = gSpotShadowMapMetrics.zw;
     const float pcfRadius = max(gSpotShadowSettings0.y, 0.0f);
     const float receiverBias =
-        max(0.00005f, 0.00035f * (1.0f - normalAlignment)) +
-        max(shadowTexelSize.x, shadowTexelSize.y) * 0.75f;
+        max(gSpotShadowSettings2.x, gSpotShadowSettings2.y * (1.0f - normalAlignment)) +
+        max(shadowTexelSize.x, shadowTexelSize.y) * gSpotShadowSettings2.z;
     const float compareDepth = projectionInfo.Depth - receiverBias;
 
     float visibility = 0.0f;

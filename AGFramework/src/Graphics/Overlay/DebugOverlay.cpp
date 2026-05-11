@@ -409,6 +409,18 @@ void DebugOverlay::Draw(
 		{
 			renderSettings.SetShadowSettings(shadowSettings);
 		}
+		if (ImGui::SliderFloat("Receiver bias min", &shadowSettings.ReceiverBiasMin, 0.00001f, 0.001f, "%.5f"))
+		{
+			renderSettings.SetShadowSettings(shadowSettings);
+		}
+		if (ImGui::SliderFloat("Receiver bias slope", &shadowSettings.ReceiverBiasSlopeScale, 0.0f, 0.005f, "%.5f"))
+		{
+			renderSettings.SetShadowSettings(shadowSettings);
+		}
+		if (ImGui::SliderFloat("Receiver bias texel", &shadowSettings.ReceiverBiasTexelFactor, 0.0f, 4.0f, "%.2f"))
+		{
+			renderSettings.SetShadowSettings(shadowSettings);
+		}
 
 		ImGui::SeparatorText("Spot shadows");
 		if (ImGui::Checkbox("Enable spot shadows", &spotShadowSettings.EnableSpotShadows))
@@ -440,6 +452,18 @@ void DebugOverlay::Draw(
 			renderSettings.SetSpotShadowSettings(spotShadowSettings);
 		}
 		if (ImGui::SliderFloat("Spot shadow strength", &spotShadowSettings.ShadowStrength, 0.0f, 1.0f, "%.2f"))
+		{
+			renderSettings.SetSpotShadowSettings(spotShadowSettings);
+		}
+		if (ImGui::SliderFloat("Spot receiver bias min", &spotShadowSettings.ReceiverBiasMin, 0.00001f, 0.001f, "%.5f"))
+		{
+			renderSettings.SetSpotShadowSettings(spotShadowSettings);
+		}
+		if (ImGui::SliderFloat("Spot receiver bias slope", &spotShadowSettings.ReceiverBiasSlopeScale, 0.0f, 0.005f, "%.5f"))
+		{
+			renderSettings.SetSpotShadowSettings(spotShadowSettings);
+		}
+		if (ImGui::SliderFloat("Spot receiver bias texel", &spotShadowSettings.ReceiverBiasTexelFactor, 0.0f, 4.0f, "%.2f"))
 		{
 			renderSettings.SetSpotShadowSettings(spotShadowSettings);
 		}

@@ -27,6 +27,9 @@ public:
         float DepthBiasClamp = 0.0f;
         float PcfRadius = 1.5f;
         float ShadowStrength = 1.0f;
+        float ReceiverBiasMin = 0.00005f;
+        float ReceiverBiasSlopeScale = 0.00035f;
+        float ReceiverBiasTexelFactor = 0.75f;
     };
 
     struct SpotShadowSettings
@@ -38,6 +41,9 @@ public:
         float DepthBiasClamp = 0.0f;
         float PcfRadius = 1.5f;
         float ShadowStrength = 1.0f;
+        float ReceiverBiasMin = 0.00005f;
+        float ReceiverBiasSlopeScale = 0.00035f;
+        float ReceiverBiasTexelFactor = 0.75f;
     };
 
     struct CascadedShadowData

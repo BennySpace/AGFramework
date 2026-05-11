@@ -107,9 +107,11 @@ private:
 		DirectX::XMFLOAT4 ShadowMapMetrics = { 0.0f, 0.0f, 0.0f, 0.0f };
 		DirectX::XMFLOAT4 ShadowSettings0 = { 0.0f, 0.0f, 0.0f, 0.0f };
 		DirectX::XMFLOAT4 ShadowSettings1 = { 0.0f, 0.0f, 0.0f, 0.0f };
+		DirectX::XMFLOAT4 ShadowSettings2 = { 0.0f, 0.0f, 0.0f, 0.0f };
 		DirectX::XMFLOAT4 SpotShadowMapMetrics = { 0.0f, 0.0f, 0.0f, 0.0f };
 		DirectX::XMFLOAT4 SpotShadowSettings0 = { 0.0f, 0.0f, 0.0f, 0.0f };
 		DirectX::XMFLOAT4 SpotShadowSettings1 = { 0.0f, 0.0f, 0.0f, 0.0f };
+		DirectX::XMFLOAT4 SpotShadowSettings2 = { 0.0f, 0.0f, 0.0f, 0.0f };
 	};
 
 	struct DrawSettings

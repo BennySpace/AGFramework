@@ -137,6 +137,11 @@ void DeferredRenderer::UpdateMainPassCB(const FrameData& frameData)
 		frameData.ShadowSettings.SlopeScaledDepthBias,
 		frameData.ShadowSettings.DepthBiasClamp,
 		frameData.ShadowSettings.CascadeSplitLambda);
+	objectConstants.ShadowSettings2 = XMFLOAT4(
+		frameData.ShadowSettings.ReceiverBiasMin,
+		frameData.ShadowSettings.ReceiverBiasSlopeScale,
+		frameData.ShadowSettings.ReceiverBiasTexelFactor,
+		0.0f);
 	objectConstants.SpotShadowMapMetrics = frameData.SpotShadowData.ShadowMapMetrics;
 	objectConstants.SpotShadowSettings0 = XMFLOAT4(
 		frameData.SpotShadowSettings.EnableSpotShadows ? 1.0f : 0.0f,
@@ -147,6 +152,11 @@ void DeferredRenderer::UpdateMainPassCB(const FrameData& frameData)
 		frameData.SpotShadowData.NearZ,
 		frameData.SpotShadowData.FarZ,
 		0.0f,
+		0.0f);
+	objectConstants.SpotShadowSettings2 = XMFLOAT4(
+		frameData.SpotShadowSettings.ReceiverBiasMin,
+		frameData.SpotShadowSettings.ReceiverBiasSlopeScale,
+		frameData.SpotShadowSettings.ReceiverBiasTexelFactor,
 		0.0f);
 
 	memcpy(m_mappedObjectCB, &objectConstants, sizeof(objectConstants));
