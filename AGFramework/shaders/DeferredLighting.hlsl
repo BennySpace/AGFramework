@@ -73,6 +73,7 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
     const uint shadowCascadeIndex = SelectShadowCascade(viewDepth);
     const float directionalShadowFactor = ComputeDirectionalShadowFactor(posW, normalW, viewDepth, shadowCascadeIndex);
     const float spot0ShadowFactor = ComputeSpotShadowFactor(posW, normalW, 0u);
+    const SpotShadowProjectionInfo spotShadowProjection = ProjectIntoSpotShadowMap(posW);
 
     if (debugViewMode == 4)
     {
@@ -90,6 +91,21 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
     {
         const float3 shadowViz = spot0ShadowFactor.xxx;
         return float4(lerp(backgroundColor, shadowViz, opacity), 1.0f);
+    }
+
+    if (debugViewMode == 7)
+    {
+        if (!spotShadowProjection.IsInsideShadowMap)
+        {
+            const float3 outsideViz = float3(0.85f, 0.15f, 0.2f);
+            return float4(lerp(backgroundColor, outsideViz, opacity), 1.0f);
+        }
+
+        const float3 frustumViz = float3(
+            spotShadowProjection.Uv.x,
+            spotShadowProjection.Uv.y,
+            saturate(spotShadowProjection.Depth));
+        return float4(lerp(backgroundColor, frustumViz, opacity), 1.0f);
     }
 
     float3 toEye = normalize(gEyePosW - posW);

@@ -18,7 +18,8 @@ public:
 		Position = 3,
 		ShadowCascade = 4,
 		ShadowFactor = 5,
-		SpotShadowFactor = 6
+		SpotShadowFactor = 6,
+		SpotShadowFrustum = 7
 	};
 
 	DebugOverlay() = default;

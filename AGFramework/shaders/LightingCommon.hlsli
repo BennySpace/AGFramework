@@ -174,6 +174,34 @@ float ComputeDirectionalShadowFactor(float3 posW, float3 normalW, float viewDept
     return lerp(1.0f, visibility, saturate(gShadowSettings0.z));
 }
 
+struct SpotShadowProjectionInfo
+{
+    float2 Uv;
+    float Depth;
+    bool IsInsideShadowMap;
+};
+
+SpotShadowProjectionInfo ProjectIntoSpotShadowMap(float3 posW)
+{
+    SpotShadowProjectionInfo info;
+    info.Uv = 0.0f.xx;
+    info.Depth = 0.0f;
+    info.IsInsideShadowMap = false;
+
+    float4 shadowPosH = mul(float4(posW, 1.0f), gSpotShadowLightViewProj);
+    shadowPosH.xyz /= max(shadowPosH.w, 0.0001f);
+
+    info.Uv = float2(
+        shadowPosH.x * 0.5f + 0.5f,
+        -shadowPosH.y * 0.5f + 0.5f);
+    info.Depth = shadowPosH.z;
+    info.IsInsideShadowMap =
+        info.Uv.x >= 0.0f && info.Uv.x <= 1.0f &&
+        info.Uv.y >= 0.0f && info.Uv.y <= 1.0f &&
+        info.Depth > 0.0f && info.Depth < 1.0f;
+    return info;
+}
+
 float ComputeSpotShadowFactor(float3 posW, float3 normalW, uint lightIndex)
 {
     if (lightIndex != 0u || gSpotShadowSettings0.x < 0.5f)
@@ -181,19 +209,8 @@ float ComputeSpotShadowFactor(float3 posW, float3 normalW, uint lightIndex)
         return 1.0f;
     }
 
-    float4 shadowPosH = mul(float4(posW, 1.0f), gSpotShadowLightViewProj);
-    shadowPosH.xyz /= max(shadowPosH.w, 0.0001f);
-
-    float2 shadowUv = float2(
-        shadowPosH.x * 0.5f + 0.5f,
-        -shadowPosH.y * 0.5f + 0.5f);
-
-    if (shadowUv.x < 0.0f || shadowUv.x > 1.0f || shadowUv.y < 0.0f || shadowUv.y > 1.0f)
-    {
-        return 1.0f;
-    }
-
-    if (shadowPosH.z <= 0.0f || shadowPosH.z >= 1.0f)
+    SpotShadowProjectionInfo projectionInfo = ProjectIntoSpotShadowMap(posW);
+    if (!projectionInfo.IsInsideShadowMap)
     {
         return 1.0f;
     }
@@ -205,7 +222,7 @@ float ComputeSpotShadowFactor(float3 posW, float3 normalW, uint lightIndex)
     const float receiverBias =
         max(0.00005f, 0.00035f * (1.0f - normalAlignment)) +
         max(shadowTexelSize.x, shadowTexelSize.y) * 0.75f;
-    const float compareDepth = shadowPosH.z - receiverBias;
+    const float compareDepth = projectionInfo.Depth - receiverBias;
 
     float visibility = 0.0f;
     float sampleCount = 0.0f;
@@ -219,7 +236,7 @@ float ComputeSpotShadowFactor(float3 posW, float3 normalW, uint lightIndex)
             const float2 sampleOffset = float2((float)offsetX, (float)offsetY) * shadowTexelSize * pcfRadius;
             visibility += gSpotShadowMap.SampleCmpLevelZero(
                 gsamShadow,
-                shadowUv + sampleOffset,
+                projectionInfo.Uv + sampleOffset,
                 compareDepth);
             sampleCount += 1.0f;
         }
