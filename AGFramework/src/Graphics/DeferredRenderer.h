@@ -85,7 +85,7 @@ private:
 	void BuildLightingSrvHeap(DirectX12Context& context);
 	void BuildRootSignature(DirectX12Context& context);
 	void BuildPSO(DirectX12Context& context, bool enable4xMsaa, UINT msaaQuality);
-	void BuildShadowPSO(DirectX12Context& context);
+	void BuildShadowPSOs(DirectX12Context& context);
 
 	struct ObjectConstants
 	{
@@ -136,8 +136,10 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_shadowRootSignature;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_geometryPSO;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_lightingPSO;
-	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_shadowOpaquePSO;
-	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_shadowAlphaCutoutPSO;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_directionalShadowOpaquePSO;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_directionalShadowAlphaCutoutPSO;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_spotShadowOpaquePSO;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_spotShadowAlphaCutoutPSO;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_objectCB;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_shadowPassCB;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_lightingSrvHeap;
@@ -151,7 +153,8 @@ private:
 	std::vector<D3D12_INPUT_ELEMENT_DESC> m_inputLayout;
 	RenderSettings::ShadowSettings m_shadowSettings;
 	RenderSettings::SpotShadowSettings m_spotShadowSettings;
-	RenderSettings::ShadowSettings m_shadowPsoSettings;
+	RenderSettings::ShadowSettings m_directionalShadowPsoSettings;
+	RenderSettings::SpotShadowSettings m_spotShadowPsoSettings;
 	RenderSettings::CascadedShadowData m_cascadedShadowData;
 	RenderSettings::SpotShadowData m_spotShadowData;
 	DirectX::XMFLOAT3 m_sceneCenter = { 0.0f, 0.0f, 0.0f };

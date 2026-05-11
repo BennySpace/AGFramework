@@ -292,7 +292,7 @@ void DeferredRenderer::RenderShadowMapPass(
 	const std::vector<ModelDrawItem>& drawItems)
 {
 	BuildCascadedShadowMap(context);
-	BuildShadowPSO(context);
+	BuildShadowPSOs(context);
 
 	if (!m_shadowSettings.EnableDirectionalShadows || m_cascadedShadowMap == nullptr)
 	{
@@ -350,12 +350,12 @@ void DeferredRenderer::RenderShadowMapPass(
 			{
 				CD3DX12_GPU_DESCRIPTOR_HANDLE textureHandle(srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 				textureHandle.Offset(static_cast<INT>(drawItem.DiffuseSrvHeapIndex), cbvSrvUavDescriptorSize);
-				commandList->SetPipelineState(m_shadowAlphaCutoutPSO.Get());
+				commandList->SetPipelineState(m_directionalShadowAlphaCutoutPSO.Get());
 				commandList->SetGraphicsRootDescriptorTable(1, textureHandle);
 			}
 			else
 			{
-				commandList->SetPipelineState(m_shadowOpaquePSO.Get());
+				commandList->SetPipelineState(m_directionalShadowOpaquePSO.Get());
 			}
 
 			const auto& submesh = sceneGeometry.DrawArgs.at(drawItem.DrawName);
@@ -375,7 +375,7 @@ void DeferredRenderer::RenderSpotShadowMapPass(
 	const std::vector<ModelDrawItem>& drawItems)
 {
 	BuildSpotShadowMap(context);
-	BuildShadowPSO(context);
+	BuildShadowPSOs(context);
 
 	if (!m_spotShadowSettings.EnableSpotShadows || m_spotShadowMap == nullptr)
 	{
@@ -429,12 +429,12 @@ void DeferredRenderer::RenderSpotShadowMapPass(
 		{
 			CD3DX12_GPU_DESCRIPTOR_HANDLE textureHandle(srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 			textureHandle.Offset(static_cast<INT>(drawItem.DiffuseSrvHeapIndex), cbvSrvUavDescriptorSize);
-			commandList->SetPipelineState(m_shadowAlphaCutoutPSO.Get());
+			commandList->SetPipelineState(m_spotShadowAlphaCutoutPSO.Get());
 			commandList->SetGraphicsRootDescriptorTable(1, textureHandle);
 		}
 		else
 		{
-			commandList->SetPipelineState(m_shadowOpaquePSO.Get());
+			commandList->SetPipelineState(m_spotShadowOpaquePSO.Get());
 		}
 
 		const auto& submesh = sceneGeometry.DrawArgs.at(drawItem.DrawName);
@@ -801,51 +801,79 @@ void DeferredRenderer::BuildPSO(DirectX12Context& context, bool enable4xMsaa, UI
 	lightingPsoDesc.SampleDesc.Quality = 0;
 
 	ThrowIfFailed(context.GetDevice()->CreateGraphicsPipelineState(&lightingPsoDesc, IID_PPV_ARGS(&m_lightingPSO)));
-	BuildShadowPSO(context);
+	BuildShadowPSOs(context);
 }
 
-void DeferredRenderer::BuildShadowPSO(DirectX12Context& context)
+void DeferredRenderer::BuildShadowPSOs(DirectX12Context& context)
 {
-	if (m_shadowOpaquePSO != nullptr &&
-		m_shadowAlphaCutoutPSO != nullptr &&
-		m_shadowPsoSettings.DepthBias == m_shadowSettings.DepthBias &&
-		m_shadowPsoSettings.SlopeScaledDepthBias == m_shadowSettings.SlopeScaledDepthBias &&
-		m_shadowPsoSettings.DepthBiasClamp == m_shadowSettings.DepthBiasClamp)
+	const auto buildShadowPsoPair =
+		[&context, this](
+			float depthBias,
+			float slopeScaledDepthBias,
+			float depthBiasClamp,
+			Microsoft::WRL::ComPtr<ID3D12PipelineState>& opaquePso,
+			Microsoft::WRL::ComPtr<ID3D12PipelineState>& alphaCutoutPso)
+		{
+			D3D12_GRAPHICS_PIPELINE_STATE_DESC shadowPsoDesc = {};
+			shadowPsoDesc.InputLayout = { m_inputLayout.data(), static_cast<UINT>(m_inputLayout.size()) };
+			shadowPsoDesc.pRootSignature = m_shadowRootSignature.Get();
+			shadowPsoDesc.VS =
+			{
+				reinterpret_cast<BYTE*>(m_shaders["shadowVS"]->GetBufferPointer()),
+				m_shaders["shadowVS"]->GetBufferSize()
+			};
+			shadowPsoDesc.PS = { nullptr, 0 };
+			shadowPsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+			shadowPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+			shadowPsoDesc.RasterizerState.DepthBias = static_cast<INT>(depthBias);
+			shadowPsoDesc.RasterizerState.SlopeScaledDepthBias = slopeScaledDepthBias;
+			shadowPsoDesc.RasterizerState.DepthBiasClamp = depthBiasClamp;
+			shadowPsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+			shadowPsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+			shadowPsoDesc.SampleMask = UINT_MAX;
+			shadowPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+			shadowPsoDesc.NumRenderTargets = 0;
+			shadowPsoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+			shadowPsoDesc.SampleDesc.Count = 1;
+			shadowPsoDesc.SampleDesc.Quality = 0;
+
+			ThrowIfFailed(context.GetDevice()->CreateGraphicsPipelineState(&shadowPsoDesc, IID_PPV_ARGS(&opaquePso)));
+
+			shadowPsoDesc.PS =
+			{
+				reinterpret_cast<BYTE*>(m_shaders["shadowAlphaCutoutPS"]->GetBufferPointer()),
+				m_shaders["shadowAlphaCutoutPS"]->GetBufferSize()
+			};
+			ThrowIfFailed(context.GetDevice()->CreateGraphicsPipelineState(&shadowPsoDesc, IID_PPV_ARGS(&alphaCutoutPso)));
+		};
+
+	if (m_directionalShadowOpaquePSO == nullptr ||
+		m_directionalShadowAlphaCutoutPSO == nullptr ||
+		m_directionalShadowPsoSettings.DepthBias != m_shadowSettings.DepthBias ||
+		m_directionalShadowPsoSettings.SlopeScaledDepthBias != m_shadowSettings.SlopeScaledDepthBias ||
+		m_directionalShadowPsoSettings.DepthBiasClamp != m_shadowSettings.DepthBiasClamp)
 	{
-		return;
+		buildShadowPsoPair(
+			m_shadowSettings.DepthBias,
+			m_shadowSettings.SlopeScaledDepthBias,
+			m_shadowSettings.DepthBiasClamp,
+			m_directionalShadowOpaquePSO,
+			m_directionalShadowAlphaCutoutPSO);
+		m_directionalShadowPsoSettings = m_shadowSettings;
 	}
 
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC shadowPsoDesc = {};
-	shadowPsoDesc.InputLayout = { m_inputLayout.data(), static_cast<UINT>(m_inputLayout.size()) };
-	shadowPsoDesc.pRootSignature = m_shadowRootSignature.Get();
-	shadowPsoDesc.VS =
+	if (m_spotShadowOpaquePSO == nullptr ||
+		m_spotShadowAlphaCutoutPSO == nullptr ||
+		m_spotShadowPsoSettings.DepthBias != m_spotShadowSettings.DepthBias ||
+		m_spotShadowPsoSettings.SlopeScaledDepthBias != m_spotShadowSettings.SlopeScaledDepthBias ||
+		m_spotShadowPsoSettings.DepthBiasClamp != m_spotShadowSettings.DepthBiasClamp)
 	{
-		reinterpret_cast<BYTE*>(m_shaders["shadowVS"]->GetBufferPointer()),
-		m_shaders["shadowVS"]->GetBufferSize()
-	};
-	shadowPsoDesc.PS = { nullptr, 0 };
-	shadowPsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	shadowPsoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
-	shadowPsoDesc.RasterizerState.DepthBias = static_cast<INT>(m_shadowSettings.DepthBias);
-	shadowPsoDesc.RasterizerState.SlopeScaledDepthBias = m_shadowSettings.SlopeScaledDepthBias;
-	shadowPsoDesc.RasterizerState.DepthBiasClamp = m_shadowSettings.DepthBiasClamp;
-	shadowPsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-	shadowPsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-	shadowPsoDesc.SampleMask = UINT_MAX;
-	shadowPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	shadowPsoDesc.NumRenderTargets = 0;
-	shadowPsoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
-	shadowPsoDesc.SampleDesc.Count = 1;
-	shadowPsoDesc.SampleDesc.Quality = 0;
-
-	ThrowIfFailed(context.GetDevice()->CreateGraphicsPipelineState(&shadowPsoDesc, IID_PPV_ARGS(&m_shadowOpaquePSO)));
-
-	shadowPsoDesc.PS =
-	{
-		reinterpret_cast<BYTE*>(m_shaders["shadowAlphaCutoutPS"]->GetBufferPointer()),
-		m_shaders["shadowAlphaCutoutPS"]->GetBufferSize()
-	};
-	ThrowIfFailed(context.GetDevice()->CreateGraphicsPipelineState(&shadowPsoDesc, IID_PPV_ARGS(&m_shadowAlphaCutoutPSO)));
-
-	m_shadowPsoSettings = m_shadowSettings;
+		buildShadowPsoPair(
+			m_spotShadowSettings.DepthBias,
+			m_spotShadowSettings.SlopeScaledDepthBias,
+			m_spotShadowSettings.DepthBiasClamp,
+			m_spotShadowOpaquePSO,
+			m_spotShadowAlphaCutoutPSO);
+		m_spotShadowPsoSettings = m_spotShadowSettings;
+	}
 }
