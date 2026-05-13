@@ -60,6 +60,9 @@ protected:
 	DirectX::XMFLOAT4X4 m_proj = MathHelper::Identity4x4();
 	DirectX::XMFLOAT3 m_eyePos = { 0.0f, 8.0f, -30.0f };
 	DirectX::XMFLOAT3 m_lookDirection = { 0.0f, 0.0f, 1.0f };
+	float m_cameraFieldOfViewY = 0.25f * DirectX::XM_PI;
+	float m_cameraNearPlane = 1.0f;
+	float m_cameraFarPlane = 1000.0f;
 	float m_yaw = 0.0f;
 	float m_pitch = 0.0f;
 	float m_cameraMoveSpeed = 10.0f;

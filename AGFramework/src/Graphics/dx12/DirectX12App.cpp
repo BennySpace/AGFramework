@@ -20,13 +20,13 @@ namespace
 		const RenderSettings::ShadowSettings& shadowSettings,
 		const XMFLOAT3& eyePosition,
 		const XMFLOAT3& lookDirection,
+		float cameraNearPlane,
+		float cameraFarPlane,
 		const XMFLOAT4X4& projection,
 		const LightSystem::DirectionalLightData& directionalLight)
 	{
 		RenderSettings::CascadedShadowData shadowData;
 
-		const float cameraNearPlane = 1.0f;
-		const float cameraFarPlane = 1000.0f;
 		const float farPlane = (std::max)(cameraNearPlane + 0.001f, shadowSettings.MaxShadowDistance);
 		const std::uint32_t cascadeCount = (std::min)(shadowSettings.CascadeCount, RenderSettings::MaxShadowCascadeCount);
 		const float cascadeCountF = static_cast<float>((std::max)(1u, cascadeCount));
@@ -433,7 +433,7 @@ void DirectX12App::ApplyResize(int width, int height)
 	m_context.Resize(width, height);
 	m_deferredRenderer.Resize(m_context);
 
-	XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * XM_PI, AspectRatio(), 1.0f, 1000.0f);
+	XMMATRIX P = XMMatrixPerspectiveFovLH(m_cameraFieldOfViewY, AspectRatio(), m_cameraNearPlane, m_cameraFarPlane);
 	XMStoreFloat4x4(&m_proj, P);
 }
 
@@ -583,6 +583,8 @@ void DirectX12App::UpdateMainPassCB(const GameTimer& gt)
 		frameData.ShadowSettings,
 		frameData.EyePos,
 		frameData.LookDirection,
+		m_cameraNearPlane,
+		m_cameraFarPlane,
 		frameData.Projection,
 		m_lightSystem.GetShadowCastingDirectionalLight());
 	frameData.SpotShadowData = BuildSpotShadowData(
