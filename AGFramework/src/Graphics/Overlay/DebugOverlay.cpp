@@ -424,6 +424,7 @@ void DebugOverlay::Draw(
 		}
 
 		ImGui::SeparatorText("Spot shadows");
+		ImGui::TextUnformatted("Current scope: only Spot 0 casts shadows");
 		if (ImGui::Checkbox("Enable spot shadows", &spotShadowSettings.EnableSpotShadows))
 		{
 			renderSettings.SetSpotShadowSettings(spotShadowSettings);
@@ -505,6 +506,14 @@ void DebugOverlay::Draw(
 			{
 				bool isEnabled = lightEnableState.SpotLights[lightIndex];
 				std::string label = "Spot " + std::to_string(lightIndex);
+				if (lightIndex == static_cast<int>(LightSystem::ShadowCastingSpotLightIndex))
+				{
+					label += " (casts shadows)";
+				}
+				else
+				{
+					label += " (no shadows)";
+				}
 				if (ImGui::Checkbox(label.c_str(), &isEnabled))
 				{
 					lightEnableState.SpotLights[lightIndex] = isEnabled;

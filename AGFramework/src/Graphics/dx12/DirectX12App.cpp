@@ -587,7 +587,7 @@ void DirectX12App::UpdateMainPassCB(const GameTimer& gt)
 		m_lightSystem.GetShadowCastingDirectionalLight());
 	frameData.SpotShadowData = BuildSpotShadowData(
 		frameData.SpotShadowSettings,
-		frameData.LightState.SpotLights[0]);
+		m_lightSystem.GetShadowCastingSpotLight());
 	frameData.Material = m_materialSystem.GetMaterialState();
 
 	m_deferredRenderer.UpdateMainPassCB(frameData);

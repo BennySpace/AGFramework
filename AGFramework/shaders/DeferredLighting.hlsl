@@ -74,7 +74,7 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
     const uint cascadeCount = GetShadowCascadeCount();
     const uint debugCascadeIndex = min((uint)round(gAuxiliarySettings.z), cascadeCount - 1u);
     const float directionalShadowFactor = ComputeDirectionalShadowFactor(posW, normalW, viewDepth, shadowCascadeIndex);
-    const float spot0ShadowFactor = ComputeSpotShadowFactor(posW, normalW, 0u);
+    const float spot0ShadowFactor = ComputeSpotShadowFactor(posW, normalW, SHADOW_CASTING_SPOT_LIGHT_INDEX);
     const DirectionalShadowProjectionInfo directionalShadowProjection = ProjectIntoDirectionalShadowMap(posW, debugCascadeIndex);
     const SpotShadowProjectionInfo spotShadowProjection = ProjectIntoSpotShadowMap(posW);
 
@@ -161,7 +161,10 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
     [unroll]
     for (uint lightIndex = 0; lightIndex < SPOT_LIGHT_COUNT; ++lightIndex)
     {
-        const float spotShadowFactor = lightIndex == 0u ? spot0ShadowFactor : ComputeSpotShadowFactor(posW, normalW, lightIndex);
+        const float spotShadowFactor =
+            lightIndex == SHADOW_CASTING_SPOT_LIGHT_INDEX ?
+            spot0ShadowFactor :
+            ComputeSpotShadowFactor(posW, normalW, lightIndex);
         spotLighting += spotShadowFactor * ApplySpotLight(albedoSample.rgb, normalW, toEye, posW, gSpotLights[lightIndex]);
     }
 

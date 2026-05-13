@@ -2,6 +2,7 @@ static const uint DIRECTIONAL_LIGHT_COUNT = 1;
 static const uint POINT_LIGHT_COUNT = 6;
 static const uint SPOT_LIGHT_COUNT = 2;
 static const uint SHADOW_CASCADE_COUNT = 4;
+static const uint SHADOW_CASTING_SPOT_LIGHT_INDEX = 0;
 
 struct DirectionalLightData
 {
@@ -256,7 +257,7 @@ float SampleSpotShadowMapDepth(float3 posW)
 
 float ComputeSpotShadowFactor(float3 posW, float3 normalW, uint lightIndex)
 {
-    if (lightIndex != 0u || gSpotShadowSettings0.x < 0.5f)
+    if (lightIndex != SHADOW_CASTING_SPOT_LIGHT_INDEX || gSpotShadowSettings0.x < 0.5f)
     {
         return 1.0f;
     }
