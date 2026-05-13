@@ -111,7 +111,23 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
     }
 
     float3 toEye = normalize(gEyePosW - posW);
-    float3 ambient = gAmbientLight.rgb * gAmbientLight.w * albedoSample.rgb;
+    const float roughness = ComputePerceptualRoughness(gSpecularAlbedo.w);
+    const float3 F0 = saturate(gSpecularAlbedo.rgb);
+    const float NdotV = saturate(dot(normalW, toEye));
+    const float3 F = FresnelSchlickRoughness(NdotV, F0, roughness);
+    const float3 kS = F;
+    const float3 kD = 1.0f.xxx - kS;
+    const float3 irradiance = gIrradianceMap.Sample(gsamLinearWrap, normalW).rgb;
+    const float3 diffuseIBL = irradiance * albedoSample.rgb;
+    const float3 reflectionVector = reflect(-toEye, normalW);
+    const float maxReflectionLod = 4.0f;
+    const float3 prefilteredColor = gPrefilterMap.SampleLevel(
+        gsamLinearWrap,
+        reflectionVector,
+        roughness * maxReflectionLod).rgb;
+    const float2 brdf = gBrdfLut.Sample(gsamLinearWrap, float2(NdotV, roughness)).rg;
+    const float3 specularIBL = prefilteredColor * (F * brdf.x + brdf.y);
+    float3 ambient = gAmbientLight.rgb * gAmbientLight.w * (kD * diffuseIBL + specularIBL);
     float3 directionalLighting = 0.0f;
     float3 pointLighting = 0.0f;
     float3 spotLighting = 0.0f;

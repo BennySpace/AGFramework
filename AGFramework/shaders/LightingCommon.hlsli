@@ -56,6 +56,9 @@ Texture2D gTexture0 : register(t0);
 Texture2D gTexture1 : register(t1);
 Texture2D gTexture2 : register(t2);
 Texture2DArray gShadowMap : register(t3);
+TextureCube gIrradianceMap : register(t4);
+TextureCube gPrefilterMap : register(t5);
+Texture2D gBrdfLut : register(t6);
 SamplerState gsamLinearWrap : register(s0);
 SamplerComparisonState gsamShadow : register(s1);
 
@@ -245,6 +248,12 @@ float GeometrySmith(float3 normalW, float3 toEye, float3 lightVector, float roug
 float3 FresnelSchlick(float cosTheta, float3 F0)
 {
     return F0 + (1.0f - F0) * pow(1.0f - saturate(cosTheta), 5.0f);
+}
+
+float3 FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
+{
+    const float3 oneMinusRoughness = float3(1.0f - roughness, 1.0f - roughness, 1.0f - roughness);
+    return F0 + (max(oneMinusRoughness, F0) - F0) * pow(1.0f - saturate(cosTheta), 5.0f);
 }
 
 float3 ComputeCookTorranceLighting(float3 albedo, float3 normalW, float3 toEye, float3 lightVector, float3 radiance)
