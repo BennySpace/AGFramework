@@ -168,4 +168,5 @@ private:
 	UINT m_shadowPassCBStride = 0;
 	UINT m_shadowPassCBByteSize = 0;
 	UINT m_spotShadowPassCBOffset = 0;
+	bool m_lightingSrvHeapDirty = true;
 };

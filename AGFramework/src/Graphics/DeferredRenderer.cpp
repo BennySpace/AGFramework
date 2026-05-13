@@ -194,7 +194,7 @@ void DeferredRenderer::BuildCascadedShadowMap(DirectX12Context& context)
 	}
 
 	m_cascadedShadowMapState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
-	BuildLightingSrvHeap(context);
+	m_lightingSrvHeapDirty = true;
 }
 
 void DeferredRenderer::BuildSpotShadowMap(DirectX12Context& context)
@@ -227,11 +227,17 @@ void DeferredRenderer::BuildSpotShadowMap(DirectX12Context& context)
 	}
 
 	m_spotShadowMapState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+	m_lightingSrvHeapDirty = true;
 }
 
 void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context& context)
 {
 	if (m_gbuffer == nullptr || m_cascadedShadowMap == nullptr || m_spotShadowMap == nullptr)
+	{
+		return;
+	}
+
+	if (m_lightingSrvHeap != nullptr && !m_lightingSrvHeapDirty)
 	{
 		return;
 	}
@@ -292,6 +298,7 @@ void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context& context)
 	spotShadowSrvDesc.Texture2D.PlaneSlice = 0;
 	spotShadowSrvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 	context.GetDevice()->CreateShaderResourceView(m_spotShadowMap->GetResource(), &spotShadowSrvDesc, handle);
+	m_lightingSrvHeapDirty = false;
 }
 
 void DeferredRenderer::RenderShadowMapPass(
@@ -646,6 +653,7 @@ void DeferredRenderer::BuildGbuffer(DirectX12Context& context)
 		throw std::runtime_error("Failed to initialize gbuffer.");
 	}
 	m_gbufferState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	m_lightingSrvHeapDirty = true;
 }
 
 void DeferredRenderer::BuildRootSignature(DirectX12Context& context)
