@@ -209,64 +209,102 @@ float ComputeDirectionalShadowFactor(float3 posW, float3 normalW, float viewDept
     return lerp(1.0f, visibility, saturate(gShadowSettings0.z));
 }
 
-float3 ComputeSpecular(float3 normalW, float3 lightVector, float3 toEye, float shininess)
+static const float PI = 3.14159265359f;
+
+float ComputePerceptualRoughness(float shininess)
 {
-    float3 halfVector = normalize(lightVector + toEye);
-    float specularFactor = pow(saturate(dot(normalW, halfVector)), shininess);
-    return specularFactor * gSpecularAlbedo.rgb;
+    const float clampedShininess = max(shininess, 1.0f);
+    const float roughness = sqrt(2.0f / (clampedShininess + 2.0f));
+    return clamp(roughness, 0.04f, 1.0f);
+}
+
+float DistributionGGX(float3 normalW, float3 halfwayVector, float roughness)
+{
+    const float a = roughness * roughness;
+    const float a2 = a * a;
+    const float ndoth = saturate(dot(normalW, halfwayVector));
+    const float ndoth2 = ndoth * ndoth;
+    const float denominator = ndoth2 * (a2 - 1.0f) + 1.0f;
+    return a2 / max(PI * denominator * denominator, 0.0001f);
+}
+
+float GeometrySchlickGGX(float ndotv, float roughness)
+{
+    const float r = roughness + 1.0f;
+    const float k = (r * r) / 8.0f;
+    return ndotv / max(ndotv * (1.0f - k) + k, 0.0001f);
+}
+
+float GeometrySmith(float3 normalW, float3 toEye, float3 lightVector, float roughness)
+{
+    const float ndotv = saturate(dot(normalW, toEye));
+    const float ndotl = saturate(dot(normalW, lightVector));
+    return GeometrySchlickGGX(ndotv, roughness) * GeometrySchlickGGX(ndotl, roughness);
+}
+
+float3 FresnelSchlick(float cosTheta, float3 F0)
+{
+    return F0 + (1.0f - F0) * pow(1.0f - saturate(cosTheta), 5.0f);
+}
+
+float3 ComputeCookTorranceLighting(float3 albedo, float3 normalW, float3 toEye, float3 lightVector, float3 radiance)
+{
+    const float3 halfwayVector = normalize(toEye + lightVector);
+    const float roughness = ComputePerceptualRoughness(gSpecularAlbedo.w);
+    const float3 F0 = saturate(gSpecularAlbedo.rgb);
+    const float3 F = FresnelSchlick(dot(halfwayVector, toEye), F0);
+    const float NDF = DistributionGGX(normalW, halfwayVector, roughness);
+    const float G = GeometrySmith(normalW, toEye, lightVector, roughness);
+    const float ndotv = saturate(dot(normalW, toEye));
+    const float ndotl = saturate(dot(normalW, lightVector));
+    const float3 specular = (NDF * G * F) / max(4.0f * ndotv * ndotl, 0.0001f);
+    const float3 kS = F;
+    const float3 kD = 1.0f.xxx - kS;
+    return (kD * albedo / PI + specular) * radiance * ndotl;
 }
 
 float3 ApplyDirectionalLight(float3 albedo, float3 normalW, float3 toEye, DirectionalLightData lightData)
 {
-    float3 lightVector = normalize(-lightData.Direction.xyz);
-    float ndotl = saturate(dot(normalW, lightVector));
-    float3 diffuse = ndotl * lightData.Color.rgb * albedo;
-    float3 specular = ComputeSpecular(normalW, lightVector, toEye, gSpecularAlbedo.w) * lightData.Color.rgb;
-    return diffuse + specular;
+    const float3 lightVector = normalize(-lightData.Direction.xyz);
+    return ComputeCookTorranceLighting(albedo, normalW, toEye, lightVector, lightData.Color.rgb);
 }
 
 float3 ApplyPointLight(float3 albedo, float3 normalW, float3 toEye, float3 posW, PointLightData lightData)
 {
     float3 toLight = lightData.Position.xyz - posW;
-    float distanceToLight = length(toLight);
-    float range = max(lightData.Params.x, 0.001f);
+    const float distanceToLight = length(toLight);
+    const float range = max(lightData.Params.x, 0.001f);
     if (distanceToLight >= range)
     {
         return 0.0f;
     }
 
-    float3 lightVector = toLight / max(distanceToLight, 0.001f);
-    float attenuation = pow(saturate(1.0f - distanceToLight / range), max(lightData.Params.y, 1.0f));
-    float ndotl = saturate(dot(normalW, lightVector));
-    float3 diffuse = ndotl * lightData.Color.rgb * albedo;
-    float3 specular = ComputeSpecular(normalW, lightVector, toEye, gSpecularAlbedo.w) * lightData.Color.rgb;
-    return attenuation * (diffuse + specular);
+    const float3 lightVector = toLight / max(distanceToLight, 0.001f);
+    const float attenuation = pow(saturate(1.0f - distanceToLight / range), max(lightData.Params.y, 1.0f));
+    return ComputeCookTorranceLighting(albedo, normalW, toEye, lightVector, attenuation * lightData.Color.rgb);
 }
 
 float3 ApplySpotLight(float3 albedo, float3 normalW, float3 toEye, float3 posW, SpotLightData lightData)
 {
     float3 toLight = lightData.Position.xyz - posW;
-    float distanceToLight = length(toLight);
-    float range = max(lightData.Params.x, 0.001f);
+    const float distanceToLight = length(toLight);
+    const float range = max(lightData.Params.x, 0.001f);
     if (distanceToLight >= range)
     {
         return 0.0f;
     }
 
-    float3 lightVector = toLight / max(distanceToLight, 0.001f);
-    float3 spotDirection = normalize(-lightData.Direction.xyz);
-    float spotCosine = dot(lightVector, spotDirection);
-    float outerCone = lightData.Params.z;
-    float innerCone = max(lightData.Params.y, outerCone + 0.0001f);
-    float spotFactor = saturate((spotCosine - outerCone) / (innerCone - outerCone));
+    const float3 lightVector = toLight / max(distanceToLight, 0.001f);
+    const float3 spotDirection = normalize(-lightData.Direction.xyz);
+    const float spotCosine = dot(lightVector, spotDirection);
+    const float outerCone = lightData.Params.z;
+    const float innerCone = max(lightData.Params.y, outerCone + 0.0001f);
+    const float spotFactor = saturate((spotCosine - outerCone) / (innerCone - outerCone));
     if (spotFactor <= 0.0f)
     {
         return 0.0f;
     }
 
-    float attenuation = pow(saturate(1.0f - distanceToLight / range), max(lightData.Params.w, 1.0f));
-    float ndotl = saturate(dot(normalW, lightVector));
-    float3 diffuse = ndotl * lightData.Color.rgb * albedo;
-    float3 specular = ComputeSpecular(normalW, lightVector, toEye, gSpecularAlbedo.w) * lightData.Color.rgb;
-    return attenuation * spotFactor * (diffuse + specular);
+    const float attenuation = pow(saturate(1.0f - distanceToLight / range), max(lightData.Params.w, 1.0f));
+    return ComputeCookTorranceLighting(albedo, normalW, toEye, lightVector, attenuation * spotFactor * lightData.Color.rgb);
 }
