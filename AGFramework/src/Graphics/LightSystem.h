@@ -11,7 +11,6 @@ public:
     static constexpr std::size_t PointLightCount = 6;
     static constexpr std::size_t SpotLightCount = 2;
     static constexpr std::size_t ShadowCastingDirectionalLightIndex = 0;
-    static constexpr std::size_t ShadowCastingSpotLightIndex = 0;
 
     struct DirectionalLightData
     {
@@ -53,10 +52,6 @@ public:
     const DirectionalLightData& GetShadowCastingDirectionalLight() const
     {
         return m_lightingState.DirectionalLights[ShadowCastingDirectionalLightIndex];
-    }
-    const SpotLightData& GetShadowCastingSpotLight() const
-    {
-        return m_lightingState.SpotLights[ShadowCastingSpotLightIndex];
     }
     const LightEnableState& GetLightEnableState() const { return m_lightEnableState; }
     void SetLightEnableState(const LightEnableState& lightEnableState) { m_lightEnableState = lightEnableState; }

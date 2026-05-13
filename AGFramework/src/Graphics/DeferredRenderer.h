@@ -8,7 +8,6 @@
 #include "MaterialSystem.h"
 #include "Overlay/DebugOverlay.h"
 #include "RenderSettings.h"
-#include "SpotShadowMap.h"
 
 class DirectX12Context;
 
@@ -33,9 +32,7 @@ public:
 		DirectX::XMFLOAT4X4 Projection = MathHelper::Identity4x4();
 		RenderSettings::LightingSettings LightingSettings;
 		RenderSettings::ShadowSettings ShadowSettings;
-		RenderSettings::SpotShadowSettings SpotShadowSettings;
 		RenderSettings::CascadedShadowData CascadedShadowData;
-		RenderSettings::SpotShadowData SpotShadowData;
 		MaterialSystem::MaterialState Material;
 		LightSystem::LightingState LightState;
 	};
@@ -52,12 +49,6 @@ public:
 		UINT cbvSrvUavDescriptorSize,
 		const MeshGeometry& sceneGeometry,
 		const std::vector<ModelDrawItem>& drawItems);
-	void RenderSpotShadowMapPass(
-		DirectX12Context& context,
-		ID3D12DescriptorHeap* srvDescriptorHeap,
-		UINT cbvSrvUavDescriptorSize,
-		const MeshGeometry& sceneGeometry,
-		const std::vector<ModelDrawItem>& drawItems);
 	void DrawGeometryPass(
 		DirectX12Context& context,
 		ID3D12DescriptorHeap* srvDescriptorHeap,
@@ -66,22 +57,18 @@ public:
 		const std::vector<ModelDrawItem>& drawItems);
 	void DrawLightingPass(DirectX12Context& context, DebugOverlay::DebugViewMode debugViewMode, int shadowDebugCascadeIndex);
 	void TransitionCascadedShadowMap(DirectX12Context& context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
-	void TransitionSpotShadowMap(DirectX12Context& context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
 	void TransitionGbuffer(DirectX12Context& context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
 
 	D3D12_RESOURCE_STATES GetGbufferState() const { return m_gbufferState; }
 	void SetGbufferState(D3D12_RESOURCE_STATES state) { m_gbufferState = state; }
 	D3D12_RESOURCE_STATES GetCascadedShadowMapState() const { return m_cascadedShadowMapState; }
 	void SetCascadedShadowMapState(D3D12_RESOURCE_STATES state) { m_cascadedShadowMapState = state; }
-	D3D12_RESOURCE_STATES GetSpotShadowMapState() const { return m_spotShadowMapState; }
-	void SetSpotShadowMapState(D3D12_RESOURCE_STATES state) { m_spotShadowMapState = state; }
 
 private:
 	void BuildShadersAndInputLayout();
 	void BuildConstantBuffer(DirectX12Context& context);
 	void BuildGbuffer(DirectX12Context& context);
 	void BuildCascadedShadowMap(DirectX12Context& context);
-	void BuildSpotShadowMap(DirectX12Context& context);
 	void BuildLightingSrvHeap(DirectX12Context& context);
 	void BuildRootSignature(DirectX12Context& context);
 	void BuildPSO(DirectX12Context& context, bool enable4xMsaa, UINT msaaQuality);
@@ -102,16 +89,11 @@ private:
 		LightSystem::PointLightData PointLights[LightSystem::PointLightCount];
 		LightSystem::SpotLightData SpotLights[LightSystem::SpotLightCount];
 		DirectX::XMFLOAT4X4 ShadowLightViewProj[RenderSettings::MaxShadowCascadeCount];
-		DirectX::XMFLOAT4X4 SpotShadowLightViewProj = MathHelper::Identity4x4();
 		DirectX::XMFLOAT4 ShadowCascadeSplits = { 0.0f, 0.0f, 0.0f, 0.0f };
 		DirectX::XMFLOAT4 ShadowMapMetrics = { 0.0f, 0.0f, 0.0f, 0.0f };
 		DirectX::XMFLOAT4 ShadowSettings0 = { 0.0f, 0.0f, 0.0f, 0.0f };
 		DirectX::XMFLOAT4 ShadowSettings1 = { 0.0f, 0.0f, 0.0f, 0.0f };
 		DirectX::XMFLOAT4 ShadowSettings2 = { 0.0f, 0.0f, 0.0f, 0.0f };
-		DirectX::XMFLOAT4 SpotShadowMapMetrics = { 0.0f, 0.0f, 0.0f, 0.0f };
-		DirectX::XMFLOAT4 SpotShadowSettings0 = { 0.0f, 0.0f, 0.0f, 0.0f };
-		DirectX::XMFLOAT4 SpotShadowSettings1 = { 0.0f, 0.0f, 0.0f, 0.0f };
-		DirectX::XMFLOAT4 SpotShadowSettings2 = { 0.0f, 0.0f, 0.0f, 0.0f };
 	};
 
 	struct DrawSettings
@@ -141,25 +123,18 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_lightingPSO;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_directionalShadowOpaquePSO;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_directionalShadowAlphaCutoutPSO;
-	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_spotShadowOpaquePSO;
-	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_spotShadowAlphaCutoutPSO;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_objectCB;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_shadowPassCB;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_lightingSrvHeap;
 	std::unique_ptr<CascadedShadowMap> m_cascadedShadowMap;
-	std::unique_ptr<SpotShadowMap> m_spotShadowMap;
 	std::unique_ptr<Gbuffer> m_gbuffer;
 	D3D12_RESOURCE_STATES m_cascadedShadowMapState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
-	D3D12_RESOURCE_STATES m_spotShadowMapState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
 	D3D12_RESOURCE_STATES m_gbufferState = D3D12_RESOURCE_STATE_RENDER_TARGET;
 	std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID3DBlob>> m_shaders;
 	std::vector<D3D12_INPUT_ELEMENT_DESC> m_inputLayout;
 	RenderSettings::ShadowSettings m_shadowSettings;
-	RenderSettings::SpotShadowSettings m_spotShadowSettings;
 	RenderSettings::ShadowSettings m_directionalShadowPsoSettings;
-	RenderSettings::SpotShadowSettings m_spotShadowPsoSettings;
 	RenderSettings::CascadedShadowData m_cascadedShadowData;
-	RenderSettings::SpotShadowData m_spotShadowData;
 	DirectX::XMFLOAT3 m_sceneCenter = { 0.0f, 0.0f, 0.0f };
 	float m_sceneScale = 1.0f;
 	UINT8* m_mappedShadowPassCB = nullptr;
@@ -167,6 +142,5 @@ private:
 	UINT m_objectCBByteSize = 0;
 	UINT m_shadowPassCBStride = 0;
 	UINT m_shadowPassCBByteSize = 0;
-	UINT m_spotShadowPassCBOffset = 0;
 	bool m_lightingSrvHeapDirty = true;
 };

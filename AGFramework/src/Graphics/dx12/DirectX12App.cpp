@@ -209,52 +209,6 @@ namespace
 		return shadowData;
 	}
 
-	RenderSettings::SpotShadowData BuildSpotShadowData(
-		const RenderSettings::SpotShadowSettings& shadowSettings,
-		const LightSystem::SpotLightData& spotLight)
-	{
-		RenderSettings::SpotShadowData shadowData;
-
-		const float shadowMapSize = static_cast<float>((std::max)(1u, shadowSettings.ShadowMapSize));
-		shadowData.ShadowMapMetrics = XMFLOAT4(
-			shadowMapSize,
-			shadowMapSize,
-			1.0f / shadowMapSize,
-			1.0f / shadowMapSize);
-
-		shadowData.LightPosition = XMFLOAT3(
-			spotLight.Position.x,
-			spotLight.Position.y,
-			spotLight.Position.z);
-
-		const XMFLOAT3 rawDirection(
-			spotLight.Direction.x,
-			spotLight.Direction.y,
-			spotLight.Direction.z);
-		const XMVECTOR safeDirectionVector = GetSafeNormalizedDirection(rawDirection);
-		XMStoreFloat3(&shadowData.LightDirection, safeDirectionVector);
-
-		const float nearZ = 0.1f;
-		const float farZ = (std::max)(spotLight.Params.x, nearZ + 0.1f);
-		shadowData.NearZ = nearZ;
-		shadowData.FarZ = farZ;
-
-		const float outerConeCosine = (std::max)(-0.999f, (std::min)(0.999f, spotLight.Params.z));
-		const float fieldOfViewY = 2.0f * acosf(outerConeCosine);
-		const XMVECTOR lightPosition = XMLoadFloat3(&shadowData.LightPosition);
-
-		XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-		if (fabsf(XMVectorGetX(XMVector3Dot(safeDirectionVector, up))) > 0.99f)
-		{
-			up = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
-		}
-
-		const XMMATRIX lightView = XMMatrixLookToLH(lightPosition, safeDirectionVector, up);
-		const XMMATRIX lightProj = XMMatrixPerspectiveFovLH(fieldOfViewY, 1.0f, nearZ, farZ);
-		XMStoreFloat4x4(&shadowData.LightViewProjMatrix, lightView * lightProj);
-
-		return shadowData;
-	}
 }
 
 DirectX12App::DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd) : m_hAppInst(mhAppInst), m_hMainWnd(mhMainWnd)
@@ -346,20 +300,6 @@ void DirectX12App::Draw(const GameTimer& gt)
 		m_context.GetCbvSrvUavDescriptorSize(),
 		m_scene.GetGeometry(),
 		m_scene.GetDrawItems());
-	if (m_deferredRenderer.GetSpotShadowMapState() != D3D12_RESOURCE_STATE_DEPTH_WRITE)
-	{
-		m_deferredRenderer.TransitionSpotShadowMap(
-			m_context,
-			m_deferredRenderer.GetSpotShadowMapState(),
-			D3D12_RESOURCE_STATE_DEPTH_WRITE);
-		m_deferredRenderer.SetSpotShadowMapState(D3D12_RESOURCE_STATE_DEPTH_WRITE);
-	}
-	m_deferredRenderer.RenderSpotShadowMapPass(
-		m_context,
-		m_scene.GetSrvDescriptorHeap(),
-		m_context.GetCbvSrvUavDescriptorSize(),
-		m_scene.GetGeometry(),
-		m_scene.GetDrawItems());
 
 	if (m_deferredRenderer.GetGbufferState() != D3D12_RESOURCE_STATE_RENDER_TARGET)
 	{
@@ -382,15 +322,6 @@ void DirectX12App::Draw(const GameTimer& gt)
 			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 		m_deferredRenderer.SetCascadedShadowMapState(D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	}
-	if (m_deferredRenderer.GetSpotShadowMapState() != D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
-	{
-		m_deferredRenderer.TransitionSpotShadowMap(
-			m_context,
-			m_deferredRenderer.GetSpotShadowMapState(),
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-		m_deferredRenderer.SetSpotShadowMapState(D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	}
-
 	const float clearColor[] = { 0.03f, 0.05f, 0.08f, 1.0f };
 	m_context.GetCommandList()->ClearRenderTargetView(m_context.CurrentBackBufferView(), clearColor, 0, nullptr);
 	m_deferredRenderer.DrawLightingPass(
@@ -577,7 +508,6 @@ void DirectX12App::UpdateMainPassCB(const GameTimer& gt)
 	frameData.Projection = m_proj;
 	frameData.LightingSettings = m_renderSettings.GetLightingSettings();
 	frameData.ShadowSettings = m_renderSettings.GetShadowSettings();
-	frameData.SpotShadowSettings = m_renderSettings.GetSpotShadowSettings();
 	frameData.LightState = m_lightSystem.GetLightingState();
 	frameData.CascadedShadowData = BuildCascadedShadowData(
 		frameData.ShadowSettings,
@@ -587,9 +517,6 @@ void DirectX12App::UpdateMainPassCB(const GameTimer& gt)
 		m_cameraFarPlane,
 		frameData.Projection,
 		m_lightSystem.GetShadowCastingDirectionalLight());
-	frameData.SpotShadowData = BuildSpotShadowData(
-		frameData.SpotShadowSettings,
-		m_lightSystem.GetShadowCastingSpotLight());
 	frameData.Material = m_materialSystem.GetMaterialState();
 
 	m_deferredRenderer.UpdateMainPassCB(frameData);

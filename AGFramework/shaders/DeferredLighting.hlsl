@@ -74,9 +74,7 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
     const uint cascadeCount = GetShadowCascadeCount();
     const uint debugCascadeIndex = min((uint)round(gAuxiliarySettings.z), cascadeCount - 1u);
     const float directionalShadowFactor = ComputeDirectionalShadowFactor(posW, normalW, viewDepth, shadowCascadeIndex);
-    const float spot0ShadowFactor = ComputeSpotShadowFactor(posW, normalW, SHADOW_CASTING_SPOT_LIGHT_INDEX);
     const DirectionalShadowProjectionInfo directionalShadowProjection = ProjectIntoDirectionalShadowMap(posW, debugCascadeIndex);
-    const SpotShadowProjectionInfo spotShadowProjection = ProjectIntoSpotShadowMap(posW);
 
     if (debugViewMode == 4)
     {
@@ -92,40 +90,12 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
 
     if (debugViewMode == 6)
     {
-        const float3 shadowViz = spot0ShadowFactor.xxx;
-        return float4(lerp(backgroundColor, shadowViz, opacity), 1.0f);
-    }
-
-    if (debugViewMode == 7)
-    {
-        if (!spotShadowProjection.IsInsideShadowMap)
-        {
-            const float3 outsideViz = float3(0.85f, 0.15f, 0.2f);
-            return float4(lerp(backgroundColor, outsideViz, opacity), 1.0f);
-        }
-
-        const float3 frustumViz = float3(
-            spotShadowProjection.Uv.x,
-            spotShadowProjection.Uv.y,
-            saturate(spotShadowProjection.Depth));
-        return float4(lerp(backgroundColor, frustumViz, opacity), 1.0f);
-    }
-
-    if (debugViewMode == 8)
-    {
         const float shadowDepth = SampleDirectionalShadowMapDepth(posW, debugCascadeIndex);
         const float3 shadowViz = shadowDepth.xxx;
         return float4(lerp(backgroundColor, shadowViz, opacity), 1.0f);
     }
 
-    if (debugViewMode == 9)
-    {
-        const float shadowDepth = SampleSpotShadowMapDepth(posW);
-        const float3 shadowViz = shadowDepth.xxx;
-        return float4(lerp(backgroundColor, shadowViz, opacity), 1.0f);
-    }
-
-    if (debugViewMode == 10)
+    if (debugViewMode == 7)
     {
         if (!directionalShadowProjection.IsInsideShadowMap)
         {
@@ -141,7 +111,7 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
     }
 
     float3 toEye = normalize(gEyePosW - posW);
-    float3 ambient = gAmbientLight.rgb * albedoSample.rgb;
+    float3 ambient = gAmbientLight.rgb * gAmbientLight.w * albedoSample.rgb;
     float3 directionalLighting = 0.0f;
     float3 pointLighting = 0.0f;
     float3 spotLighting = 0.0f;
@@ -161,11 +131,7 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
     [unroll]
     for (uint lightIndex = 0; lightIndex < SPOT_LIGHT_COUNT; ++lightIndex)
     {
-        const float spotShadowFactor =
-            lightIndex == SHADOW_CASTING_SPOT_LIGHT_INDEX ?
-            spot0ShadowFactor :
-            ComputeSpotShadowFactor(posW, normalW, lightIndex);
-        spotLighting += spotShadowFactor * ApplySpotLight(albedoSample.rgb, normalW, toEye, posW, gSpotLights[lightIndex]);
+        spotLighting += ApplySpotLight(albedoSample.rgb, normalW, toEye, posW, gSpotLights[lightIndex]);
     }
 
     const float3 litColor = ambient + directionalLighting + pointLighting + spotLighting;

@@ -2,7 +2,6 @@ static const uint DIRECTIONAL_LIGHT_COUNT = 1;
 static const uint POINT_LIGHT_COUNT = 6;
 static const uint SPOT_LIGHT_COUNT = 2;
 static const uint SHADOW_CASCADE_COUNT = 4;
-static const uint SHADOW_CASTING_SPOT_LIGHT_INDEX = 0;
 
 struct DirectionalLightData
 {
@@ -41,16 +40,11 @@ cbuffer ObjectConstants : register(b0)
     PointLightData gPointLights[POINT_LIGHT_COUNT];
     SpotLightData gSpotLights[SPOT_LIGHT_COUNT];
     float4x4 gShadowLightViewProj[SHADOW_CASCADE_COUNT];
-    float4x4 gSpotShadowLightViewProj;
     float4 gShadowCascadeSplits;
     float4 gShadowMapMetrics;
     float4 gShadowSettings0;
     float4 gShadowSettings1;
     float4 gShadowSettings2;
-    float4 gSpotShadowMapMetrics;
-    float4 gSpotShadowSettings0;
-    float4 gSpotShadowSettings1;
-    float4 gSpotShadowSettings2;
 }
 
 cbuffer AuxiliarySettings : register(b1)
@@ -62,7 +56,6 @@ Texture2D gTexture0 : register(t0);
 Texture2D gTexture1 : register(t1);
 Texture2D gTexture2 : register(t2);
 Texture2DArray gShadowMap : register(t3);
-Texture2D gSpotShadowMap : register(t4);
 SamplerState gsamLinearWrap : register(s0);
 SamplerComparisonState gsamShadow : register(s1);
 
@@ -214,89 +207,6 @@ float ComputeDirectionalShadowFactor(float3 posW, float3 normalW, float viewDept
     }
 
     return lerp(1.0f, visibility, saturate(gShadowSettings0.z));
-}
-
-struct SpotShadowProjectionInfo
-{
-    float2 Uv;
-    float Depth;
-    bool IsInsideShadowMap;
-};
-
-SpotShadowProjectionInfo ProjectIntoSpotShadowMap(float3 posW)
-{
-    SpotShadowProjectionInfo info;
-    info.Uv = 0.0f.xx;
-    info.Depth = 0.0f;
-    info.IsInsideShadowMap = false;
-
-    float4 shadowPosH = mul(float4(posW, 1.0f), gSpotShadowLightViewProj);
-    shadowPosH.xyz /= max(shadowPosH.w, 0.0001f);
-
-    info.Uv = float2(
-        shadowPosH.x * 0.5f + 0.5f,
-        -shadowPosH.y * 0.5f + 0.5f);
-    info.Depth = shadowPosH.z;
-    info.IsInsideShadowMap =
-        info.Uv.x >= 0.0f && info.Uv.x <= 1.0f &&
-        info.Uv.y >= 0.0f && info.Uv.y <= 1.0f &&
-        info.Depth > 0.0f && info.Depth < 1.0f;
-    return info;
-}
-
-float SampleSpotShadowMapDepth(float3 posW)
-{
-    SpotShadowProjectionInfo projectionInfo = ProjectIntoSpotShadowMap(posW);
-    if (!projectionInfo.IsInsideShadowMap)
-    {
-        return 1.0f;
-    }
-
-    return gSpotShadowMap.SampleLevel(gsamLinearWrap, projectionInfo.Uv, 0.0f).r;
-}
-
-float ComputeSpotShadowFactor(float3 posW, float3 normalW, uint lightIndex)
-{
-    if (lightIndex != SHADOW_CASTING_SPOT_LIGHT_INDEX || gSpotShadowSettings0.x < 0.5f)
-    {
-        return 1.0f;
-    }
-
-    SpotShadowProjectionInfo projectionInfo = ProjectIntoSpotShadowMap(posW);
-    if (!projectionInfo.IsInsideShadowMap)
-    {
-        return 1.0f;
-    }
-
-    const float3 lightVector = normalize(gSpotLights[lightIndex].Position.xyz - posW);
-    const float normalAlignment = saturate(dot(normalW, lightVector));
-    const float2 shadowTexelSize = gSpotShadowMapMetrics.zw;
-    const float pcfRadius = max(gSpotShadowSettings0.y, 0.0f);
-    const float receiverBias =
-        max(gSpotShadowSettings2.x, gSpotShadowSettings2.y * (1.0f - normalAlignment)) +
-        max(shadowTexelSize.x, shadowTexelSize.y) * gSpotShadowSettings2.z;
-    const float compareDepth = projectionInfo.Depth - receiverBias;
-
-    float visibility = 0.0f;
-    float sampleCount = 0.0f;
-
-    [unroll]
-    for (int offsetY = -1; offsetY <= 1; ++offsetY)
-    {
-        [unroll]
-        for (int offsetX = -1; offsetX <= 1; ++offsetX)
-        {
-            const float2 sampleOffset = float2((float)offsetX, (float)offsetY) * shadowTexelSize * pcfRadius;
-            visibility += gSpotShadowMap.SampleCmpLevelZero(
-                gsamShadow,
-                projectionInfo.Uv + sampleOffset,
-                compareDepth);
-            sampleCount += 1.0f;
-        }
-    }
-
-    visibility /= max(sampleCount, 1.0f);
-    return lerp(1.0f, visibility, saturate(gSpotShadowSettings0.z));
 }
 
 float3 ComputeSpecular(float3 normalW, float3 lightVector, float3 toEye, float shininess)

@@ -32,20 +32,6 @@ public:
         float ReceiverBiasTexelFactor = 0.75f;
     };
 
-    struct SpotShadowSettings
-    {
-        bool EnableSpotShadows = false;
-        std::uint32_t ShadowMapSize = 1024;
-        float DepthBias = 64.0f;
-        float SlopeScaledDepthBias = 1.0f;
-        float DepthBiasClamp = 0.0f;
-        float PcfRadius = 1.5f;
-        float ShadowStrength = 1.0f;
-        float ReceiverBiasMin = 0.00005f;
-        float ReceiverBiasSlopeScale = 0.00035f;
-        float ReceiverBiasTexelFactor = 0.75f;
-    };
-
     struct CascadedShadowData
     {
         std::array<float, MaxShadowCascadeCount> SplitDistances = { 12.0f, 36.0f, 90.0f, 180.0f };
@@ -63,25 +49,12 @@ public:
         }
     };
 
-    struct SpotShadowData
-    {
-        DirectX::XMFLOAT4X4 LightViewProjMatrix = MathHelper::Identity4x4();
-        DirectX::XMFLOAT3 LightPosition = { 0.0f, 0.0f, 0.0f };
-        float NearZ = 0.1f;
-        DirectX::XMFLOAT3 LightDirection = { 0.0f, -1.0f, 0.0f };
-        float FarZ = 48.0f;
-        DirectX::XMFLOAT4 ShadowMapMetrics = { 1024.0f, 1024.0f, 1.0f / 1024.0f, 1.0f / 1024.0f };
-    };
-
     const LightingSettings& GetLightingSettings() const { return m_lightingSettings; }
     void SetLightingSettings(const LightingSettings& lightingSettings) { m_lightingSettings = lightingSettings; }
     const ShadowSettings& GetShadowSettings() const { return m_shadowSettings; }
     void SetShadowSettings(const ShadowSettings& shadowSettings) { m_shadowSettings = shadowSettings; }
-    const SpotShadowSettings& GetSpotShadowSettings() const { return m_spotShadowSettings; }
-    void SetSpotShadowSettings(const SpotShadowSettings& spotShadowSettings) { m_spotShadowSettings = spotShadowSettings; }
 
 private:
     LightingSettings m_lightingSettings;
     ShadowSettings m_shadowSettings;
-    SpotShadowSettings m_spotShadowSettings;
 };

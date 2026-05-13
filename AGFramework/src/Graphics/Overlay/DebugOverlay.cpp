@@ -276,10 +276,7 @@ void DebugOverlay::Draw(
 			"Position",
 			"Shadow cascade",
 			"Shadow factor",
-			"Spot shadow factor",
-			"Spot shadow frustum",
 			"Directional shadow map",
-			"Spot shadow map",
 			"Directional shadow frustum"
 		};
 		int debugViewMode = static_cast<int>(m_debugViewMode);
@@ -351,7 +348,6 @@ void DebugOverlay::Draw(
 	{
 		RenderSettings::LightingSettings lightingSettings = renderSettings.GetLightingSettings();
 		RenderSettings::ShadowSettings shadowSettings = renderSettings.GetShadowSettings();
-		RenderSettings::SpotShadowSettings spotShadowSettings = renderSettings.GetSpotShadowSettings();
 		LightSystem::LightEnableState lightEnableState = lightSystem.GetLightEnableState();
 		if (ImGui::ColorEdit3("Ambient", &lightingSettings.AmbientLight.x))
 		{
@@ -423,53 +419,6 @@ void DebugOverlay::Draw(
 			renderSettings.SetShadowSettings(shadowSettings);
 		}
 
-		ImGui::SeparatorText("Spot shadows");
-		ImGui::TextUnformatted("Current scope: only Spot 0 casts shadows");
-		if (ImGui::Checkbox("Enable spot shadows", &spotShadowSettings.EnableSpotShadows))
-		{
-			renderSettings.SetSpotShadowSettings(spotShadowSettings);
-		}
-		int spotShadowMapSize = static_cast<int>(spotShadowSettings.ShadowMapSize);
-		if (ImGui::SliderInt("Spot shadow map size", &spotShadowMapSize, 512, 4096))
-		{
-			spotShadowMapSize = (std::max)(512, spotShadowMapSize);
-			spotShadowMapSize = ((spotShadowMapSize + 255) / 256) * 256;
-			spotShadowSettings.ShadowMapSize = static_cast<std::uint32_t>(spotShadowMapSize);
-			renderSettings.SetSpotShadowSettings(spotShadowSettings);
-		}
-		if (ImGui::SliderFloat("Spot depth bias", &spotShadowSettings.DepthBias, 0.0f, 10000.0f, "%.0f"))
-		{
-			renderSettings.SetSpotShadowSettings(spotShadowSettings);
-		}
-		if (ImGui::SliderFloat("Spot slope bias", &spotShadowSettings.SlopeScaledDepthBias, 0.0f, 8.0f, "%.2f"))
-		{
-			renderSettings.SetSpotShadowSettings(spotShadowSettings);
-		}
-		if (ImGui::SliderFloat("Spot bias clamp", &spotShadowSettings.DepthBiasClamp, 0.0f, 10.0f, "%.3f"))
-		{
-			renderSettings.SetSpotShadowSettings(spotShadowSettings);
-		}
-		if (ImGui::SliderFloat("Spot PCF radius", &spotShadowSettings.PcfRadius, 0.0f, 4.0f, "%.2f"))
-		{
-			renderSettings.SetSpotShadowSettings(spotShadowSettings);
-		}
-		if (ImGui::SliderFloat("Spot shadow strength", &spotShadowSettings.ShadowStrength, 0.0f, 1.0f, "%.2f"))
-		{
-			renderSettings.SetSpotShadowSettings(spotShadowSettings);
-		}
-		if (ImGui::SliderFloat("Spot receiver bias min", &spotShadowSettings.ReceiverBiasMin, 0.00001f, 0.001f, "%.5f"))
-		{
-			renderSettings.SetSpotShadowSettings(spotShadowSettings);
-		}
-		if (ImGui::SliderFloat("Spot receiver bias slope", &spotShadowSettings.ReceiverBiasSlopeScale, 0.0f, 0.005f, "%.5f"))
-		{
-			renderSettings.SetSpotShadowSettings(spotShadowSettings);
-		}
-		if (ImGui::SliderFloat("Spot receiver bias texel", &spotShadowSettings.ReceiverBiasTexelFactor, 0.0f, 4.0f, "%.2f"))
-		{
-			renderSettings.SetSpotShadowSettings(spotShadowSettings);
-		}
-
 		ImGui::SeparatorText("Lights");
 		ImGui::Checkbox("Show light markers", &m_showLightMarkers);
 		ImGui::SliderFloat("Marker scale", &m_lightMarkerScale, 0.5f, 2.5f, "%.2f");
@@ -506,14 +455,6 @@ void DebugOverlay::Draw(
 			{
 				bool isEnabled = lightEnableState.SpotLights[lightIndex];
 				std::string label = "Spot " + std::to_string(lightIndex);
-				if (lightIndex == static_cast<int>(LightSystem::ShadowCastingSpotLightIndex))
-				{
-					label += " (casts shadows)";
-				}
-				else
-				{
-					label += " (no shadows)";
-				}
 				if (ImGui::Checkbox(label.c_str(), &isEnabled))
 				{
 					lightEnableState.SpotLights[lightIndex] = isEnabled;
