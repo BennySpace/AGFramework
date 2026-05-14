@@ -36,6 +36,7 @@ cbuffer ObjectConstants : register(b0)
     float4 gAmbientLight;
     float4 gDiffuseAlbedo;
     float4 gSpecularAlbedo;
+    float4 gImageBasedLightingSettings;
     DirectionalLightData gDirectionalLights[DIRECTIONAL_LIGHT_COUNT];
     PointLightData gPointLights[POINT_LIGHT_COUNT];
     SpotLightData gSpotLights[SPOT_LIGHT_COUNT];
@@ -61,6 +62,7 @@ TextureCube gPrefilterMap : register(t5);
 Texture2D gBrdfLut : register(t6);
 SamplerState gsamLinearWrap : register(s0);
 SamplerComparisonState gsamShadow : register(s1);
+SamplerState gsamLinearClamp : register(s2);
 
 uint GetShadowCascadeCount()
 {

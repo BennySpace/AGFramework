@@ -69,6 +69,7 @@ private:
 	void BuildConstantBuffer(DirectX12Context& context);
 	void BuildGbuffer(DirectX12Context& context);
 	void BuildCascadedShadowMap(DirectX12Context& context);
+	void BuildImageBasedLightingTextures(DirectX12Context& context);
 	void BuildLightingSrvHeap(DirectX12Context& context);
 	void BuildRootSignature(DirectX12Context& context);
 	void BuildPSO(DirectX12Context& context, bool enable4xMsaa, UINT msaaQuality);
@@ -85,6 +86,7 @@ private:
 		float Pad0 = 0.0f;
 		RenderSettings::LightingSettings LightingSettings;
 		MaterialSystem::MaterialState Material;
+		DirectX::XMFLOAT4 ImageBasedLightingSettings = { 0.0f, 0.0f, 0.0f, 0.0f };
 		LightSystem::DirectionalLightData DirectionalLights[LightSystem::DirectionalLightCount];
 		LightSystem::PointLightData PointLights[LightSystem::PointLightCount];
 		LightSystem::SpotLightData SpotLights[LightSystem::SpotLightCount];
@@ -143,4 +145,7 @@ private:
 	UINT m_shadowPassCBStride = 0;
 	UINT m_shadowPassCBByteSize = 0;
 	bool m_lightingSrvHeapDirty = true;
+	std::unique_ptr<Texture> m_irradianceMapTexture;
+	std::unique_ptr<Texture> m_prefilterMapTexture;
+	std::unique_ptr<Texture> m_brdfLutTexture;
 };

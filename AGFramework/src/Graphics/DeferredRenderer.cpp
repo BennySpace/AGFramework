@@ -1,5 +1,6 @@
 #include "DeferredRenderer.h"
 
+#include "Resources/ResourceUploader.h"
 #include "dx12/DirectX12Context.h"
 
 using Microsoft::WRL::ComPtr;
@@ -28,6 +29,58 @@ namespace
 
 		return shaderRelativePath;
 	}
+
+	std::wstring ResolveAssetPath(const std::wstring& assetRelativePath)
+	{
+		const std::wstring candidates[] =
+		{
+			assetRelativePath,
+			L"..\\" + assetRelativePath,
+			L"..\\..\\" + assetRelativePath,
+			L"AGFramework\\" + assetRelativePath
+		};
+
+		for (const std::wstring& candidate : candidates)
+		{
+			const DWORD attributes = GetFileAttributesW(candidate.c_str());
+			if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+			{
+				return candidate;
+			}
+		}
+
+		return L"";
+	}
+
+	void LoadDdsTextureOrFallback(
+		DirectX12Context& context,
+		Texture& texture,
+		const std::wstring& path,
+		bool isCubeTexture,
+		const std::array<std::uint8_t, 4>& fallbackPixel)
+	{
+		if (!path.empty())
+		{
+			texture.Filename = path;
+			ThrowIfFailed(CreateDDSTextureFromFile12(
+				context.GetDevice(),
+				context.GetCommandList(),
+				path.c_str(),
+				texture.Resource,
+				texture.UploadHeap));
+			return;
+		}
+
+		texture.Filename = isCubeTexture ? L"generated-cube-fallback" : L"generated-2d-fallback";
+		if (isCubeTexture)
+		{
+			ResourceUploader::UploadTextureCube(context, texture, fallbackPixel.data(), 1, 1);
+		}
+		else
+		{
+			ResourceUploader::UploadTexture2D(context, texture, fallbackPixel.data(), 1, 1);
+		}
+	}
 }
 
 DeferredRenderer::~DeferredRenderer()
@@ -51,6 +104,7 @@ void DeferredRenderer::Initialize(DirectX12Context& context, bool enable4xMsaa, 
 	BuildConstantBuffer(context);
 	BuildGbuffer(context);
 	BuildCascadedShadowMap(context);
+	BuildImageBasedLightingTextures(context);
 	BuildLightingSrvHeap(context);
 	BuildRootSignature(context);
 	BuildPSO(context, enable4xMsaa, msaaQuality);
@@ -94,6 +148,15 @@ void DeferredRenderer::UpdateMainPassCB(const FrameData& frameData)
 	objectConstants.EyePosW = frameData.EyePos;
 	objectConstants.LightingSettings = frameData.LightingSettings;
 	objectConstants.Material = frameData.Material;
+	objectConstants.ImageBasedLightingSettings = XMFLOAT4(
+		m_prefilterMapTexture && m_prefilterMapTexture->Resource
+			? static_cast<float>(m_prefilterMapTexture->Resource->GetDesc().MipLevels > 0
+				? m_prefilterMapTexture->Resource->GetDesc().MipLevels - 1
+				: 0)
+			: 0.0f,
+		1.0f,
+		0.0f,
+		0.0f);
 
 	for (size_t lightIndex = 0; lightIndex < LightSystem::DirectionalLightCount; ++lightIndex)
 	{
@@ -175,6 +238,35 @@ void DeferredRenderer::BuildCascadedShadowMap(DirectX12Context& context)
 	m_lightingSrvHeapDirty = true;
 }
 
+void DeferredRenderer::BuildImageBasedLightingTextures(DirectX12Context& context)
+{
+	if (m_irradianceMapTexture != nullptr &&
+		m_prefilterMapTexture != nullptr &&
+		m_brdfLutTexture != nullptr)
+	{
+		return;
+	}
+
+	m_irradianceMapTexture = std::make_unique<Texture>();
+	m_irradianceMapTexture->Name = "ibl_irradiance";
+	m_prefilterMapTexture = std::make_unique<Texture>();
+	m_prefilterMapTexture->Name = "ibl_prefilter";
+	m_brdfLutTexture = std::make_unique<Texture>();
+	m_brdfLutTexture->Name = "ibl_brdf_lut";
+
+	const std::wstring irradiancePath = ResolveAssetPath(L"Assets\\ibl\\irradiance.dds");
+	const std::wstring prefilterPath = ResolveAssetPath(L"Assets\\ibl\\prefilter.dds");
+	const std::wstring brdfLutPath = ResolveAssetPath(L"Assets\\ibl\\brdfLUT.dds");
+
+	const std::array<std::uint8_t, 4> blackPixel = { 0, 0, 0, 255 };
+	const std::array<std::uint8_t, 4> whitePixel = { 255, 255, 255, 255 };
+	LoadDdsTextureOrFallback(context, *m_irradianceMapTexture, irradiancePath, true, blackPixel);
+	LoadDdsTextureOrFallback(context, *m_prefilterMapTexture, prefilterPath, true, blackPixel);
+	LoadDdsTextureOrFallback(context, *m_brdfLutTexture, brdfLutPath, false, whitePixel);
+
+	m_lightingSrvHeapDirty = true;
+}
+
 void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context& context)
 {
 	if (m_gbuffer == nullptr || m_cascadedShadowMap == nullptr)
@@ -182,13 +274,15 @@ void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context& context)
 		return;
 	}
 
+	BuildImageBasedLightingTextures(context);
+
 	if (m_lightingSrvHeap != nullptr && !m_lightingSrvHeapDirty)
 	{
 		return;
 	}
 
 	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.NumDescriptors = 4;
+	srvHeapDesc.NumDescriptors = 7;
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	srvHeapDesc.NodeMask = 0;
@@ -232,6 +326,36 @@ void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context& context)
 	shadowSrvDesc.Texture2DArray.PlaneSlice = 0;
 	shadowSrvDesc.Texture2DArray.ResourceMinLODClamp = 0.0f;
 	context.GetDevice()->CreateShaderResourceView(m_cascadedShadowMap->GetResource(), &shadowSrvDesc, handle);
+	handle.Offset(1, context.GetCbvSrvUavDescriptorSize());
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC irradianceSrvDesc = {};
+	irradianceSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	irradianceSrvDesc.Format = m_irradianceMapTexture->Resource->GetDesc().Format;
+	irradianceSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+	irradianceSrvDesc.TextureCube.MostDetailedMip = 0;
+	irradianceSrvDesc.TextureCube.MipLevels = m_irradianceMapTexture->Resource->GetDesc().MipLevels;
+	irradianceSrvDesc.TextureCube.ResourceMinLODClamp = 0.0f;
+	context.GetDevice()->CreateShaderResourceView(m_irradianceMapTexture->Resource.Get(), &irradianceSrvDesc, handle);
+	handle.Offset(1, context.GetCbvSrvUavDescriptorSize());
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC prefilterSrvDesc = {};
+	prefilterSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	prefilterSrvDesc.Format = m_prefilterMapTexture->Resource->GetDesc().Format;
+	prefilterSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+	prefilterSrvDesc.TextureCube.MostDetailedMip = 0;
+	prefilterSrvDesc.TextureCube.MipLevels = m_prefilterMapTexture->Resource->GetDesc().MipLevels;
+	prefilterSrvDesc.TextureCube.ResourceMinLODClamp = 0.0f;
+	context.GetDevice()->CreateShaderResourceView(m_prefilterMapTexture->Resource.Get(), &prefilterSrvDesc, handle);
+	handle.Offset(1, context.GetCbvSrvUavDescriptorSize());
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC brdfLutSrvDesc = {};
+	brdfLutSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	brdfLutSrvDesc.Format = m_brdfLutTexture->Resource->GetDesc().Format;
+	brdfLutSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	brdfLutSrvDesc.Texture2D.MostDetailedMip = 0;
+	brdfLutSrvDesc.Texture2D.MipLevels = m_brdfLutTexture->Resource->GetDesc().MipLevels;
+	brdfLutSrvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+	context.GetDevice()->CreateShaderResourceView(m_brdfLutTexture->Resource.Get(), &brdfLutSrvDesc, handle);
 	m_lightingSrvHeapDirty = false;
 }
 
@@ -515,7 +639,13 @@ void DeferredRenderer::BuildRootSignature(DirectX12Context& context)
 		16,
 		D3D12_COMPARISON_FUNC_LESS_EQUAL,
 		D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE);
-	CD3DX12_STATIC_SAMPLER_DESC lightingStaticSamplers[] = { linearWrapSampler, shadowComparisonSampler };
+	CD3DX12_STATIC_SAMPLER_DESC linearClampSampler(
+		2,
+		D3D12_FILTER_MIN_MAG_MIP_LINEAR,
+		D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+		D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+		D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
+	CD3DX12_STATIC_SAMPLER_DESC lightingStaticSamplers[] = { linearWrapSampler, shadowComparisonSampler, linearClampSampler };
 
 	CD3DX12_DESCRIPTOR_RANGE geometryTexTable;
 	geometryTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
@@ -547,7 +677,7 @@ void DeferredRenderer::BuildRootSignature(DirectX12Context& context)
 		IID_PPV_ARGS(m_geometryRootSignature.GetAddressOf())));
 
 	CD3DX12_DESCRIPTOR_RANGE lightingTexTable;
-	lightingTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, 0);
+	lightingTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 7, 0);
 
 	CD3DX12_ROOT_PARAMETER lightingRootParameters[3];
 	lightingRootParameters[0].InitAsConstantBufferView(0);

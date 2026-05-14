@@ -117,15 +117,15 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
     const float3 F = FresnelSchlickRoughness(NdotV, F0, roughness);
     const float3 kS = F;
     const float3 kD = 1.0f.xxx - kS;
-    const float3 irradiance = gIrradianceMap.Sample(gsamLinearWrap, normalW).rgb;
+    const float3 irradiance = gIrradianceMap.Sample(gsamLinearClamp, normalW).rgb;
     const float3 diffuseIBL = irradiance * albedoSample.rgb;
     const float3 reflectionVector = reflect(-toEye, normalW);
-    const float maxReflectionLod = 4.0f;
+    const float maxReflectionLod = max(gImageBasedLightingSettings.x, 0.0f);
     const float3 prefilteredColor = gPrefilterMap.SampleLevel(
-        gsamLinearWrap,
+        gsamLinearClamp,
         reflectionVector,
         roughness * maxReflectionLod).rgb;
-    const float2 brdf = gBrdfLut.Sample(gsamLinearWrap, float2(NdotV, roughness)).rg;
+    const float2 brdf = gBrdfLut.Sample(gsamLinearClamp, float2(NdotV, roughness)).rg;
     const float3 specularIBL = prefilteredColor * (F * brdf.x + brdf.y);
     float3 ambient = gAmbientLight.rgb * gAmbientLight.w * (kD * diffuseIBL + specularIBL);
     float3 directionalLighting = 0.0f;
