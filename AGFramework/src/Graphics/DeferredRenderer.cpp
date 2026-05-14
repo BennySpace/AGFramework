@@ -52,6 +52,20 @@ namespace
 		return L"";
 	}
 
+	std::wstring ResolveFirstExistingAssetPath(std::initializer_list<std::wstring> candidatePaths)
+	{
+		for (const std::wstring& candidatePath : candidatePaths)
+		{
+			const std::wstring resolvedPath = ResolveAssetPath(candidatePath);
+			if (!resolvedPath.empty())
+			{
+				return resolvedPath;
+			}
+		}
+
+		return L"";
+	}
+
 	void LoadDdsTextureOrFallback(
 		DirectX12Context& context,
 		Texture& texture,
@@ -254,9 +268,19 @@ void DeferredRenderer::BuildImageBasedLightingTextures(DirectX12Context& context
 	m_brdfLutTexture = std::make_unique<Texture>();
 	m_brdfLutTexture->Name = "ibl_brdf_lut";
 
-	const std::wstring irradiancePath = ResolveAssetPath(L"Assets\\ibl\\irradiance.dds");
-	const std::wstring prefilterPath = ResolveAssetPath(L"Assets\\ibl\\prefilter.dds");
-	const std::wstring brdfLutPath = ResolveAssetPath(L"Assets\\ibl\\brdfLUT.dds");
+	const std::wstring irradiancePath = ResolveFirstExistingAssetPath({
+		L"Assets\\ibl\\irradiance.dds"
+		});
+	const std::wstring prefilterPath = ResolveFirstExistingAssetPath({
+		L"Assets\\ibl\\prefilter.dds",
+		L"Assets\\ibl\\prefiltered_environment.dds",
+		L"Assets\\ibl\\prefilteredEnv.dds"
+		});
+	const std::wstring brdfLutPath = ResolveFirstExistingAssetPath({
+		L"Assets\\ibl\\brdfLUT.dds",
+		L"Assets\\ibl\\brdf_lut.dds",
+		L"Assets\\ibl\\brdf_integration.dds"
+		});
 
 	const std::array<std::uint8_t, 4> blackPixel = { 0, 0, 0, 255 };
 	const std::array<std::uint8_t, 4> whitePixel = { 255, 255, 255, 255 };
