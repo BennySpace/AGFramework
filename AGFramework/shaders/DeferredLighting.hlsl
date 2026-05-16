@@ -111,14 +111,18 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
     }
 
     float3 toEye = normalize(gEyePosW - posW);
-    const float roughness = ComputePerceptualRoughness(gSpecularAlbedo.w);
-    const float3 F0 = ComputeDielectricF0();
+    const float roughness = GetPerceptualRoughness();
+    const float metallic = GetMetallic();
+    const float ambientOcclusion = GetAmbientOcclusion();
+    const float iblIntensity = GetIblIntensity();
+    const float3 diffuseColor = ComputeDiffuseColor(albedoSample.rgb);
+    const float3 F0 = ComputeMaterialF0(albedoSample.rgb);
     const float NdotV = saturate(dot(normalW, toEye));
     const float3 F = FresnelSchlickRoughness(NdotV, F0, roughness);
     const float3 kS = F;
-    const float3 kD = 1.0f.xxx - kS;
+    const float3 kD = (1.0f.xxx - kS) * (1.0f - metallic);
     const float3 irradiance = DecodeImageBasedLightingSample(gIrradianceMap.Sample(gsamLinearClamp, normalW));
-    const float3 diffuseIBL = irradiance * albedoSample.rgb;
+    const float3 diffuseIBL = irradiance * diffuseColor;
     const float3 reflectionVector = reflect(-toEye, normalW);
     const float maxReflectionLod = max(gImageBasedLightingSettings.x, 0.0f);
     const float3 prefilteredColor = DecodeImageBasedLightingSample(gPrefilterMap.SampleLevel(
@@ -126,11 +130,11 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
         reflectionVector,
         roughness * maxReflectionLod));
     const float2 brdf = gBrdfLut.Sample(gsamLinearClamp, float2(NdotV, 1.0f - roughness)).rg;
-    const float3 specularIBL = prefilteredColor * (F * brdf.x + brdf.y);
+    const float3 specularIBL = prefilteredColor * (F * brdf.x + brdf.y) * iblIntensity;
     // Keep ambient controls useful even when the imported IBL set is dark or encoded differently.
-    const float3 ambientDiffuse = albedoSample.rgb * 0.25f + kD * diffuseIBL;
+    const float3 ambientDiffuse = diffuseColor * 0.25f + kD * diffuseIBL;
     const float3 ambientSpecular = specularIBL;
-    float3 ambient = gAmbientLight.rgb * gAmbientLight.w * ambientDiffuse + gAmbientLight.w * ambientSpecular;
+    float3 ambient = (gAmbientLight.rgb * gAmbientLight.w * ambientDiffuse + gAmbientLight.w * ambientSpecular) * ambientOcclusion;
     float3 directionalLighting = 0.0f;
     float3 pointLighting = 0.0f;
     float3 spotLighting = 0.0f;

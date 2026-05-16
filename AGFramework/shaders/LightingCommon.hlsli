@@ -217,11 +217,24 @@ float ComputeDirectionalShadowFactor(float3 posW, float3 normalW, float viewDept
 
 static const float PI = 3.14159265359f;
 
-float ComputePerceptualRoughness(float shininess)
+float GetMetallic()
 {
-    const float clampedShininess = max(shininess, 1.0f);
-    const float roughness = sqrt(2.0f / (clampedShininess + 2.0f));
-    return clamp(roughness, 0.04f, 1.0f);
+    return saturate(gPbrParams.x);
+}
+
+float GetPerceptualRoughness()
+{
+    return clamp(gPbrParams.y, 0.04f, 1.0f);
+}
+
+float GetAmbientOcclusion()
+{
+    return saturate(gPbrParams.z);
+}
+
+float GetIblIntensity()
+{
+    return max(gPbrParams.w, 0.0f);
 }
 
 float DistributionGGX(float3 normalW, float3 halfwayVector, float roughness)
@@ -255,8 +268,17 @@ float3 FresnelSchlick(float cosTheta, float3 F0)
 
 float3 ComputeDielectricF0()
 {
-    const float specularStrength = saturate(dot(gSpecularAlbedo.rgb, float3(0.33333334f, 0.33333334f, 0.33333334f)));
-    return lerp(0.04f.xxx, 0.08f.xxx, specularStrength);
+    return 0.04f.xxx;
+}
+
+float3 ComputeMaterialF0(float3 albedo)
+{
+    return lerp(ComputeDielectricF0(), albedo, GetMetallic());
+}
+
+float3 ComputeDiffuseColor(float3 albedo)
+{
+    return albedo * (1.0f - GetMetallic());
 }
 
 float3 FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
@@ -279,8 +301,9 @@ float3 DecodeImageBasedLightingSample(float4 encodedSample)
 float3 ComputeCookTorranceLighting(float3 albedo, float3 normalW, float3 toEye, float3 lightVector, float3 radiance)
 {
     const float3 halfwayVector = normalize(toEye + lightVector);
-    const float roughness = ComputePerceptualRoughness(gSpecularAlbedo.w);
-    const float3 F0 = ComputeDielectricF0();
+    const float roughness = GetPerceptualRoughness();
+    const float metallic = GetMetallic();
+    const float3 F0 = ComputeMaterialF0(albedo);
     const float3 F = FresnelSchlick(dot(halfwayVector, toEye), F0);
     const float NDF = DistributionGGX(normalW, halfwayVector, roughness);
     const float G = GeometrySmith(normalW, toEye, lightVector, roughness);
@@ -288,8 +311,9 @@ float3 ComputeCookTorranceLighting(float3 albedo, float3 normalW, float3 toEye, 
     const float ndotl = saturate(dot(normalW, lightVector));
     const float3 specular = (NDF * G * F) / max(4.0f * ndotv * ndotl, 0.0001f);
     const float3 kS = F;
-    const float3 kD = 1.0f.xxx - kS;
-    return (kD * albedo / PI + specular) * radiance * ndotl;
+    const float3 kD = (1.0f.xxx - kS) * (1.0f - metallic);
+    const float3 diffuseColor = ComputeDiffuseColor(albedo);
+    return (kD * diffuseColor / PI + specular) * radiance * ndotl;
 }
 
 float3 ApplyDirectionalLight(float3 albedo, float3 normalW, float3 toEye, DirectionalLightData lightData)
