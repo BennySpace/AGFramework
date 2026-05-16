@@ -342,6 +342,22 @@ void DebugOverlay::Draw(
 		{
 			materialSystem.SetMaterialState(materialState);
 		}
+		if (ImGui::SliderFloat("Metallic", &materialState.PbrParams.x, 0.0f, 1.0f))
+		{
+			materialSystem.SetMaterialState(materialState);
+		}
+		if (ImGui::SliderFloat("Roughness", &materialState.PbrParams.y, 0.04f, 1.0f))
+		{
+			materialSystem.SetMaterialState(materialState);
+		}
+		if (ImGui::SliderFloat("Ambient occlusion", &materialState.PbrParams.z, 0.0f, 1.0f))
+		{
+			materialSystem.SetMaterialState(materialState);
+		}
+		if (ImGui::SliderFloat("IBL intensity", &materialState.PbrParams.w, 0.0f, 2.0f))
+		{
+			materialSystem.SetMaterialState(materialState);
+		}
 	}
 
 	if (ImGui::CollapsingHeader("Lighting"))
