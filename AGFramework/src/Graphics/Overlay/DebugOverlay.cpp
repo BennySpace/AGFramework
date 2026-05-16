@@ -326,19 +326,11 @@ void DebugOverlay::Draw(
 	if (ImGui::CollapsingHeader("Material"))
 	{
 		MaterialSystem::MaterialState materialState = materialSystem.GetMaterialState();
-		if (ImGui::ColorEdit3("Diffuse", &materialState.DiffuseAlbedo.x))
+		if (ImGui::ColorEdit3("Base color", &materialState.DiffuseAlbedo.x))
 		{
 			materialSystem.SetMaterialState(materialState);
 		}
 		if (ImGui::SliderFloat("Opacity", &materialState.DiffuseAlbedo.w, 0.0f, 1.0f))
-		{
-			materialSystem.SetMaterialState(materialState);
-		}
-		if (ImGui::ColorEdit3("Specular", &materialState.SpecularAlbedo.x))
-		{
-			materialSystem.SetMaterialState(materialState);
-		}
-		if (ImGui::SliderFloat("Shininess", &materialState.SpecularAlbedo.w, 1.0f, 128.0f))
 		{
 			materialSystem.SetMaterialState(materialState);
 		}
