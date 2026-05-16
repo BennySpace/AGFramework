@@ -2,6 +2,8 @@
 
 #include "Resources/ResourceUploader.h"
 #include "dx12/DirectX12Context.h"
+#include <algorithm>
+#include <cwctype>
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
@@ -64,6 +66,27 @@ namespace
 		}
 
 		return L"";
+	}
+
+	bool ContainsCaseInsensitive(const std::wstring& text, const std::wstring& needle)
+	{
+		if (needle.empty() || text.size() < needle.size())
+		{
+			return false;
+		}
+
+		auto toLower = [](wchar_t value)
+			{
+				return static_cast<wchar_t>(towlower(value));
+			};
+
+		std::wstring lowerText(text.size(), L'\0');
+		std::transform(text.begin(), text.end(), lowerText.begin(), toLower);
+
+		std::wstring lowerNeedle(needle.size(), L'\0');
+		std::transform(needle.begin(), needle.end(), lowerNeedle.begin(), toLower);
+
+		return lowerText.find(lowerNeedle) != std::wstring::npos;
 	}
 
 	void LoadDdsTextureOrFallback(
@@ -168,8 +191,8 @@ void DeferredRenderer::UpdateMainPassCB(const FrameData& frameData)
 				? m_prefilterMapTexture->Resource->GetDesc().MipLevels - 1
 				: 0)
 			: 0.0f,
-		1.0f,
-		0.0f,
+		m_imageBasedLightingUsesRgbm ? 1.0f : 0.0f,
+		m_imageBasedLightingUsesRgbm ? 5.0f : 1.0f,
 		0.0f);
 
 	for (size_t lightIndex = 0; lightIndex < LightSystem::DirectionalLightCount; ++lightIndex)
@@ -281,6 +304,10 @@ void DeferredRenderer::BuildImageBasedLightingTextures(DirectX12Context& context
 		L"Assets\\ibl\\brdf_lut.dds",
 		L"Assets\\ibl\\brdf_integration.dds"
 		});
+
+	m_imageBasedLightingUsesRgbm =
+		ContainsCaseInsensitive(irradiancePath, L"mdr") ||
+		ContainsCaseInsensitive(prefilterPath, L"mdr");
 
 	const std::array<std::uint8_t, 4> blackPixel = { 0, 0, 0, 255 };
 	const std::array<std::uint8_t, 4> whitePixel = { 255, 255, 255, 255 };

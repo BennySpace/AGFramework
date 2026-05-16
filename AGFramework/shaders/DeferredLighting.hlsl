@@ -112,22 +112,25 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
 
     float3 toEye = normalize(gEyePosW - posW);
     const float roughness = ComputePerceptualRoughness(gSpecularAlbedo.w);
-    const float3 F0 = saturate(gSpecularAlbedo.rgb);
+    const float3 F0 = ComputeDielectricF0();
     const float NdotV = saturate(dot(normalW, toEye));
     const float3 F = FresnelSchlickRoughness(NdotV, F0, roughness);
     const float3 kS = F;
     const float3 kD = 1.0f.xxx - kS;
-    const float3 irradiance = gIrradianceMap.Sample(gsamLinearClamp, normalW).rgb;
+    const float3 irradiance = DecodeImageBasedLightingSample(gIrradianceMap.Sample(gsamLinearClamp, normalW));
     const float3 diffuseIBL = irradiance * albedoSample.rgb;
     const float3 reflectionVector = reflect(-toEye, normalW);
     const float maxReflectionLod = max(gImageBasedLightingSettings.x, 0.0f);
-    const float3 prefilteredColor = gPrefilterMap.SampleLevel(
+    const float3 prefilteredColor = DecodeImageBasedLightingSample(gPrefilterMap.SampleLevel(
         gsamLinearClamp,
         reflectionVector,
-        roughness * maxReflectionLod).rgb;
-    const float2 brdf = gBrdfLut.Sample(gsamLinearClamp, float2(NdotV, roughness)).rg;
+        roughness * maxReflectionLod));
+    const float2 brdf = gBrdfLut.Sample(gsamLinearClamp, float2(NdotV, 1.0f - roughness)).rg;
     const float3 specularIBL = prefilteredColor * (F * brdf.x + brdf.y);
-    float3 ambient = gAmbientLight.rgb * gAmbientLight.w * (kD * diffuseIBL + specularIBL);
+    // Keep ambient controls useful even when the imported IBL set is dark or encoded differently.
+    const float3 ambientDiffuse = albedoSample.rgb * 0.25f + kD * diffuseIBL;
+    const float3 ambientSpecular = specularIBL;
+    float3 ambient = gAmbientLight.rgb * gAmbientLight.w * ambientDiffuse + gAmbientLight.w * ambientSpecular;
     float3 directionalLighting = 0.0f;
     float3 pointLighting = 0.0f;
     float3 spotLighting = 0.0f;

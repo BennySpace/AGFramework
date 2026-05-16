@@ -252,17 +252,34 @@ float3 FresnelSchlick(float cosTheta, float3 F0)
     return F0 + (1.0f - F0) * pow(1.0f - saturate(cosTheta), 5.0f);
 }
 
+float3 ComputeDielectricF0()
+{
+    const float specularStrength = saturate(dot(gSpecularAlbedo.rgb, float3(0.33333334f, 0.33333334f, 0.33333334f)));
+    return lerp(0.04f.xxx, 0.08f.xxx, specularStrength);
+}
+
 float3 FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
 {
     const float3 oneMinusRoughness = float3(1.0f - roughness, 1.0f - roughness, 1.0f - roughness);
     return F0 + (max(oneMinusRoughness, F0) - F0) * pow(1.0f - saturate(cosTheta), 5.0f);
 }
 
+float3 DecodeImageBasedLightingSample(float4 encodedSample)
+{
+    if (gImageBasedLightingSettings.y > 0.5f)
+    {
+        const float rgbmScale = max(gImageBasedLightingSettings.z, 1.0f);
+        return encodedSample.rgb * encodedSample.a * rgbmScale;
+    }
+
+    return encodedSample.rgb;
+}
+
 float3 ComputeCookTorranceLighting(float3 albedo, float3 normalW, float3 toEye, float3 lightVector, float3 radiance)
 {
     const float3 halfwayVector = normalize(toEye + lightVector);
     const float roughness = ComputePerceptualRoughness(gSpecularAlbedo.w);
-    const float3 F0 = saturate(gSpecularAlbedo.rgb);
+    const float3 F0 = ComputeDielectricF0();
     const float3 F = FresnelSchlick(dot(halfwayVector, toEye), F0);
     const float NDF = DistributionGGX(normalW, halfwayVector, roughness);
     const float G = GeometrySmith(normalW, toEye, lightVector, roughness);

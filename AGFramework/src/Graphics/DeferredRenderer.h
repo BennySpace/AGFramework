@@ -148,4 +148,5 @@ private:
 	std::unique_ptr<Texture> m_irradianceMapTexture;
 	std::unique_ptr<Texture> m_prefilterMapTexture;
 	std::unique_ptr<Texture> m_brdfLutTexture;
+	bool m_imageBasedLightingUsesRgbm = false;
 };
