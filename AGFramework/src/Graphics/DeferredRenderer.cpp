@@ -333,7 +333,7 @@ void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context& context)
 	}
 
 	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.NumDescriptors = 7;
+	srvHeapDesc.NumDescriptors = 8;
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	srvHeapDesc.NodeMask = 0;
@@ -344,16 +344,18 @@ void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context& context)
 	{
 		m_gbuffer->GetFormat(Gbuffer::Target::Albedo),
 		m_gbuffer->GetFormat(Gbuffer::Target::Normal),
-		m_gbuffer->GetFormat(Gbuffer::Target::Position)
+		m_gbuffer->GetFormat(Gbuffer::Target::Position),
+		m_gbuffer->GetFormat(Gbuffer::Target::Material)
 	};
 	ID3D12Resource* gbufferResources[] =
 	{
 		m_gbuffer->GetResource(Gbuffer::Target::Albedo),
 		m_gbuffer->GetResource(Gbuffer::Target::Normal),
-		m_gbuffer->GetResource(Gbuffer::Target::Position)
+		m_gbuffer->GetResource(Gbuffer::Target::Position),
+		m_gbuffer->GetResource(Gbuffer::Target::Material)
 	};
 
-	for (int targetIndex = 0; targetIndex < 3; ++targetIndex)
+	for (int targetIndex = 0; targetIndex < 4; ++targetIndex)
 	{
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -503,11 +505,12 @@ void DeferredRenderer::DrawGeometryPass(
 	BuildCascadedShadowMap(context);
 	m_gbuffer->Clear(context.GetCommandList());
 
-	D3D12_CPU_DESCRIPTOR_HANDLE gbufferRtvs[3] =
+	D3D12_CPU_DESCRIPTOR_HANDLE gbufferRtvs[4] =
 	{
 		m_gbuffer->GetRtv(Gbuffer::Target::Albedo),
 		m_gbuffer->GetRtv(Gbuffer::Target::Normal),
-		m_gbuffer->GetRtv(Gbuffer::Target::Position)
+		m_gbuffer->GetRtv(Gbuffer::Target::Position),
+		m_gbuffer->GetRtv(Gbuffer::Target::Material)
 	};
 	const D3D12_CPU_DESCRIPTOR_HANDLE gbufferDsv = m_gbuffer->GetDsv();
 	context.GetCommandList()->OMSetRenderTargets(_countof(gbufferRtvs), gbufferRtvs, false, &gbufferDsv);
@@ -576,11 +579,12 @@ void DeferredRenderer::TransitionCascadedShadowMap(DirectX12Context& context, D3
 
 void DeferredRenderer::TransitionGbuffer(DirectX12Context& context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState)
 {
-	D3D12_RESOURCE_BARRIER barriers[3] =
+	D3D12_RESOURCE_BARRIER barriers[4] =
 	{
 		CD3DX12_RESOURCE_BARRIER::Transition(m_gbuffer->GetResource(Gbuffer::Target::Albedo), beforeState, afterState),
 		CD3DX12_RESOURCE_BARRIER::Transition(m_gbuffer->GetResource(Gbuffer::Target::Normal), beforeState, afterState),
-		CD3DX12_RESOURCE_BARRIER::Transition(m_gbuffer->GetResource(Gbuffer::Target::Position), beforeState, afterState)
+		CD3DX12_RESOURCE_BARRIER::Transition(m_gbuffer->GetResource(Gbuffer::Target::Position), beforeState, afterState),
+		CD3DX12_RESOURCE_BARRIER::Transition(m_gbuffer->GetResource(Gbuffer::Target::Material), beforeState, afterState)
 	};
 	context.GetCommandList()->ResourceBarrier(_countof(barriers), barriers);
 }
@@ -662,6 +666,7 @@ void DeferredRenderer::BuildGbuffer(DirectX12Context& context)
 	desc.AlbedoFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 	desc.NormalFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
 	desc.PositionFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	desc.MaterialFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
 	desc.DepthFormat = context.GetDepthStencilFormat();
 
 	if (!m_gbuffer->Initialize(context.GetDevice(), desc))
@@ -728,7 +733,7 @@ void DeferredRenderer::BuildRootSignature(DirectX12Context& context)
 		IID_PPV_ARGS(m_geometryRootSignature.GetAddressOf())));
 
 	CD3DX12_DESCRIPTOR_RANGE lightingTexTable;
-	lightingTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 7, 0);
+	lightingTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 8, 0);
 
 	CD3DX12_ROOT_PARAMETER lightingRootParameters[3];
 	lightingRootParameters[0].InitAsConstantBufferView(0);
@@ -806,10 +811,11 @@ void DeferredRenderer::BuildPSO(DirectX12Context& context, bool enable4xMsaa, UI
 	geometryPsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 	geometryPsoDesc.SampleMask = UINT_MAX;
 	geometryPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	geometryPsoDesc.NumRenderTargets = 3;
+	geometryPsoDesc.NumRenderTargets = 4;
 	geometryPsoDesc.RTVFormats[0] = m_gbuffer->GetFormat(Gbuffer::Target::Albedo);
 	geometryPsoDesc.RTVFormats[1] = m_gbuffer->GetFormat(Gbuffer::Target::Normal);
 	geometryPsoDesc.RTVFormats[2] = m_gbuffer->GetFormat(Gbuffer::Target::Position);
+	geometryPsoDesc.RTVFormats[3] = m_gbuffer->GetFormat(Gbuffer::Target::Material);
 	geometryPsoDesc.SampleDesc.Count = enable4xMsaa ? 4 : 1;
 	geometryPsoDesc.SampleDesc.Quality = enable4xMsaa ? (msaaQuality - 1) : 0;
 	geometryPsoDesc.DSVFormat = context.GetDepthStencilFormat();

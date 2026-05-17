@@ -56,10 +56,11 @@ cbuffer AuxiliarySettings : register(b1)
 Texture2D gTexture0 : register(t0);
 Texture2D gTexture1 : register(t1);
 Texture2D gTexture2 : register(t2);
-Texture2DArray gShadowMap : register(t3);
-TextureCube gIrradianceMap : register(t4);
-TextureCube gPrefilterMap : register(t5);
-Texture2D gBrdfLut : register(t6);
+Texture2D gTexture3 : register(t3);
+Texture2DArray gShadowMap : register(t4);
+TextureCube gIrradianceMap : register(t5);
+TextureCube gPrefilterMap : register(t6);
+Texture2D gBrdfLut : register(t7);
 SamplerState gsamLinearWrap : register(s0);
 SamplerComparisonState gsamShadow : register(s1);
 SamplerState gsamLinearClamp : register(s2);
@@ -216,24 +217,24 @@ float ComputeDirectionalShadowFactor(float3 posW, float3 normalW, float viewDept
 
 static const float PI = 3.14159265359f;
 
-float GetMetallic()
+float GetMetallic(float4 pbrParams)
 {
-    return saturate(gPbrParams.x);
+    return saturate(pbrParams.x);
 }
 
-float GetPerceptualRoughness()
+float GetPerceptualRoughness(float4 pbrParams)
 {
-    return clamp(gPbrParams.y, 0.04f, 1.0f);
+    return clamp(pbrParams.y, 0.04f, 1.0f);
 }
 
-float GetAmbientOcclusion()
+float GetAmbientOcclusion(float4 pbrParams)
 {
-    return saturate(gPbrParams.z);
+    return saturate(pbrParams.z);
 }
 
-float GetIblIntensity()
+float GetIblIntensity(float4 pbrParams)
 {
-    return max(gPbrParams.w, 0.0f);
+    return max(pbrParams.w, 0.0f);
 }
 
 float DistributionGGX(float3 normalW, float3 halfwayVector, float roughness)
@@ -270,14 +271,14 @@ float3 ComputeDielectricF0()
     return 0.04f.xxx;
 }
 
-float3 ComputeMaterialF0(float3 albedo)
+float3 ComputeMaterialF0(float3 albedo, float metallic)
 {
-    return lerp(ComputeDielectricF0(), albedo, GetMetallic());
+    return lerp(ComputeDielectricF0(), albedo, metallic);
 }
 
-float3 ComputeDiffuseColor(float3 albedo)
+float3 ComputeDiffuseColor(float3 albedo, float metallic)
 {
-    return albedo * (1.0f - GetMetallic());
+    return albedo * (1.0f - metallic);
 }
 
 float3 FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
@@ -297,12 +298,12 @@ float3 DecodeImageBasedLightingSample(float4 encodedSample)
     return encodedSample.rgb;
 }
 
-float3 ComputeCookTorranceLighting(float3 albedo, float3 normalW, float3 toEye, float3 lightVector, float3 radiance)
+float3 ComputeCookTorranceLighting(float3 albedo, float4 pbrParams, float3 normalW, float3 toEye, float3 lightVector, float3 radiance)
 {
     const float3 halfwayVector = normalize(toEye + lightVector);
-    const float roughness = GetPerceptualRoughness();
-    const float metallic = GetMetallic();
-    const float3 F0 = ComputeMaterialF0(albedo);
+    const float roughness = GetPerceptualRoughness(pbrParams);
+    const float metallic = GetMetallic(pbrParams);
+    const float3 F0 = ComputeMaterialF0(albedo, metallic);
     const float3 F = FresnelSchlick(dot(halfwayVector, toEye), F0);
     const float NDF = DistributionGGX(normalW, halfwayVector, roughness);
     const float G = GeometrySmith(normalW, toEye, lightVector, roughness);
@@ -311,17 +312,17 @@ float3 ComputeCookTorranceLighting(float3 albedo, float3 normalW, float3 toEye, 
     const float3 specular = (NDF * G * F) / max(4.0f * ndotv * ndotl, 0.0001f);
     const float3 kS = F;
     const float3 kD = (1.0f.xxx - kS) * (1.0f - metallic);
-    const float3 diffuseColor = ComputeDiffuseColor(albedo);
+    const float3 diffuseColor = ComputeDiffuseColor(albedo, metallic);
     return (kD * diffuseColor / PI + specular) * radiance * ndotl;
 }
 
-float3 ApplyDirectionalLight(float3 albedo, float3 normalW, float3 toEye, DirectionalLightData lightData)
+float3 ApplyDirectionalLight(float3 albedo, float4 pbrParams, float3 normalW, float3 toEye, DirectionalLightData lightData)
 {
     const float3 lightVector = normalize(-lightData.Direction.xyz);
-    return ComputeCookTorranceLighting(albedo, normalW, toEye, lightVector, lightData.Color.rgb);
+    return ComputeCookTorranceLighting(albedo, pbrParams, normalW, toEye, lightVector, lightData.Color.rgb);
 }
 
-float3 ApplyPointLight(float3 albedo, float3 normalW, float3 toEye, float3 posW, PointLightData lightData)
+float3 ApplyPointLight(float3 albedo, float4 pbrParams, float3 normalW, float3 toEye, float3 posW, PointLightData lightData)
 {
     float3 toLight = lightData.Position.xyz - posW;
     const float distanceToLight = length(toLight);
@@ -333,10 +334,10 @@ float3 ApplyPointLight(float3 albedo, float3 normalW, float3 toEye, float3 posW,
 
     const float3 lightVector = toLight / max(distanceToLight, 0.001f);
     const float attenuation = pow(saturate(1.0f - distanceToLight / range), max(lightData.Params.y, 1.0f));
-    return ComputeCookTorranceLighting(albedo, normalW, toEye, lightVector, attenuation * lightData.Color.rgb);
+    return ComputeCookTorranceLighting(albedo, pbrParams, normalW, toEye, lightVector, attenuation * lightData.Color.rgb);
 }
 
-float3 ApplySpotLight(float3 albedo, float3 normalW, float3 toEye, float3 posW, SpotLightData lightData)
+float3 ApplySpotLight(float3 albedo, float4 pbrParams, float3 normalW, float3 toEye, float3 posW, SpotLightData lightData)
 {
     float3 toLight = lightData.Position.xyz - posW;
     const float distanceToLight = length(toLight);
@@ -358,5 +359,5 @@ float3 ApplySpotLight(float3 albedo, float3 normalW, float3 toEye, float3 posW, 
     }
 
     const float attenuation = pow(saturate(1.0f - distanceToLight / range), max(lightData.Params.w, 1.0f));
-    return ComputeCookTorranceLighting(albedo, normalW, toEye, lightVector, attenuation * spotFactor * lightData.Color.rgb);
+    return ComputeCookTorranceLighting(albedo, pbrParams, normalW, toEye, lightVector, attenuation * spotFactor * lightData.Color.rgb);
 }

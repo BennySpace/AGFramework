@@ -46,6 +46,7 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
 
     float3 normalW = normalize(gTexture1.Sample(gsamLinearWrap, pin.TexC).xyz * 2.0f - 1.0f);
     float3 posW = gTexture2.Sample(gsamLinearWrap, pin.TexC).xyz;
+    float4 pbrParams = gTexture3.Sample(gsamLinearWrap, pin.TexC);
 
     const int debugViewMode = (int)round(gAuxiliarySettings.x);
     const float positionVizScale = gAuxiliarySettings.y;
@@ -111,12 +112,12 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
     }
 
     float3 toEye = normalize(gEyePosW - posW);
-    const float roughness = GetPerceptualRoughness();
-    const float metallic = GetMetallic();
-    const float ambientOcclusion = GetAmbientOcclusion();
-    const float iblIntensity = GetIblIntensity();
-    const float3 diffuseColor = ComputeDiffuseColor(albedoSample.rgb);
-    const float3 F0 = ComputeMaterialF0(albedoSample.rgb);
+    const float roughness = GetPerceptualRoughness(pbrParams);
+    const float metallic = GetMetallic(pbrParams);
+    const float ambientOcclusion = GetAmbientOcclusion(pbrParams);
+    const float iblIntensity = GetIblIntensity(pbrParams);
+    const float3 diffuseColor = ComputeDiffuseColor(albedoSample.rgb, metallic);
+    const float3 F0 = ComputeMaterialF0(albedoSample.rgb, metallic);
     const float NdotV = saturate(dot(normalW, toEye));
     const float3 F = FresnelSchlickRoughness(NdotV, F0, roughness);
     const float3 kS = F;
@@ -142,19 +143,19 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
     [unroll]
     for (uint lightIndex = 0; lightIndex < DIRECTIONAL_LIGHT_COUNT; ++lightIndex)
     {
-        directionalLighting += directionalShadowFactor * ApplyDirectionalLight(albedoSample.rgb, normalW, toEye, gDirectionalLights[lightIndex]);
+        directionalLighting += directionalShadowFactor * ApplyDirectionalLight(albedoSample.rgb, pbrParams, normalW, toEye, gDirectionalLights[lightIndex]);
     }
 
     [unroll]
     for (uint lightIndex = 0; lightIndex < POINT_LIGHT_COUNT; ++lightIndex)
     {
-        pointLighting += ApplyPointLight(albedoSample.rgb, normalW, toEye, posW, gPointLights[lightIndex]);
+        pointLighting += ApplyPointLight(albedoSample.rgb, pbrParams, normalW, toEye, posW, gPointLights[lightIndex]);
     }
 
     [unroll]
     for (uint lightIndex = 0; lightIndex < SPOT_LIGHT_COUNT; ++lightIndex)
     {
-        spotLighting += ApplySpotLight(albedoSample.rgb, normalW, toEye, posW, gSpotLights[lightIndex]);
+        spotLighting += ApplySpotLight(albedoSample.rgb, pbrParams, normalW, toEye, posW, gSpotLights[lightIndex]);
     }
 
     const float3 litColor = ambient + directionalLighting + pointLighting + spotLighting;

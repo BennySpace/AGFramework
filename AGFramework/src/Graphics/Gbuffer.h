@@ -14,6 +14,7 @@ public:
         Albedo = 0,
         Normal = 1,
         Position = 2,
+        Material = 3,
         Count
     };
 
@@ -24,10 +25,12 @@ public:
         DXGI_FORMAT AlbedoFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
         DXGI_FORMAT NormalFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
         DXGI_FORMAT PositionFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
+        DXGI_FORMAT MaterialFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
         DXGI_FORMAT DepthFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
         float ClearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
         float ClearNormal[4] = { 0.5f, 0.5f, 1.0f, 0.0f };
         float ClearPosition[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+        float ClearMaterial[4] = { 0.0f, 0.5f, 1.0f, 1.0f };
         float ClearDepth = 1.0f;
         std::uint8_t ClearStencil = 0;
     };
