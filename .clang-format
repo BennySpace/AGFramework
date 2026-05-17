@@ -1,0 +1,15 @@
+BasedOnStyle: Microsoft
+UseTab: ForIndentation
+IndentWidth: 4
+TabWidth: 4
+ColumnLimit: 140
+BreakBeforeBraces: Allman
+PointerAlignment: Right
+ReferenceAlignment: Pointer
+SortIncludes: false
+ReflowComments: false
+SpaceBeforeParens: ControlStatements
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Empty
+IndentCaseLabels: true

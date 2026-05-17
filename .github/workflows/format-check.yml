@@ -1,0 +1,124 @@
+name: Format Check
+
+on:
+  push:
+    paths:
+      - "**/*.h"
+      - "**/*.hpp"
+      - "**/*.cpp"
+      - "**/*.cxx"
+      - "**/*.cc"
+      - "**/*.hlsl"
+      - "**/*.hlsli"
+      - ".clang-format"
+      - ".github/workflows/format-check.yml"
+  pull_request:
+    paths:
+      - "**/*.h"
+      - "**/*.hpp"
+      - "**/*.cpp"
+      - "**/*.cxx"
+      - "**/*.cc"
+      - "**/*.hlsl"
+      - "**/*.hlsli"
+      - ".clang-format"
+      - ".github/workflows/format-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  clang-format:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install clang-format
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format
+
+      - name: Collect changed files
+        id: changed-files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git fetch origin "${{ github.base_ref }}" --depth=1
+            BASE_REF="origin/${{ github.base_ref }}"
+            BASE_SHA="$(git merge-base HEAD "$BASE_REF")"
+          elif [[ "${{ github.event_name }}" == "push" && "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]]; then
+            BASE_SHA="${{ github.event.before }}"
+          else
+            BASE_SHA="$(git rev-list --max-parents=0 HEAD)"
+          fi
+
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "$BASE_SHA" HEAD -- '*.h' '*.hpp' '*.cpp' '*.cxx' '*.cc' '*.hlsl' '*.hlsli' | grep -Ev '^(AGFramework/(external|out|packages)/|tmp_)' || true)
+
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "has_files=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "has_files=true" >> "$GITHUB_OUTPUT"
+          printf 'Found changed files:\n'
+          printf ' - %s\n' "${files[@]}"
+          {
+            echo 'files<<EOF'
+            printf '%s\n' "${files[@]}"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Auto-format changed files on push
+        if: steps.changed-files.outputs.has_files == 'true' && github.event_name == 'push'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t files <<'EOF'
+          ${{ steps.changed-files.outputs.files }}
+          EOF
+
+          printf 'Formatting files:\n'
+          printf ' - %s\n' "${files[@]}"
+
+          clang-format -i --style=file "${files[@]}"
+
+      - name: Commit formatting changes
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet; then
+            echo "No formatting changes to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add .clang-format .github/workflows/format-check.yml AGFramework
+          git commit -m "style: apply clang-format"
+          git push
+
+      - name: Check formatting of changed files
+        if: steps.changed-files.outputs.has_files == 'true' && github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t files <<'EOF'
+          ${{ steps.changed-files.outputs.files }}
+          EOF
+
+          printf 'Checking formatting for:\n'
+          printf ' - %s\n' "${files[@]}"
+
+          clang-format --dry-run --Werror --style=file "${files[@]}"
