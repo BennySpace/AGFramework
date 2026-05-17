@@ -277,7 +277,11 @@ void DebugOverlay::Draw(
 			"Shadow cascade",
 			"Shadow factor",
 			"Directional shadow map",
-			"Directional shadow frustum"
+			"Directional shadow frustum",
+			"Metallic",
+			"Roughness",
+			"Ambient occlusion",
+			"IBL intensity"
 		};
 		int debugViewMode = static_cast<int>(m_debugViewMode);
 		if (ImGui::Combo("Debug view", &debugViewMode, viewModeLabels, IM_ARRAYSIZE(viewModeLabels)))

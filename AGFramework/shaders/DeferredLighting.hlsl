@@ -111,6 +111,27 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
         return float4(lerp(backgroundColor, frustumViz, opacity), 1.0f);
     }
 
+    if (debugViewMode == 8)
+    {
+        return float4(lerp(backgroundColor, pbrParams.x.xxx, opacity), 1.0f);
+    }
+
+    if (debugViewMode == 9)
+    {
+        return float4(lerp(backgroundColor, pbrParams.y.xxx, opacity), 1.0f);
+    }
+
+    if (debugViewMode == 10)
+    {
+        return float4(lerp(backgroundColor, pbrParams.z.xxx, opacity), 1.0f);
+    }
+
+    if (debugViewMode == 11)
+    {
+        const float iblIntensityViz = saturate(pbrParams.w * 0.5f);
+        return float4(lerp(backgroundColor, iblIntensityViz.xxx, opacity), 1.0f);
+    }
+
     float3 toEye = normalize(gEyePosW - posW);
     const float roughness = GetPerceptualRoughness(pbrParams);
     const float metallic = GetMetallic(pbrParams);

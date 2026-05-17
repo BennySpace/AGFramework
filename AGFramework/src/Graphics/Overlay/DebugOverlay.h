@@ -19,7 +19,11 @@ public:
 		ShadowCascade = 4,
 		ShadowFactor = 5,
 		DirectionalShadowMap = 6,
-		DirectionalShadowFrustum = 7
+		DirectionalShadowFrustum = 7,
+		Metallic = 8,
+		Roughness = 9,
+		AmbientOcclusion = 10,
+		IblIntensity = 11
 	};
 
 	DebugOverlay() = default;
