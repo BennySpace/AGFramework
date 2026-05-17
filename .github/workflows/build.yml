@@ -49,4 +49,5 @@ jobs:
           /m
           /p:Configuration=Debug
           /p:Platform=x64
+          /p:PlatformToolset=v143
           /verbosity:minimal
