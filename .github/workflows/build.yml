@@ -1,0 +1,52 @@
+name: Build
+
+on:
+  push:
+    paths-ignore:
+      - "**/*.md"
+      - "*.md"
+      - "docs/**"
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "*.md"
+      - "docs/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
+
+      - name: Restore NuGet package cache
+        uses: actions/cache@v4
+        with:
+          path: AGFramework/packages
+          key: nuget-packages-${{ runner.os }}-${{ hashFiles('AGFramework/packages.config', 'AGFramework/AGFramework.vcxproj') }}
+          restore-keys: |
+            nuget-packages-${{ runner.os }}-
+
+      - name: Restore NuGet packages
+        shell: pwsh
+        run: nuget restore AGFramework/packages.config -PackagesDirectory AGFramework/packages
+
+      - name: Build Debug x64
+        shell: pwsh
+        run: >
+          msbuild AGFramework/AGFramework.vcxproj
+          /m
+          /p:Configuration=Debug
+          /p:Platform=x64
+          /verbosity:minimal
