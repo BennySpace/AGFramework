@@ -35,7 +35,6 @@ cbuffer ObjectConstants : register(b0)
     float gPad0;
     float4 gAmbientLight;
     float4 gDiffuseAlbedo;
-    float4 gSpecularAlbedo;
     float4 gPbrParams;
     float4 gImageBasedLightingSettings;
     DirectionalLightData gDirectionalLights[DIRECTIONAL_LIGHT_COUNT];

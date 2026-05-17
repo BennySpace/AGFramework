@@ -8,7 +8,6 @@ public:
     struct MaterialState
     {
         DirectX::XMFLOAT4 DiffuseAlbedo = { 1.0f, 1.0f, 1.0f, 1.0f };
-        DirectX::XMFLOAT4 SpecularAlbedo = { 0.85f, 0.85f, 0.85f, 32.0f };
         // x = metallic, y = roughness, z = ambient occlusion, w = IBL intensity
         DirectX::XMFLOAT4 PbrParams = { 0.0f, 0.5f, 1.0f, 1.0f };
     };
