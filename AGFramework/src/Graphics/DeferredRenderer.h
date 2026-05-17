@@ -17,7 +17,9 @@ public:
 	struct ModelDrawItem
 	{
 		std::string DrawName;
+		std::string MaterialName;
 		std::string DiffuseTexturePath;
+		DirectX::XMFLOAT4 PbrParams = { 0.0f, 0.5f, 1.0f, 1.0f };
 		UINT DiffuseSrvHeapIndex = 0;
 		bool HasAlphaCutout = false;
 		bool CastShadows = true;

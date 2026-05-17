@@ -1,5 +1,10 @@
 #include "LightingCommon.hlsli"
 
+cbuffer GeometryMaterialSettings : register(b2)
+{
+    float4 gDrawPbrParams;
+}
+
 struct VertexIn
 {
     float3 PosL : POSITION;
@@ -46,10 +51,20 @@ GBufferOutput GeometryPS(GeometryVertexOut pin)
     }
 
     float3 normalW = normalize(pin.NormalW);
+    const float metallicOverride = saturate(gPbrParams.x);
+    const float roughnessScale = max(gPbrParams.y, 0.04f) / 0.5f;
+    const float ambientOcclusionScale = saturate(gPbrParams.z);
+    const float iblIntensityScale = max(gPbrParams.w, 0.0f);
+    float4 materialParams = gDrawPbrParams;
+    materialParams.x = saturate(materialParams.x + metallicOverride);
+    materialParams.y = clamp(materialParams.y * roughnessScale, 0.04f, 1.0f);
+    materialParams.z = saturate(materialParams.z * ambientOcclusionScale);
+    materialParams.w = max(materialParams.w * iblIntensityScale, 0.0f);
+
     GBufferOutput output;
     output.Albedo = float4(texColor.rgb * gDiffuseAlbedo.rgb, texColor.a * gDiffuseAlbedo.a);
     output.Normal = float4(normalW * 0.5f + 0.5f, 1.0f);
     output.Position = float4(pin.PosW, 1.0f);
-    output.Material = gPbrParams;
+    output.Material = materialParams;
     return output;
 }

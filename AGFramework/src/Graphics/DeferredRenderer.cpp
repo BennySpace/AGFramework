@@ -539,6 +539,7 @@ void DeferredRenderer::DrawGeometryPass(
 		DrawSettings drawSettings;
 		drawSettings.AlphaCutoff = drawItem.HasAlphaCutout ? 0.5f : -1.0f;
 		context.GetCommandList()->SetGraphicsRoot32BitConstants(2, 4, &drawSettings, 0);
+		context.GetCommandList()->SetGraphicsRoot32BitConstants(3, 4, &drawItem.PbrParams, 0);
 
 		const auto& submesh = sceneGeometry.DrawArgs.at(drawItem.DrawName);
 		context.GetCommandList()->DrawIndexedInstanced(submesh.IndexCount, 1, submesh.StartIndexLocation, submesh.BaseVertexLocation, 0);
@@ -710,13 +711,14 @@ void DeferredRenderer::BuildRootSignature(DirectX12Context& context)
 	CD3DX12_DESCRIPTOR_RANGE geometryTexTable;
 	geometryTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
 
-	CD3DX12_ROOT_PARAMETER geometryRootParameters[3];
+	CD3DX12_ROOT_PARAMETER geometryRootParameters[4];
 	geometryRootParameters[0].InitAsConstantBufferView(0);
 	geometryRootParameters[1].InitAsDescriptorTable(1, &geometryTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
 	geometryRootParameters[2].InitAsConstants(4, 1);
+	geometryRootParameters[3].InitAsConstants(4, 2);
 
 	CD3DX12_ROOT_SIGNATURE_DESC geometryRootSigDesc(
-		3,
+		4,
 		geometryRootParameters,
 		1,
 		&linearWrapSampler,

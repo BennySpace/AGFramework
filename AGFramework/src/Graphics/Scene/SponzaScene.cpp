@@ -5,6 +5,8 @@
 #include "../Resources/TextureLoader.h"
 #include "../dx12/DirectX12Context.h"
 
+#include <algorithm>
+#include <cctype>
 #include <limits>
 #include <stdexcept>
 
@@ -50,6 +52,73 @@ namespace
 		}
 
 		return result;
+	}
+
+	std::string ToLowerAscii(std::string value)
+	{
+		std::transform(value.begin(), value.end(), value.begin(), [](unsigned char character)
+		{
+			return static_cast<char>(std::tolower(character));
+		});
+		return value;
+	}
+
+	bool ContainsKeyword(const std::string& text, const char* keyword)
+	{
+		return text.find(keyword) != std::string::npos;
+	}
+
+	XMFLOAT4 BuildDefaultPbrParams(const ObjModelLoader::MeshData& mesh)
+	{
+		const std::string materialName = ToLowerAscii(mesh.MaterialName);
+		const std::string diffuseTexturePath = ToLowerAscii(mesh.DiffuseTexturePath);
+		const std::string materialKey = materialName + " " + diffuseTexturePath;
+
+		if (mesh.HasAlphaCutout ||
+			ContainsKeyword(materialKey, "leaf") ||
+			ContainsKeyword(materialKey, "vase_plant") ||
+			ContainsKeyword(materialKey, "chain"))
+		{
+			return XMFLOAT4(0.0f, 0.8f, 1.0f, 1.0f);
+		}
+
+		if (ContainsKeyword(materialKey, "metal") ||
+			ContainsKeyword(materialKey, "iron") ||
+			ContainsKeyword(materialKey, "steel") ||
+			ContainsKeyword(materialKey, "gold") ||
+			ContainsKeyword(materialKey, "copper") ||
+			ContainsKeyword(materialKey, "bronze") ||
+			ContainsKeyword(materialKey, "brass"))
+		{
+			return XMFLOAT4(1.0f, 0.28f, 1.0f, 1.0f);
+		}
+
+		if (ContainsKeyword(materialKey, "fabric") ||
+			ContainsKeyword(materialKey, "cloth") ||
+			ContainsKeyword(materialKey, "curtain") ||
+			ContainsKeyword(materialKey, "flag") ||
+			ContainsKeyword(materialKey, "banner") ||
+			ContainsKeyword(materialKey, "rug"))
+		{
+			return XMFLOAT4(0.0f, 0.9f, 1.0f, 1.0f);
+		}
+
+		if (ContainsKeyword(materialKey, "wood"))
+		{
+			return XMFLOAT4(0.0f, 0.72f, 1.0f, 1.0f);
+		}
+
+		if (ContainsKeyword(materialKey, "floor") ||
+			ContainsKeyword(materialKey, "stone") ||
+			ContainsKeyword(materialKey, "column") ||
+			ContainsKeyword(materialKey, "wall") ||
+			ContainsKeyword(materialKey, "brick") ||
+			ContainsKeyword(materialKey, "ceiling"))
+		{
+			return XMFLOAT4(0.0f, 0.95f, 1.0f, 1.0f);
+		}
+
+		return XMFLOAT4(0.0f, 0.65f, 1.0f, 1.0f);
 	}
 }
 
@@ -105,7 +174,9 @@ void SponzaScene::BuildGeometry(DirectX12Context& context)
 
 		DeferredRenderer::ModelDrawItem drawItem;
 		drawItem.DrawName = "mesh_" + std::to_string(meshIndex);
+		drawItem.MaterialName = mesh.MaterialName;
 		drawItem.DiffuseTexturePath = mesh.DiffuseTexturePath;
+		drawItem.PbrParams = BuildDefaultPbrParams(mesh);
 		drawItem.HasAlphaCutout = mesh.HasAlphaCutout;
 		drawItem.CastShadows = true;
 		m_data.DrawItems.push_back(std::move(drawItem));
