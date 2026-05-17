@@ -15,6 +15,13 @@ public:
         DirectX::XMFLOAT4 AmbientLight = { 0.15f, 0.15f, 0.2f, 1.0f };
     };
 
+    struct ImageBasedLightingSettings
+    {
+        bool UseAutoDecoding = true;
+        bool DecodeAsRgbm = true;
+        float RgbmScale = 5.0f;
+    };
+
     struct ShadowSettings
     {
         bool EnableDirectionalShadows = true;
@@ -51,10 +58,13 @@ public:
 
     const LightingSettings& GetLightingSettings() const { return m_lightingSettings; }
     void SetLightingSettings(const LightingSettings& lightingSettings) { m_lightingSettings = lightingSettings; }
+    const ImageBasedLightingSettings& GetImageBasedLightingSettings() const { return m_imageBasedLightingSettings; }
+    void SetImageBasedLightingSettings(const ImageBasedLightingSettings& imageBasedLightingSettings) { m_imageBasedLightingSettings = imageBasedLightingSettings; }
     const ShadowSettings& GetShadowSettings() const { return m_shadowSettings; }
     void SetShadowSettings(const ShadowSettings& shadowSettings) { m_shadowSettings = shadowSettings; }
 
 private:
     LightingSettings m_lightingSettings;
+    ImageBasedLightingSettings m_imageBasedLightingSettings;
     ShadowSettings m_shadowSettings;
 };

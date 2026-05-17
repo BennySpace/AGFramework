@@ -359,6 +359,7 @@ void DebugOverlay::Draw(
 	if (ImGui::CollapsingHeader("Lighting"))
 	{
 		RenderSettings::LightingSettings lightingSettings = renderSettings.GetLightingSettings();
+		RenderSettings::ImageBasedLightingSettings imageBasedLightingSettings = renderSettings.GetImageBasedLightingSettings();
 		RenderSettings::ShadowSettings shadowSettings = renderSettings.GetShadowSettings();
 		LightSystem::LightEnableState lightEnableState = lightSystem.GetLightEnableState();
 		if (ImGui::ColorEdit3("Ambient", &lightingSettings.AmbientLight.x))
@@ -368,6 +369,23 @@ void DebugOverlay::Draw(
 		if (ImGui::SliderFloat("Ambient intensity", &lightingSettings.AmbientLight.w, 0.0f, 2.0f))
 		{
 			renderSettings.SetLightingSettings(lightingSettings);
+		}
+
+		ImGui::SeparatorText("IBL");
+		if (ImGui::Checkbox("Auto IBL decode", &imageBasedLightingSettings.UseAutoDecoding))
+		{
+			renderSettings.SetImageBasedLightingSettings(imageBasedLightingSettings);
+		}
+		if (!imageBasedLightingSettings.UseAutoDecoding)
+		{
+			if (ImGui::Checkbox("Decode IBL as RGBM", &imageBasedLightingSettings.DecodeAsRgbm))
+			{
+				renderSettings.SetImageBasedLightingSettings(imageBasedLightingSettings);
+			}
+		}
+		if (ImGui::SliderFloat("IBL RGBM scale", &imageBasedLightingSettings.RgbmScale, 1.0f, 8.0f, "%.2f"))
+		{
+			renderSettings.SetImageBasedLightingSettings(imageBasedLightingSettings);
 		}
 
 		ImGui::SeparatorText("Shadows");

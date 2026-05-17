@@ -31,6 +31,7 @@ public:
 		float SceneScale = 1.0f;
 		DirectX::XMFLOAT4X4 Projection = MathHelper::Identity4x4();
 		RenderSettings::LightingSettings LightingSettings;
+		RenderSettings::ImageBasedLightingSettings ImageBasedLightingSettings;
 		RenderSettings::ShadowSettings ShadowSettings;
 		RenderSettings::CascadedShadowData CascadedShadowData;
 		MaterialSystem::MaterialState Material;

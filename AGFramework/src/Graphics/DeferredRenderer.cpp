@@ -185,14 +185,18 @@ void DeferredRenderer::UpdateMainPassCB(const FrameData& frameData)
 	objectConstants.EyePosW = frameData.EyePos;
 	objectConstants.LightingSettings = frameData.LightingSettings;
 	objectConstants.Material = frameData.Material;
+	const bool decodeImageBasedLightingAsRgbm =
+		frameData.ImageBasedLightingSettings.UseAutoDecoding
+			? m_imageBasedLightingUsesRgbm
+			: frameData.ImageBasedLightingSettings.DecodeAsRgbm;
 	objectConstants.ImageBasedLightingSettings = XMFLOAT4(
 		m_prefilterMapTexture && m_prefilterMapTexture->Resource
 			? static_cast<float>(m_prefilterMapTexture->Resource->GetDesc().MipLevels > 0
 				? m_prefilterMapTexture->Resource->GetDesc().MipLevels - 1
 				: 0)
 			: 0.0f,
-		m_imageBasedLightingUsesRgbm ? 1.0f : 0.0f,
-		m_imageBasedLightingUsesRgbm ? 5.0f : 1.0f,
+		decodeImageBasedLightingAsRgbm ? 1.0f : 0.0f,
+		decodeImageBasedLightingAsRgbm ? frameData.ImageBasedLightingSettings.RgbmScale : 1.0f,
 		0.0f);
 
 	for (size_t lightIndex = 0; lightIndex < LightSystem::DirectionalLightCount; ++lightIndex)
