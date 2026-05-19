@@ -26,7 +26,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   clang-format:
@@ -75,41 +75,8 @@ jobs:
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 
-      - name: Auto-format changed files on push
-        if: steps.changed-files.outputs.has_files == 'true' && github.event_name == 'push'
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          mapfile -t files <<'EOF'
-          ${{ steps.changed-files.outputs.files }}
-          EOF
-
-          printf 'Formatting files:\n'
-          printf ' - %s\n' "${files[@]}"
-
-          clang-format -i --style=file "${files[@]}"
-
-      - name: Commit formatting changes
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if git diff --quiet; then
-            echo "No formatting changes to commit."
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add .clang-format .github/workflows/format-check.yml AGFramework
-          git commit -m "style: apply clang-format"
-          git push
-
       - name: Check formatting of changed files
-        if: steps.changed-files.outputs.has_files == 'true' && github.event_name == 'pull_request'
+        if: steps.changed-files.outputs.has_files == 'true'
         shell: bash
         run: |
           set -euo pipefail
