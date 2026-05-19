@@ -12,7 +12,8 @@ class RenderSettings
 
 	struct LightingSettings
 	{
-		DirectX::XMFLOAT4 AmbientLight = {0.15f, 0.15f, 0.2f, 1.0f};
+		DirectX::XMFLOAT4 AmbientLight = {0.28f, 0.30f, 0.34f, 1.35f};
+		DirectX::XMFLOAT4 BackgroundColor = {0.03f, 0.05f, 0.08f, 1.0f};
 	};
 
 	struct ImageBasedLightingSettings
@@ -20,6 +21,8 @@ class RenderSettings
 		bool UseAutoDecoding = true;
 		bool DecodeAsRgbm = true;
 		float RgbmScale = 5.0f;
+		float DiffuseStrength = 1.75f;
+		float SpecularStrength = 1.25f;
 	};
 
 	struct ShadowSettings

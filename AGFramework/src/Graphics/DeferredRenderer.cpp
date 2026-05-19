@@ -173,6 +173,8 @@ void DeferredRenderer::UpdateMainPassCB(const FrameData &frameData)
 	        : 0.0f,
 	    decodeImageBasedLightingAsRgbm ? 1.0f : 0.0f,
 	    decodeImageBasedLightingAsRgbm ? frameData.ImageBasedLightingSettings.RgbmScale : 1.0f, 0.0f);
+	objectConstants.ImageBasedLightingWeights = XMFLOAT4(frameData.ImageBasedLightingSettings.DiffuseStrength,
+	                                                     frameData.ImageBasedLightingSettings.SpecularStrength, 0.0f, 0.0f);
 
 	for (size_t lightIndex = 0; lightIndex < LightSystem::DirectionalLightCount; ++lightIndex)
 	{

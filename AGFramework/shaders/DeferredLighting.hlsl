@@ -37,7 +37,7 @@ FullscreenVertexOut FullscreenVS(uint vertexId : SV_VertexID)
 
 float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
 {
-	const float3 backgroundColor = float3(0.03f, 0.05f, 0.08f);
+	const float3 backgroundColor = gBackgroundColor.rgb;
 	float4 albedoSample = gTexture0.Sample(gsamLinearWrap, pin.TexC);
 	if (albedoSample.a < 0.001f)
 	{
@@ -142,15 +142,17 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
 	const float3 kS = F;
 	const float3 kD = (1.0f.xxx - kS) * (1.0f - metallic);
 	const float3 irradiance = DecodeImageBasedLightingSample(gIrradianceMap.Sample(gsamLinearClamp, normalW));
-	const float3 diffuseIBL = irradiance * diffuseColor;
+	const float diffuseIblStrength = max(gImageBasedLightingWeights.x, 0.0f);
+	const float specularIblStrength = max(gImageBasedLightingWeights.y, 0.0f);
+	const float3 diffuseIBL = irradiance * diffuseColor * diffuseIblStrength;
 	const float3 reflectionVector = reflect(-toEye, normalW);
 	const float maxReflectionLod = max(gImageBasedLightingSettings.x, 0.0f);
 	const float3 prefilteredColor =
 	    DecodeImageBasedLightingSample(gPrefilterMap.SampleLevel(gsamLinearClamp, reflectionVector, roughness * maxReflectionLod));
 	const float2 brdf = gBrdfLut.Sample(gsamLinearClamp, float2(NdotV, 1.0f - roughness)).rg;
-	const float3 specularIBL = prefilteredColor * (F * brdf.x + brdf.y) * iblIntensity;
-	// Keep ambient controls useful even when the imported IBL set is dark or encoded differently.
-	const float3 ambientDiffuse = diffuseColor * 0.25f + kD * diffuseIBL;
+	const float3 specularIBL = prefilteredColor * (F * brdf.x + brdf.y) * iblIntensity * specularIblStrength;
+	// Keep the default scene readable even when the imported IBL set is dark or heavily rough.
+	const float3 ambientDiffuse = diffuseColor * 0.45f + kD * diffuseIBL;
 	const float3 ambientSpecular = specularIBL;
 	float3 ambient = (gAmbientLight.rgb * gAmbientLight.w * ambientDiffuse + gAmbientLight.w * ambientSpecular) * ambientOcclusion;
 	float3 directionalLighting = 0.0f;

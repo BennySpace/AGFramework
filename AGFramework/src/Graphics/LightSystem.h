@@ -15,7 +15,7 @@ class LightSystem
 	struct DirectionalLightData
 	{
 		DirectX::XMFLOAT4 Direction = {0.577f, -0.577f, 0.577f, 0.0f};
-		DirectX::XMFLOAT4 Color = {0.75f, 0.74f, 0.70f, 1.0f};
+		DirectX::XMFLOAT4 Color = {2.1f, 2.0f, 1.9f, 1.0f};
 	};
 
 	struct PointLightData

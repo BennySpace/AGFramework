@@ -94,6 +94,7 @@ class DeferredRenderer
 		RenderSettings::LightingSettings LightingSettings;
 		MaterialSystem::MaterialState Material;
 		DirectX::XMFLOAT4 ImageBasedLightingSettings = {0.0f, 0.0f, 0.0f, 0.0f};
+		DirectX::XMFLOAT4 ImageBasedLightingWeights = {1.0f, 1.0f, 0.0f, 0.0f};
 		LightSystem::DirectionalLightData DirectionalLights[LightSystem::DirectionalLightCount];
 		LightSystem::PointLightData PointLights[LightSystem::PointLightCount];
 		LightSystem::SpotLightData SpotLights[LightSystem::SpotLightCount];

@@ -322,6 +322,10 @@ void DebugOverlay::Draw(ID3D12GraphicsCommandList *commandList, const GameTimer 
 		{
 			renderSettings.SetLightingSettings(lightingSettings);
 		}
+		if (ImGui::ColorEdit3("Background", &lightingSettings.BackgroundColor.x))
+		{
+			renderSettings.SetLightingSettings(lightingSettings);
+		}
 
 		ImGui::SeparatorText("IBL");
 		if (ImGui::Checkbox("Auto IBL decode", &imageBasedLightingSettings.UseAutoDecoding))
@@ -336,6 +340,14 @@ void DebugOverlay::Draw(ID3D12GraphicsCommandList *commandList, const GameTimer 
 			}
 		}
 		if (ImGui::SliderFloat("IBL RGBM scale", &imageBasedLightingSettings.RgbmScale, 1.0f, 8.0f, "%.2f"))
+		{
+			renderSettings.SetImageBasedLightingSettings(imageBasedLightingSettings);
+		}
+		if (ImGui::SliderFloat("Diffuse IBL", &imageBasedLightingSettings.DiffuseStrength, 0.0f, 2.0f, "%.2f"))
+		{
+			renderSettings.SetImageBasedLightingSettings(imageBasedLightingSettings);
+		}
+		if (ImGui::SliderFloat("Specular IBL", &imageBasedLightingSettings.SpecularStrength, 0.0f, 2.0f, "%.2f"))
 		{
 			renderSettings.SetImageBasedLightingSettings(imageBasedLightingSettings);
 		}

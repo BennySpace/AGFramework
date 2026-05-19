@@ -34,9 +34,11 @@ cbuffer ObjectConstants : register(b0)
 	float3 gEyePosW;
 	float gPad0;
 	float4 gAmbientLight;
+	float4 gBackgroundColor;
 	float4 gDiffuseAlbedo;
 	float4 gPbrParams;
 	float4 gImageBasedLightingSettings;
+	float4 gImageBasedLightingWeights;
 	DirectionalLightData gDirectionalLights[DIRECTIONAL_LIGHT_COUNT];
 	PointLightData gPointLights[POINT_LIGHT_COUNT];
 	SpotLightData gSpotLights[SPOT_LIGHT_COUNT];
