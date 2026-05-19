@@ -175,7 +175,29 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
 		spotLighting += ApplySpotLight(albedoSample.rgb, pbrParams, normalW, toEye, posW, gSpotLights[lightIndex]);
 	}
 
-	const float3 litColor = ambient + directionalLighting + pointLighting + spotLighting;
+	const float3 directLighting = directionalLighting + pointLighting + spotLighting;
+
+	if (debugViewMode == 12)
+	{
+		return float4(lerp(backgroundColor, directLighting, opacity), 1.0f);
+	}
+
+	if (debugViewMode == 13)
+	{
+		return float4(lerp(backgroundColor, ambient, opacity), 1.0f);
+	}
+
+	if (debugViewMode == 14)
+	{
+		return float4(lerp(backgroundColor, diffuseIBL, opacity), 1.0f);
+	}
+
+	if (debugViewMode == 15)
+	{
+		return float4(lerp(backgroundColor, specularIBL, opacity), 1.0f);
+	}
+
+	const float3 litColor = ambient + directLighting;
 	const float3 finalColor = lerp(backgroundColor, litColor, opacity);
 	return float4(finalColor, 1.0f);
 }

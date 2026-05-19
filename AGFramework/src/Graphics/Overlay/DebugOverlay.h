@@ -23,7 +23,11 @@ class DebugOverlay
 		Metallic = 8,
 		Roughness = 9,
 		AmbientOcclusion = 10,
-		IblIntensity = 11
+		IblIntensity = 11,
+		DirectLighting = 12,
+		AmbientLighting = 13,
+		DiffuseIbl = 14,
+		SpecularIbl = 15
 	};
 
 	DebugOverlay() = default;
