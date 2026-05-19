@@ -7,7 +7,7 @@
 
 class TextureLoader
 {
-public:
+  public:
 	struct ImageData
 	{
 		UINT Width = 0;
@@ -15,5 +15,5 @@ public:
 		std::vector<std::uint8_t> Pixels;
 	};
 
-	static ImageData LoadUncompressedTga(const std::wstring& filename);
+	static ImageData LoadUncompressedTga(const std::wstring &filename);
 };

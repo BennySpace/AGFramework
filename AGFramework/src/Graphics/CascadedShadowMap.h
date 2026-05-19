@@ -6,48 +6,63 @@
 
 class CascadedShadowMap
 {
-public:
-    struct Desc
-    {
-        UINT Width = 2048;
-        UINT Height = 2048;
-        std::uint32_t CascadeCount = 4;
-        DXGI_FORMAT ResourceFormat = DXGI_FORMAT_R32_TYPELESS;
-        DXGI_FORMAT DsvFormat = DXGI_FORMAT_D32_FLOAT;
-        DXGI_FORMAT SrvFormat = DXGI_FORMAT_R32_FLOAT;
-        float ClearDepth = 1.0f;
-    };
+  public:
+	struct Desc
+	{
+		UINT Width = 2048;
+		UINT Height = 2048;
+		std::uint32_t CascadeCount = 4;
+		DXGI_FORMAT ResourceFormat = DXGI_FORMAT_R32_TYPELESS;
+		DXGI_FORMAT DsvFormat = DXGI_FORMAT_D32_FLOAT;
+		DXGI_FORMAT SrvFormat = DXGI_FORMAT_R32_FLOAT;
+		float ClearDepth = 1.0f;
+	};
 
-    bool Initialize(ID3D12Device* device, const Desc& desc);
+	bool Initialize(ID3D12Device *device, const Desc &desc);
 
-    const Desc& GetDesc() const { return m_desc; }
-    ID3D12Resource* GetResource() const { return m_shadowArray.Get(); }
-    ID3D12DescriptorHeap* GetSrvHeap() const { return m_srvHeap.Get(); }
+	const Desc &GetDesc() const
+	{
+		return m_desc;
+	}
+	ID3D12Resource *GetResource() const
+	{
+		return m_shadowArray.Get();
+	}
+	ID3D12DescriptorHeap *GetSrvHeap() const
+	{
+		return m_srvHeap.Get();
+	}
 
-    D3D12_CPU_DESCRIPTOR_HANDLE GetDsv(std::uint32_t cascadeIndex) const;
-    D3D12_CPU_DESCRIPTOR_HANDLE GetSrv() const;
-    D3D12_GPU_DESCRIPTOR_HANDLE GetSrvGpuHandle() const;
+	D3D12_CPU_DESCRIPTOR_HANDLE GetDsv(std::uint32_t cascadeIndex) const;
+	D3D12_CPU_DESCRIPTOR_HANDLE GetSrv() const;
+	D3D12_GPU_DESCRIPTOR_HANDLE GetSrvGpuHandle() const;
 
-    const D3D12_VIEWPORT& GetViewport() const { return m_viewport; }
-    const D3D12_RECT& GetScissorRect() const { return m_scissorRect; }
+	const D3D12_VIEWPORT &GetViewport() const
+	{
+		return m_viewport;
+	}
+	const D3D12_RECT &GetScissorRect() const
+	{
+		return m_scissorRect;
+	}
 
-    void ClearCascade(ID3D12GraphicsCommandList* commandList, std::uint32_t cascadeIndex) const;
-    void ClearAll(ID3D12GraphicsCommandList* commandList) const;
+	void ClearCascade(ID3D12GraphicsCommandList *commandList, std::uint32_t cascadeIndex) const;
+	void ClearAll(ID3D12GraphicsCommandList *commandList) const;
 
-private:
-    void CreateDescriptorHeaps();
-    void CreateResource();
-    void CreateViews();
+  private:
+	void CreateDescriptorHeaps();
+	void CreateResource();
+	void CreateViews();
 
-private:
-    ID3D12Device* m_device = nullptr;
-    Desc m_desc{};
-    UINT m_dsvDescriptorSize = 0;
-    UINT m_srvDescriptorSize = 0;
-    D3D12_VIEWPORT m_viewport{};
-    D3D12_RECT m_scissorRect{};
+  private:
+	ID3D12Device *m_device = nullptr;
+	Desc m_desc{};
+	UINT m_dsvDescriptorSize = 0;
+	UINT m_srvDescriptorSize = 0;
+	D3D12_VIEWPORT m_viewport{};
+	D3D12_RECT m_scissorRect{};
 
-    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
-    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvHeap;
-    Microsoft::WRL::ComPtr<ID3D12Resource> m_shadowArray;
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvHeap;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_shadowArray;
 };

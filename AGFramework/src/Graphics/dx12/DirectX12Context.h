@@ -4,49 +4,87 @@
 
 class DirectX12Context
 {
-public:
+  public:
 	DirectX12Context() = default;
 	~DirectX12Context();
 
-	void Initialize(
-		HWND windowHandle,
-		int clientWidth,
-		int clientHeight,
-		bool enable4xMsaa,
-		UINT msaaQuality,
-		UINT swapChainBufferCount,
-		DXGI_FORMAT backBufferFormat,
-		DXGI_FORMAT depthStencilFormat);
+	void Initialize(HWND windowHandle, int clientWidth, int clientHeight, bool enable4xMsaa, UINT msaaQuality, UINT swapChainBufferCount,
+	                DXGI_FORMAT backBufferFormat, DXGI_FORMAT depthStencilFormat);
 	void Resize(int clientWidth, int clientHeight);
 	void FlushCommandQueue();
-	void ExecuteCommandLists(UINT commandListCount, ID3D12CommandList* const* commandLists) const;
+	void ExecuteCommandLists(UINT commandListCount, ID3D12CommandList *const *commandLists) const;
 	void Present(UINT syncInterval = 0, UINT flags = 0);
 
-	ID3D12Device* GetDevice() const { return m_device.Get(); }
-	IDXGIFactory4* GetFactory() const { return m_dxgiFactory.Get(); }
-	ID3D12CommandAllocator* GetCommandAllocator() const { return m_commandAllocator.Get(); }
-	ID3D12CommandQueue* GetCommandQueue() const { return m_commandQueue.Get(); }
-	ID3D12GraphicsCommandList* GetCommandList() const { return m_commandList.Get(); }
+	ID3D12Device *GetDevice() const
+	{
+		return m_device.Get();
+	}
+	IDXGIFactory4 *GetFactory() const
+	{
+		return m_dxgiFactory.Get();
+	}
+	ID3D12CommandAllocator *GetCommandAllocator() const
+	{
+		return m_commandAllocator.Get();
+	}
+	ID3D12CommandQueue *GetCommandQueue() const
+	{
+		return m_commandQueue.Get();
+	}
+	ID3D12GraphicsCommandList *GetCommandList() const
+	{
+		return m_commandList.Get();
+	}
 
-	ID3D12Resource* CurrentBackBuffer() const;
+	ID3D12Resource *CurrentBackBuffer() const;
 	D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView() const;
 	D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView() const;
 
-	const D3D12_VIEWPORT& GetViewport() const { return m_viewport; }
-	const D3D12_RECT& GetScissorRect() const { return m_scissorRect; }
+	const D3D12_VIEWPORT &GetViewport() const
+	{
+		return m_viewport;
+	}
+	const D3D12_RECT &GetScissorRect() const
+	{
+		return m_scissorRect;
+	}
 
-	UINT GetRtvDescriptorSize() const { return m_rtvDescriptorSize; }
-	UINT GetDsvDescriptorSize() const { return m_dsvDescriptorSize; }
-	UINT GetCbvSrvUavDescriptorSize() const { return m_cbvSrvUavDescriptorSize; }
+	UINT GetRtvDescriptorSize() const
+	{
+		return m_rtvDescriptorSize;
+	}
+	UINT GetDsvDescriptorSize() const
+	{
+		return m_dsvDescriptorSize;
+	}
+	UINT GetCbvSrvUavDescriptorSize() const
+	{
+		return m_cbvSrvUavDescriptorSize;
+	}
 
-	int GetClientWidth() const { return m_clientWidth; }
-	int GetClientHeight() const { return m_clientHeight; }
-	DXGI_FORMAT GetBackBufferFormat() const { return m_backBufferFormat; }
-	DXGI_FORMAT GetDepthStencilFormat() const { return m_depthStencilFormat; }
+	int GetClientWidth() const
+	{
+		return m_clientWidth;
+	}
+	int GetClientHeight() const
+	{
+		return m_clientHeight;
+	}
+	DXGI_FORMAT GetBackBufferFormat() const
+	{
+		return m_backBufferFormat;
+	}
+	DXGI_FORMAT GetDepthStencilFormat() const
+	{
+		return m_depthStencilFormat;
+	}
 
-	bool IsInitialized() const { return m_device != nullptr; }
+	bool IsInitialized() const
+	{
+		return m_device != nullptr;
+	}
 
-private:
+  private:
 	void CreateCommandObjects();
 	void CreateSwapChain();
 	void CreateRtvAndDsvDescriptorHeaps();

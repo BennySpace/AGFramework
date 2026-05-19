@@ -12,15 +12,8 @@ DirectX12Context::~DirectX12Context()
 	}
 }
 
-void DirectX12Context::Initialize(
-	HWND windowHandle,
-	int clientWidth,
-	int clientHeight,
-	bool enable4xMsaa,
-	UINT msaaQuality,
-	UINT swapChainBufferCount,
-	DXGI_FORMAT backBufferFormat,
-	DXGI_FORMAT depthStencilFormat)
+void DirectX12Context::Initialize(HWND windowHandle, int clientWidth, int clientHeight, bool enable4xMsaa, UINT msaaQuality,
+                                  UINT swapChainBufferCount, DXGI_FORMAT backBufferFormat, DXGI_FORMAT depthStencilFormat)
 {
 	m_windowHandle = windowHandle;
 	m_clientWidth = clientWidth;
@@ -74,18 +67,14 @@ void DirectX12Context::Resize(int clientWidth, int clientHeight)
 
 	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
 
-	for (Microsoft::WRL::ComPtr<ID3D12Resource>& renderTarget : m_renderTargets)
+	for (Microsoft::WRL::ComPtr<ID3D12Resource> &renderTarget : m_renderTargets)
 	{
 		renderTarget.Reset();
 	}
 	m_depthStencilBuffer.Reset();
 
-	ThrowIfFailed(m_swapChain->ResizeBuffers(
-		m_swapChainBufferCount,
-		m_clientWidth,
-		m_clientHeight,
-		m_backBufferFormat,
-		DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH));
+	ThrowIfFailed(m_swapChain->ResizeBuffers(m_swapChainBufferCount, m_clientWidth, m_clientHeight, m_backBufferFormat,
+	                                         DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH));
 
 	m_currBackBuffer = 0;
 
@@ -113,13 +102,9 @@ void DirectX12Context::Resize(int clientWidth, int clientHeight)
 	optClear.DepthStencil.Depth = 1.0f;
 	optClear.DepthStencil.Stencil = 0;
 
-	ThrowIfFailed(m_device->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-		D3D12_HEAP_FLAG_NONE,
-		&depthStencilDesc,
-		D3D12_RESOURCE_STATE_DEPTH_WRITE,
-		&optClear,
-		IID_PPV_ARGS(m_depthStencilBuffer.GetAddressOf())));
+	ThrowIfFailed(m_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), D3D12_HEAP_FLAG_NONE,
+	                                                &depthStencilDesc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &optClear,
+	                                                IID_PPV_ARGS(m_depthStencilBuffer.GetAddressOf())));
 
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc{};
 	dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
@@ -128,12 +113,12 @@ void DirectX12Context::Resize(int clientWidth, int clientHeight)
 	m_device->CreateDepthStencilView(m_depthStencilBuffer.Get(), &dsvDesc, DepthStencilView());
 
 	ThrowIfFailed(m_commandList->Close());
-	ID3D12CommandList* commandLists[] = { m_commandList.Get() };
+	ID3D12CommandList *commandLists[] = {m_commandList.Get()};
 	ExecuteCommandLists(_countof(commandLists), commandLists);
 	FlushCommandQueue();
 
-	m_viewport = { 0.0f, 0.0f, static_cast<float>(m_clientWidth), static_cast<float>(m_clientHeight), 0.0f, 1.0f };
-	m_scissorRect = { 0, 0, m_clientWidth, m_clientHeight };
+	m_viewport = {0.0f, 0.0f, static_cast<float>(m_clientWidth), static_cast<float>(m_clientHeight), 0.0f, 1.0f};
+	m_scissorRect = {0, 0, m_clientWidth, m_clientHeight};
 }
 
 void DirectX12Context::FlushCommandQueue()
@@ -151,7 +136,7 @@ void DirectX12Context::FlushCommandQueue()
 	}
 }
 
-void DirectX12Context::ExecuteCommandLists(UINT commandListCount, ID3D12CommandList* const* commandLists) const
+void DirectX12Context::ExecuteCommandLists(UINT commandListCount, ID3D12CommandList *const *commandLists) const
 {
 	m_commandQueue->ExecuteCommandLists(commandListCount, commandLists);
 }
@@ -162,17 +147,14 @@ void DirectX12Context::Present(UINT syncInterval, UINT flags)
 	m_currBackBuffer = (m_currBackBuffer + 1) % static_cast<int>(m_swapChainBufferCount);
 }
 
-ID3D12Resource* DirectX12Context::CurrentBackBuffer() const
+ID3D12Resource *DirectX12Context::CurrentBackBuffer() const
 {
 	return m_renderTargets[m_currBackBuffer].Get();
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE DirectX12Context::CurrentBackBufferView() const
 {
-	return CD3DX12_CPU_DESCRIPTOR_HANDLE(
-		m_rtvHeap->GetCPUDescriptorHandleForHeapStart(),
-		m_currBackBuffer,
-		m_rtvDescriptorSize);
+	return CD3DX12_CPU_DESCRIPTOR_HANDLE(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), m_currBackBuffer, m_rtvDescriptorSize);
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE DirectX12Context::DepthStencilView() const
@@ -187,16 +169,10 @@ void DirectX12Context::CreateCommandObjects()
 	queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 	ThrowIfFailed(m_device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m_commandQueue)));
 
-	ThrowIfFailed(m_device->CreateCommandAllocator(
-		D3D12_COMMAND_LIST_TYPE_DIRECT,
-		IID_PPV_ARGS(m_commandAllocator.GetAddressOf())));
+	ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(m_commandAllocator.GetAddressOf())));
 
-	ThrowIfFailed(m_device->CreateCommandList(
-		0,
-		D3D12_COMMAND_LIST_TYPE_DIRECT,
-		m_commandAllocator.Get(),
-		nullptr,
-		IID_PPV_ARGS(m_commandList.GetAddressOf())));
+	ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocator.Get(), nullptr,
+	                                          IID_PPV_ARGS(m_commandList.GetAddressOf())));
 
 	m_commandList->Close();
 }
@@ -222,10 +198,7 @@ void DirectX12Context::CreateSwapChain()
 	sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 	sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
-	ThrowIfFailed(m_dxgiFactory->CreateSwapChain(
-		m_commandQueue.Get(),
-		&sd,
-		m_swapChain.GetAddressOf()));
+	ThrowIfFailed(m_dxgiFactory->CreateSwapChain(m_commandQueue.Get(), &sd, m_swapChain.GetAddressOf()));
 }
 
 void DirectX12Context::CreateRtvAndDsvDescriptorHeaps()
@@ -235,18 +208,14 @@ void DirectX12Context::CreateRtvAndDsvDescriptorHeaps()
 	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 	rtvHeapDesc.NodeMask = 0;
-	ThrowIfFailed(m_device->CreateDescriptorHeap(
-		&rtvHeapDesc,
-		IID_PPV_ARGS(m_rtvHeap.GetAddressOf())));
+	ThrowIfFailed(m_device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(m_rtvHeap.GetAddressOf())));
 
 	D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
 	dsvHeapDesc.NumDescriptors = 1;
 	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
 	dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 	dsvHeapDesc.NodeMask = 0;
-	ThrowIfFailed(m_device->CreateDescriptorHeap(
-		&dsvHeapDesc,
-		IID_PPV_ARGS(m_dsvHeap.GetAddressOf())));
+	ThrowIfFailed(m_device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(m_dsvHeap.GetAddressOf())));
 }
 
 void DirectX12Context::CreateDevice()

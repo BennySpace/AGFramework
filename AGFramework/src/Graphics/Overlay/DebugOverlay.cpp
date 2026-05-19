@@ -15,188 +15,152 @@ using namespace DirectX;
 
 namespace
 {
-	bool ProjectWorldToScreen(
-		const XMFLOAT3& worldPosition,
-		const XMMATRIX& viewProj,
-		const ImVec2& displaySize,
-		ImVec2& screenPosition)
+bool ProjectWorldToScreen(const XMFLOAT3 &worldPosition, const XMMATRIX &viewProj, const ImVec2 &displaySize, ImVec2 &screenPosition)
+{
+	const XMVECTOR position = XMVectorSet(worldPosition.x, worldPosition.y, worldPosition.z, 1.0f);
+	XMVECTOR clip = XMVector4Transform(position, viewProj);
+	const float w = XMVectorGetW(clip);
+	if (w <= 0.001f)
 	{
-		const XMVECTOR position = XMVectorSet(worldPosition.x, worldPosition.y, worldPosition.z, 1.0f);
-		XMVECTOR clip = XMVector4Transform(position, viewProj);
-		const float w = XMVectorGetW(clip);
-		if (w <= 0.001f)
-		{
-			return false;
-		}
-
-		clip = XMVectorScale(clip, 1.0f / w);
-		const float ndcX = XMVectorGetX(clip);
-		const float ndcY = XMVectorGetY(clip);
-		const float ndcZ = XMVectorGetZ(clip);
-		if (ndcX < -1.2f || ndcX > 1.2f || ndcY < -1.2f || ndcY > 1.2f || ndcZ < 0.0f || ndcZ > 1.0f)
-		{
-			return false;
-		}
-
-		screenPosition.x = (ndcX * 0.5f + 0.5f) * displaySize.x;
-		screenPosition.y = (-ndcY * 0.5f + 0.5f) * displaySize.y;
-		return true;
+		return false;
 	}
 
-	XMMATRIX BuildViewProjection(const XMFLOAT3& eyePosition, const XMFLOAT3& lookDirection, const ImVec2& displaySize)
+	clip = XMVectorScale(clip, 1.0f / w);
+	const float ndcX = XMVectorGetX(clip);
+	const float ndcY = XMVectorGetY(clip);
+	const float ndcZ = XMVectorGetZ(clip);
+	if (ndcX < -1.2f || ndcX > 1.2f || ndcY < -1.2f || ndcY > 1.2f || ndcZ < 0.0f || ndcZ > 1.0f)
 	{
-		const XMVECTOR eye = XMLoadFloat3(&eyePosition);
-		XMVECTOR look = XMLoadFloat3(&lookDirection);
-		if (XMVector3NearEqual(look, XMVectorZero(), XMVectorReplicate(0.0001f)))
-		{
-			look = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
-		}
-		else
-		{
-			look = XMVector3Normalize(look);
-		}
-
-		const XMVECTOR target = eye + look;
-		const XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-		const XMMATRIX view = XMMatrixLookAtLH(eye, target, up);
-		const float aspectRatio = displaySize.y > 0.0f ? displaySize.x / displaySize.y : 1.0f;
-		const XMMATRIX projection = XMMatrixPerspectiveFovLH(0.25f * XM_PI, aspectRatio, 1.0f, 1000.0f);
-		return view * projection;
+		return false;
 	}
 
-	XMFLOAT3 ExtractPosition(const XMFLOAT4& value)
-	{
-		return XMFLOAT3(value.x, value.y, value.z);
-	}
-
-	XMFLOAT3 ExtractDirection(const XMFLOAT4& value)
-	{
-		return XMFLOAT3(value.x, value.y, value.z);
-	}
-
-	void DrawPointLightMarker(
-		ImDrawList* drawList,
-		const LightSystem::PointLightData& light,
-		bool isEnabled,
-		float markerScale,
-		const XMMATRIX& viewProj,
-		const ImVec2& displaySize,
-		int lightIndex)
-	{
-		ImVec2 screenPosition;
-		if (!ProjectWorldToScreen(ExtractPosition(light.Position), viewProj, displaySize, screenPosition))
-		{
-			return;
-		}
-
-		const ImU32 color = ImGui::ColorConvertFloat4ToU32(
-			ImVec4(light.Color.x, light.Color.y, light.Color.z, isEnabled ? 1.0f : 0.35f));
-		const float radius = (std::max)(4.0f, 6.0f * markerScale);
-		drawList->AddCircleFilled(screenPosition, radius, color);
-		drawList->AddCircle(screenPosition, radius + 1.5f, IM_COL32(255, 255, 255, 220), 0, 2.0f);
-
-		const std::string label = "P" + std::to_string(lightIndex);
-		drawList->AddText(ImVec2(screenPosition.x + radius + 4.0f, screenPosition.y - radius), IM_COL32(255, 255, 255, 220), label.c_str());
-	}
-
-	void DrawSpotLightMarker(
-		ImDrawList* drawList,
-		const LightSystem::SpotLightData& light,
-		bool isEnabled,
-		float markerScale,
-		const XMMATRIX& viewProj,
-		const ImVec2& displaySize,
-		int lightIndex)
-	{
-		const XMFLOAT3 position = ExtractPosition(light.Position);
-		XMFLOAT3 direction = ExtractDirection(light.Direction);
-		XMVECTOR directionVector = XMLoadFloat3(&direction);
-		if (XMVector3NearEqual(directionVector, XMVectorZero(), XMVectorReplicate(0.0001f)))
-		{
-			return;
-		}
-		directionVector = XMVector3Normalize(directionVector);
-		XMStoreFloat3(&direction, directionVector);
-
-		const float range = light.Params.x;
-		const float visualLength = (std::min)(range * 0.35f, 10.0f);
-		const XMFLOAT3 endPoint(
-			position.x + direction.x * visualLength,
-			position.y + direction.y * visualLength,
-			position.z + direction.z * visualLength);
-
-		ImVec2 screenPosition;
-		ImVec2 screenEnd;
-		if (!ProjectWorldToScreen(position, viewProj, displaySize, screenPosition))
-		{
-			return;
-		}
-
-		const ImU32 color = ImGui::ColorConvertFloat4ToU32(
-			ImVec4(light.Color.x, light.Color.y, light.Color.z, isEnabled ? 1.0f : 0.35f));
-		const float radius = (std::max)(4.0f, 5.0f * markerScale);
-		drawList->AddCircleFilled(screenPosition, radius, color);
-		drawList->AddCircle(screenPosition, radius + 1.0f, IM_COL32(255, 255, 255, 220), 0, 2.0f);
-
-		if (ProjectWorldToScreen(endPoint, viewProj, displaySize, screenEnd))
-		{
-			drawList->AddLine(screenPosition, screenEnd, color, (std::max)(2.0f, 2.0f * markerScale));
-			drawList->AddCircleFilled(screenEnd, 2.5f, color);
-		}
-
-		const std::string label = "S" + std::to_string(lightIndex);
-		drawList->AddText(ImVec2(screenPosition.x + radius + 4.0f, screenPosition.y - radius), IM_COL32(255, 255, 255, 220), label.c_str());
-	}
-
-	void DrawDirectionalLightMarker(
-		ImDrawList* drawList,
-		const LightSystem::DirectionalLightData& light,
-		bool isEnabled,
-		float markerScale,
-		const XMMATRIX& viewProj,
-		const ImVec2& displaySize)
-	{
-		XMFLOAT3 direction = ExtractDirection(light.Direction);
-		XMVECTOR directionVector = XMLoadFloat3(&direction);
-		if (XMVector3NearEqual(directionVector, XMVectorZero(), XMVectorReplicate(0.0001f)))
-		{
-			return;
-		}
-		directionVector = XMVector3Normalize(directionVector);
-		XMStoreFloat3(&direction, directionVector);
-
-		const float length = 6.0f;
-		const XMFLOAT3 startPoint(
-			-direction.x * length,
-			-direction.y * length,
-			-direction.z * length);
-		const XMFLOAT3 endPoint(
-			direction.x * length,
-			direction.y * length,
-			direction.z * length);
-
-		ImVec2 screenStart;
-		ImVec2 screenEnd;
-		if (!ProjectWorldToScreen(startPoint, viewProj, displaySize, screenStart) ||
-			!ProjectWorldToScreen(endPoint, viewProj, displaySize, screenEnd))
-		{
-			return;
-		}
-
-		const ImU32 color = ImGui::ColorConvertFloat4ToU32(
-			ImVec4(light.Color.x, light.Color.y, light.Color.z, isEnabled ? 1.0f : 0.35f));
-		drawList->AddLine(screenStart, screenEnd, color, (std::max)(2.5f, 2.5f * markerScale));
-		drawList->AddCircleFilled(screenEnd, (std::max)(4.0f, 4.0f * markerScale), color);
-		drawList->AddText(ImVec2(screenEnd.x + 6.0f, screenEnd.y - 10.0f), IM_COL32(255, 255, 255, 220), "D0");
-	}
+	screenPosition.x = (ndcX * 0.5f + 0.5f) * displaySize.x;
+	screenPosition.y = (-ndcY * 0.5f + 0.5f) * displaySize.y;
+	return true;
 }
 
-void DebugOverlay::Initialize(
-	HWND windowHandle,
-	ID3D12Device* device,
-	ID3D12CommandQueue* commandQueue,
-	DXGI_FORMAT backBufferFormat,
-	UINT framesInFlight)
+XMMATRIX BuildViewProjection(const XMFLOAT3 &eyePosition, const XMFLOAT3 &lookDirection, const ImVec2 &displaySize)
+{
+	const XMVECTOR eye = XMLoadFloat3(&eyePosition);
+	XMVECTOR look = XMLoadFloat3(&lookDirection);
+	if (XMVector3NearEqual(look, XMVectorZero(), XMVectorReplicate(0.0001f)))
+	{
+		look = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
+	}
+	else
+	{
+		look = XMVector3Normalize(look);
+	}
+
+	const XMVECTOR target = eye + look;
+	const XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+	const XMMATRIX view = XMMatrixLookAtLH(eye, target, up);
+	const float aspectRatio = displaySize.y > 0.0f ? displaySize.x / displaySize.y : 1.0f;
+	const XMMATRIX projection = XMMatrixPerspectiveFovLH(0.25f * XM_PI, aspectRatio, 1.0f, 1000.0f);
+	return view * projection;
+}
+
+XMFLOAT3 ExtractPosition(const XMFLOAT4 &value)
+{
+	return XMFLOAT3(value.x, value.y, value.z);
+}
+
+XMFLOAT3 ExtractDirection(const XMFLOAT4 &value)
+{
+	return XMFLOAT3(value.x, value.y, value.z);
+}
+
+void DrawPointLightMarker(ImDrawList *drawList, const LightSystem::PointLightData &light, bool isEnabled, float markerScale,
+                          const XMMATRIX &viewProj, const ImVec2 &displaySize, int lightIndex)
+{
+	ImVec2 screenPosition;
+	if (!ProjectWorldToScreen(ExtractPosition(light.Position), viewProj, displaySize, screenPosition))
+	{
+		return;
+	}
+
+	const ImU32 color = ImGui::ColorConvertFloat4ToU32(ImVec4(light.Color.x, light.Color.y, light.Color.z, isEnabled ? 1.0f : 0.35f));
+	const float radius = (std::max)(4.0f, 6.0f * markerScale);
+	drawList->AddCircleFilled(screenPosition, radius, color);
+	drawList->AddCircle(screenPosition, radius + 1.5f, IM_COL32(255, 255, 255, 220), 0, 2.0f);
+
+	const std::string label = "P" + std::to_string(lightIndex);
+	drawList->AddText(ImVec2(screenPosition.x + radius + 4.0f, screenPosition.y - radius), IM_COL32(255, 255, 255, 220), label.c_str());
+}
+
+void DrawSpotLightMarker(ImDrawList *drawList, const LightSystem::SpotLightData &light, bool isEnabled, float markerScale,
+                         const XMMATRIX &viewProj, const ImVec2 &displaySize, int lightIndex)
+{
+	const XMFLOAT3 position = ExtractPosition(light.Position);
+	XMFLOAT3 direction = ExtractDirection(light.Direction);
+	XMVECTOR directionVector = XMLoadFloat3(&direction);
+	if (XMVector3NearEqual(directionVector, XMVectorZero(), XMVectorReplicate(0.0001f)))
+	{
+		return;
+	}
+	directionVector = XMVector3Normalize(directionVector);
+	XMStoreFloat3(&direction, directionVector);
+
+	const float range = light.Params.x;
+	const float visualLength = (std::min)(range * 0.35f, 10.0f);
+	const XMFLOAT3 endPoint(position.x + direction.x * visualLength, position.y + direction.y * visualLength,
+	                        position.z + direction.z * visualLength);
+
+	ImVec2 screenPosition;
+	ImVec2 screenEnd;
+	if (!ProjectWorldToScreen(position, viewProj, displaySize, screenPosition))
+	{
+		return;
+	}
+
+	const ImU32 color = ImGui::ColorConvertFloat4ToU32(ImVec4(light.Color.x, light.Color.y, light.Color.z, isEnabled ? 1.0f : 0.35f));
+	const float radius = (std::max)(4.0f, 5.0f * markerScale);
+	drawList->AddCircleFilled(screenPosition, radius, color);
+	drawList->AddCircle(screenPosition, radius + 1.0f, IM_COL32(255, 255, 255, 220), 0, 2.0f);
+
+	if (ProjectWorldToScreen(endPoint, viewProj, displaySize, screenEnd))
+	{
+		drawList->AddLine(screenPosition, screenEnd, color, (std::max)(2.0f, 2.0f * markerScale));
+		drawList->AddCircleFilled(screenEnd, 2.5f, color);
+	}
+
+	const std::string label = "S" + std::to_string(lightIndex);
+	drawList->AddText(ImVec2(screenPosition.x + radius + 4.0f, screenPosition.y - radius), IM_COL32(255, 255, 255, 220), label.c_str());
+}
+
+void DrawDirectionalLightMarker(ImDrawList *drawList, const LightSystem::DirectionalLightData &light, bool isEnabled, float markerScale,
+                                const XMMATRIX &viewProj, const ImVec2 &displaySize)
+{
+	XMFLOAT3 direction = ExtractDirection(light.Direction);
+	XMVECTOR directionVector = XMLoadFloat3(&direction);
+	if (XMVector3NearEqual(directionVector, XMVectorZero(), XMVectorReplicate(0.0001f)))
+	{
+		return;
+	}
+	directionVector = XMVector3Normalize(directionVector);
+	XMStoreFloat3(&direction, directionVector);
+
+	const float length = 6.0f;
+	const XMFLOAT3 startPoint(-direction.x * length, -direction.y * length, -direction.z * length);
+	const XMFLOAT3 endPoint(direction.x * length, direction.y * length, direction.z * length);
+
+	ImVec2 screenStart;
+	ImVec2 screenEnd;
+	if (!ProjectWorldToScreen(startPoint, viewProj, displaySize, screenStart) ||
+	    !ProjectWorldToScreen(endPoint, viewProj, displaySize, screenEnd))
+	{
+		return;
+	}
+
+	const ImU32 color = ImGui::ColorConvertFloat4ToU32(ImVec4(light.Color.x, light.Color.y, light.Color.z, isEnabled ? 1.0f : 0.35f));
+	drawList->AddLine(screenStart, screenEnd, color, (std::max)(2.5f, 2.5f * markerScale));
+	drawList->AddCircleFilled(screenEnd, (std::max)(4.0f, 4.0f * markerScale), color);
+	drawList->AddText(ImVec2(screenEnd.x + 6.0f, screenEnd.y - 10.0f), IM_COL32(255, 255, 255, 220), "D0");
+}
+} // namespace
+
+void DebugOverlay::Initialize(HWND windowHandle, ID3D12Device *device, ID3D12CommandQueue *commandQueue, DXGI_FORMAT backBufferFormat,
+                              UINT framesInFlight)
 {
 	if (m_isInitialized)
 	{
@@ -213,7 +177,7 @@ void DebugOverlay::Initialize(
 	ImGui::CreateContext();
 	ImGui::StyleColorsDark();
 
-	ImGuiIO& io = ImGui::GetIO();
+	ImGuiIO &io = ImGui::GetIO();
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
 	ImGui_ImplWin32_Init(windowHandle);
@@ -244,18 +208,9 @@ void DebugOverlay::Shutdown()
 	m_isInitialized = false;
 }
 
-void DebugOverlay::Draw(
-	ID3D12GraphicsCommandList* commandList,
-	const GameTimer& gameTimer,
-	XMFLOAT3& eyePosition,
-	XMFLOAT3& lookDirection,
-	float& yaw,
-	float& pitch,
-	float& cameraMoveSpeed,
-	float& cameraMouseSensitivity,
-	MaterialSystem& materialSystem,
-	RenderSettings& renderSettings,
-	LightSystem& lightSystem)
+void DebugOverlay::Draw(ID3D12GraphicsCommandList *commandList, const GameTimer &gameTimer, XMFLOAT3 &eyePosition, XMFLOAT3 &lookDirection,
+                        float &yaw, float &pitch, float &cameraMoveSpeed, float &cameraMouseSensitivity, MaterialSystem &materialSystem,
+                        RenderSettings &renderSettings, LightSystem &lightSystem)
 {
 	ImGui_ImplDX12_NewFrame();
 	ImGui_ImplWin32_NewFrame();
@@ -268,21 +223,18 @@ void DebugOverlay::Draw(
 	ImGui::Text("Frame time: %.3f ms", gameTimer.DeltaTime() * 1000.0);
 	if (ImGui::CollapsingHeader("View"))
 	{
-		const char* viewModeLabels[] =
-		{
-			"Final",
-			"Albedo",
-			"Normal",
-			"Position",
-			"Shadow cascade",
-			"Shadow factor",
-			"Directional shadow map",
-			"Directional shadow frustum",
-			"Metallic",
-			"Roughness",
-			"Ambient occlusion",
-			"IBL intensity"
-		};
+		const char *viewModeLabels[] = {"Final",
+		                                "Albedo",
+		                                "Normal",
+		                                "Position",
+		                                "Shadow cascade",
+		                                "Shadow factor",
+		                                "Directional shadow map",
+		                                "Directional shadow frustum",
+		                                "Metallic",
+		                                "Roughness",
+		                                "Ambient occlusion",
+		                                "IBL intensity"};
 		int debugViewMode = static_cast<int>(m_debugViewMode);
 		if (ImGui::Combo("Debug view", &debugViewMode, viewModeLabels, IM_ARRAYSIZE(viewModeLabels)))
 		{
@@ -317,7 +269,7 @@ void DebugOverlay::Draw(
 		if (maxMouseSensitivity > minMouseSensitivity)
 		{
 			sensitivityPercent =
-				1.0f + ((cameraMouseSensitivity - minMouseSensitivity) / (maxMouseSensitivity - minMouseSensitivity)) * 99.0f;
+			    1.0f + ((cameraMouseSensitivity - minMouseSensitivity) / (maxMouseSensitivity - minMouseSensitivity)) * 99.0f;
 		}
 		sensitivityPercent = (std::max)(1.0f, (std::min)(100.0f, sensitivityPercent));
 		if (ImGui::SliderFloat("Mouse sensitivity", &sensitivityPercent, 1.0f, 100.0f, "%.0f"))
@@ -500,46 +452,29 @@ void DebugOverlay::Draw(
 	{
 		const ImVec2 displaySize = ImGui::GetIO().DisplaySize;
 		const XMMATRIX viewProj = BuildViewProjection(eyePosition, lookDirection, displaySize);
-		const LightSystem::LightingState& lightingState = lightSystem.GetLightingState();
-		const LightSystem::LightEnableState& lightEnableState = lightSystem.GetLightEnableState();
-		ImDrawList* drawList = ImGui::GetForegroundDrawList();
+		const LightSystem::LightingState &lightingState = lightSystem.GetLightingState();
+		const LightSystem::LightEnableState &lightEnableState = lightSystem.GetLightEnableState();
+		ImDrawList *drawList = ImGui::GetForegroundDrawList();
 
-		DrawDirectionalLightMarker(
-			drawList,
-			lightingState.DirectionalLights[0],
-			lightEnableState.DirectionalLights[0],
-			m_lightMarkerScale,
-			viewProj,
-			displaySize);
+		DrawDirectionalLightMarker(drawList, lightingState.DirectionalLights[0], lightEnableState.DirectionalLights[0], m_lightMarkerScale,
+		                           viewProj, displaySize);
 
 		for (int lightIndex = 0; lightIndex < static_cast<int>(LightSystem::PointLightCount); ++lightIndex)
 		{
-			DrawPointLightMarker(
-				drawList,
-				lightingState.PointLights[lightIndex],
-				lightEnableState.PointLights[lightIndex],
-				m_lightMarkerScale,
-				viewProj,
-				displaySize,
-				lightIndex);
+			DrawPointLightMarker(drawList, lightingState.PointLights[lightIndex], lightEnableState.PointLights[lightIndex],
+			                     m_lightMarkerScale, viewProj, displaySize, lightIndex);
 		}
 
 		for (int lightIndex = 0; lightIndex < static_cast<int>(LightSystem::SpotLightCount); ++lightIndex)
 		{
-			DrawSpotLightMarker(
-				drawList,
-				lightingState.SpotLights[lightIndex],
-				lightEnableState.SpotLights[lightIndex],
-				m_lightMarkerScale,
-				viewProj,
-				displaySize,
-				lightIndex);
+			DrawSpotLightMarker(drawList, lightingState.SpotLights[lightIndex], lightEnableState.SpotLights[lightIndex], m_lightMarkerScale,
+			                    viewProj, displaySize, lightIndex);
 		}
 	}
 
 	ImGui::Render();
 
-	ID3D12DescriptorHeap* descriptorHeaps[] = { m_srvHeap.Get() };
+	ID3D12DescriptorHeap *descriptorHeaps[] = {m_srvHeap.Get()};
 	commandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList);
 }

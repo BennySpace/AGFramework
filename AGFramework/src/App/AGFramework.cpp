@@ -19,26 +19,24 @@ void AGFramework::Initialize()
 	m_inputDevice = std::make_unique<InputDevice>(m_hWnd);
 
 	// Input callbacks
-	m_window->OnRawKey.AddLambda([this](InputDevice::KeyboardInputEventArgs args) {
-		m_inputDevice->HandleKeyboardInput(args);
-		});
+	m_window->OnRawKey.AddLambda([this](InputDevice::KeyboardInputEventArgs args) { m_inputDevice->HandleKeyboardInput(args); });
 
-	m_window->OnRawMouse.AddLambda([this](InputDevice::RawMouseEventArgs args) {
-		m_inputDevice->HandleMouseInput(args);
-		});
+	m_window->OnRawMouse.AddLambda([this](InputDevice::RawMouseEventArgs args) { m_inputDevice->HandleMouseInput(args); });
 
-	m_window->OnPause.AddLambda([this](bool isPaused) {
-		m_isPaused = isPaused;
-		if (m_isPaused) m_timer.Stop();
-		else m_timer.Start();
-		});
+	m_window->OnPause.AddLambda(
+	    [this](bool isPaused)
+	    {
+		    m_isPaused = isPaused;
+		    if (m_isPaused)
+			    m_timer.Stop();
+		    else
+			    m_timer.Start();
+	    });
 
 	// Resize handler
-	m_window->OnResize.AddLambda([this](int w, int h) {
-		OnWindowResized(w, h);
-		});
+	m_window->OnResize.AddLambda([this](int w, int h) { OnWindowResized(w, h); });
 
-	m_window->OnClose.AddLambda([](bool& canClose) { canClose = true; });
+	m_window->OnClose.AddLambda([](bool &canClose) { canClose = true; });
 
 	m_window->Show();
 
@@ -106,8 +104,7 @@ void AGFramework::CalculateFrameStats()
 		float fps = (float)frameCnt;
 		float mspf = 1000.0f / fps;
 
-		std::wstring windowText = L"Another Graphics Framework | FPS: "
-			+ std::to_wstring(fps) + L" | mspf: " + std::to_wstring(mspf);
+		std::wstring windowText = L"Another Graphics Framework | FPS: " + std::to_wstring(fps) + L" | mspf: " + std::to_wstring(mspf);
 
 		SetWindowText(m_hWnd, windowText.c_str());
 

@@ -6,13 +6,13 @@
 
 namespace
 {
-	std::uint16_t ReadUInt16LE(const std::uint8_t* bytes)
-	{
-		return static_cast<std::uint16_t>(bytes[0] | (bytes[1] << 8));
-	}
+std::uint16_t ReadUInt16LE(const std::uint8_t *bytes)
+{
+	return static_cast<std::uint16_t>(bytes[0] | (bytes[1] << 8));
 }
+} // namespace
 
-TextureLoader::ImageData TextureLoader::LoadUncompressedTga(const std::wstring& filename)
+TextureLoader::ImageData TextureLoader::LoadUncompressedTga(const std::wstring &filename)
 {
 	std::ifstream input(filename, std::ios::binary);
 	if (!input)
@@ -21,7 +21,7 @@ TextureLoader::ImageData TextureLoader::LoadUncompressedTga(const std::wstring& 
 	}
 
 	std::array<std::uint8_t, 18> header{};
-	input.read(reinterpret_cast<char*>(header.data()), static_cast<std::streamsize>(header.size()));
+	input.read(reinterpret_cast<char *>(header.data()), static_cast<std::streamsize>(header.size()));
 	if (!input)
 	{
 		throw std::runtime_error("Failed to read TGA header.");
@@ -53,7 +53,7 @@ TextureLoader::ImageData TextureLoader::LoadUncompressedTga(const std::wstring& 
 	const UINT srcPixelSize = bitsPerPixel / 8;
 	const size_t srcDataSize = static_cast<size_t>(width) * height * srcPixelSize;
 	std::vector<std::uint8_t> srcPixels(srcDataSize);
-	input.read(reinterpret_cast<char*>(srcPixels.data()), static_cast<std::streamsize>(srcDataSize));
+	input.read(reinterpret_cast<char *>(srcPixels.data()), static_cast<std::streamsize>(srcDataSize));
 	if (!input)
 	{
 		throw std::runtime_error("Failed to read TGA pixel data.");

@@ -67,28 +67,52 @@ GeometryGenerator::MeshData GeometryGenerator::CreateBox(float width, float heig
 	uint32 i[36];
 
 	// Fill in the front face index data
-	i[0] = 0; i[1] = 1; i[2] = 2;
-	i[3] = 0; i[4] = 2; i[5] = 3;
+	i[0] = 0;
+	i[1] = 1;
+	i[2] = 2;
+	i[3] = 0;
+	i[4] = 2;
+	i[5] = 3;
 
 	// Fill in the back face index data
-	i[6] = 4; i[7] = 5; i[8] = 6;
-	i[9] = 4; i[10] = 6; i[11] = 7;
+	i[6] = 4;
+	i[7] = 5;
+	i[8] = 6;
+	i[9] = 4;
+	i[10] = 6;
+	i[11] = 7;
 
 	// Fill in the top face index data
-	i[12] = 8; i[13] = 9; i[14] = 10;
-	i[15] = 8; i[16] = 10; i[17] = 11;
+	i[12] = 8;
+	i[13] = 9;
+	i[14] = 10;
+	i[15] = 8;
+	i[16] = 10;
+	i[17] = 11;
 
 	// Fill in the bottom face index data
-	i[18] = 12; i[19] = 13; i[20] = 14;
-	i[21] = 12; i[22] = 14; i[23] = 15;
+	i[18] = 12;
+	i[19] = 13;
+	i[20] = 14;
+	i[21] = 12;
+	i[22] = 14;
+	i[23] = 15;
 
 	// Fill in the left face index data
-	i[24] = 16; i[25] = 17; i[26] = 18;
-	i[27] = 16; i[28] = 18; i[29] = 19;
+	i[24] = 16;
+	i[25] = 17;
+	i[26] = 18;
+	i[27] = 16;
+	i[28] = 18;
+	i[29] = 19;
 
 	// Fill in the right face index data
-	i[30] = 20; i[31] = 21; i[32] = 22;
-	i[33] = 20; i[34] = 22; i[35] = 23;
+	i[30] = 20;
+	i[31] = 21;
+	i[32] = 22;
+	i[33] = 20;
+	i[34] = 22;
+	i[35] = 23;
 
 	meshData.Indices32.assign(&i[0], &i[36]);
 
@@ -212,11 +236,10 @@ GeometryGenerator::MeshData GeometryGenerator::CreateSphere(float radius, uint32
 	return meshData;
 }
 
-void GeometryGenerator::Subdivide(MeshData& meshData)
+void GeometryGenerator::Subdivide(MeshData &meshData)
 {
 	// Save a copy of the input geometry.
 	MeshData inputCopy = meshData;
-
 
 	meshData.Vertices.resize(0);
 	meshData.Indices32.resize(0);
@@ -275,7 +298,7 @@ void GeometryGenerator::Subdivide(MeshData& meshData)
 	}
 }
 
-GeometryGenerator::Vertex GeometryGenerator::MidPoint(const Vertex& v0, const Vertex& v1)
+GeometryGenerator::Vertex GeometryGenerator::MidPoint(const Vertex &v0, const Vertex &v1)
 {
 	XMVECTOR p0 = XMLoadFloat3(&v0.Position);
 	XMVECTOR p1 = XMLoadFloat3(&v1.Position);
@@ -290,7 +313,7 @@ GeometryGenerator::Vertex GeometryGenerator::MidPoint(const Vertex& v0, const Ve
 	XMVECTOR tex1 = XMLoadFloat2(&v1.TexC);
 
 	// Compute the midpoints of all the attributes.  Vectors need to be normalized
-	// since linear interpolating can make them not unit length.  
+	// since linear interpolating can make them not unit length.
 	XMVECTOR pos = 0.5f * (p0 + p1);
 	XMVECTOR normal = XMVector3Normalize(0.5f * (n0 + n1));
 	XMVECTOR tangent = XMVector3Normalize(0.5f * (tan0 + tan1));
@@ -317,23 +340,12 @@ GeometryGenerator::MeshData GeometryGenerator::CreateGeosphere(float radius, uin
 	const float X = 0.525731f;
 	const float Z = 0.850651f;
 
-	XMFLOAT3 pos[12] =
-	{
-		XMFLOAT3(-X, 0.0f, Z),  XMFLOAT3(X, 0.0f, Z),
-		XMFLOAT3(-X, 0.0f, -Z), XMFLOAT3(X, 0.0f, -Z),
-		XMFLOAT3(0.0f, Z, X),   XMFLOAT3(0.0f, Z, -X),
-		XMFLOAT3(0.0f, -Z, X),  XMFLOAT3(0.0f, -Z, -X),
-		XMFLOAT3(Z, X, 0.0f),   XMFLOAT3(-Z, X, 0.0f),
-		XMFLOAT3(Z, -X, 0.0f),  XMFLOAT3(-Z, -X, 0.0f)
-	};
+	XMFLOAT3 pos[12] = {XMFLOAT3(-X, 0.0f, Z), XMFLOAT3(X, 0.0f, Z),  XMFLOAT3(-X, 0.0f, -Z), XMFLOAT3(X, 0.0f, -Z),
+	                    XMFLOAT3(0.0f, Z, X),  XMFLOAT3(0.0f, Z, -X), XMFLOAT3(0.0f, -Z, X),  XMFLOAT3(0.0f, -Z, -X),
+	                    XMFLOAT3(Z, X, 0.0f),  XMFLOAT3(-Z, X, 0.0f), XMFLOAT3(Z, -X, 0.0f),  XMFLOAT3(-Z, -X, 0.0f)};
 
-	uint32 k[60] =
-	{
-		1,4,0,  4,9,0,  4,5,9,  8,5,4,  1,8,4,
-		1,10,8, 10,3,8, 8,3,5,  3,2,5,  3,7,2,
-		3,10,7, 10,6,7, 6,11,7, 6,0,11, 6,1,0,
-		10,1,6, 11,0,9, 2,11,9, 5,2,9,  11,2,7
-	};
+	uint32 k[60] = {1, 4,  0, 4,  9, 0, 4, 5,  9, 8, 5, 4,  1, 8, 4, 1,  10, 8, 10, 3, 8, 8, 3,  5, 3, 2, 5, 3,  7, 2,
+	                3, 10, 7, 10, 6, 7, 6, 11, 7, 6, 0, 11, 6, 1, 0, 10, 1,  6, 11, 0, 9, 2, 11, 9, 5, 2, 9, 11, 2, 7};
 
 	meshData.Vertices.resize(12);
 	meshData.Indices32.assign(&k[0], &k[60]);
@@ -380,13 +392,14 @@ GeometryGenerator::MeshData GeometryGenerator::CreateGeosphere(float radius, uin
 	return meshData;
 }
 
-GeometryGenerator::MeshData GeometryGenerator::CreateCylinder(float bottomRadius, float topRadius, float height, uint32 sliceCount, uint32 stackCount)
+GeometryGenerator::MeshData GeometryGenerator::CreateCylinder(float bottomRadius, float topRadius, float height, uint32 sliceCount,
+                                                              uint32 stackCount)
 {
 	MeshData meshData;
 
 	//
 	// Build Stacks.
-	// 
+	//
 
 	float stackHeight = height / stackCount;
 
@@ -425,7 +438,7 @@ GeometryGenerator::MeshData GeometryGenerator::CreateCylinder(float bottomRadius
 			//   x(t, v) = r(v)*cos(t)
 			//   y(t, v) = h - hv
 			//   z(t, v) = r(v)*sin(t)
-			// 
+			//
 			//  dx/dt = -r(v)*sin(t)
 			//  dy/dt = 0
 			//  dz/dt = +r(v)*cos(t)
@@ -474,8 +487,8 @@ GeometryGenerator::MeshData GeometryGenerator::CreateCylinder(float bottomRadius
 	return meshData;
 }
 
-void GeometryGenerator::BuildCylinderTopCap(float bottomRadius, float topRadius, float height,
-	uint32 sliceCount, uint32 stackCount, MeshData& meshData)
+void GeometryGenerator::BuildCylinderTopCap(float bottomRadius, float topRadius, float height, uint32 sliceCount, uint32 stackCount,
+                                            MeshData &meshData)
 {
 	uint32 baseIndex = (uint32)meshData.Vertices.size();
 
@@ -510,10 +523,10 @@ void GeometryGenerator::BuildCylinderTopCap(float bottomRadius, float topRadius,
 	}
 }
 
-void GeometryGenerator::BuildCylinderBottomCap(float bottomRadius, float topRadius, float height,
-	uint32 sliceCount, uint32 stackCount, MeshData& meshData)
+void GeometryGenerator::BuildCylinderBottomCap(float bottomRadius, float topRadius, float height, uint32 sliceCount, uint32 stackCount,
+                                               MeshData &meshData)
 {
-	// 
+	//
 	// Build bottom cap.
 	//
 
@@ -622,29 +635,13 @@ GeometryGenerator::MeshData GeometryGenerator::CreateQuad(float x, float y, floa
 	meshData.Indices32.resize(6);
 
 	// Position coordinates specified in NDC space.
-	meshData.Vertices[0] = Vertex(
-		x, y - h, depth,
-		0.0f, 0.0f, -1.0f,
-		1.0f, 0.0f, 0.0f,
-		0.0f, 1.0f);
+	meshData.Vertices[0] = Vertex(x, y - h, depth, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f);
 
-	meshData.Vertices[1] = Vertex(
-		x, y, depth,
-		0.0f, 0.0f, -1.0f,
-		1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f);
+	meshData.Vertices[1] = Vertex(x, y, depth, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f);
 
-	meshData.Vertices[2] = Vertex(
-		x + w, y, depth,
-		0.0f, 0.0f, -1.0f,
-		1.0f, 0.0f, 0.0f,
-		1.0f, 0.0f);
+	meshData.Vertices[2] = Vertex(x + w, y, depth, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
 
-	meshData.Vertices[3] = Vertex(
-		x + w, y - h, depth,
-		0.0f, 0.0f, -1.0f,
-		1.0f, 0.0f, 0.0f,
-		1.0f, 1.0f);
+	meshData.Vertices[3] = Vertex(x + w, y - h, depth, 0.0f, 0.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f);
 
 	meshData.Indices32[0] = 0;
 	meshData.Indices32[1] = 1;

@@ -10,8 +10,8 @@ class InputDevice
 	friend class Window;
 	friend class AGFramework;
 	std::unordered_set<Keys> m_keys;
-	
-public:
+
+  public:
 	struct MouseMoveEventArgs
 	{
 		DirectX::SimpleMath::Vector2 Position;
@@ -23,19 +23,19 @@ public:
 	DirectX::SimpleMath::Vector2 MouseOffset{};
 	int MouseWheelDelta = 0;
 
-	MulticastDelegate<const MouseMoveEventArgs&> MouseMove;
+	MulticastDelegate<const MouseMoveEventArgs &> MouseMove;
 
-public:
+  public:
 	InputDevice(HWND hWnd);
 	~InputDevice() = default;
-
 
 	void AddPressedKey(Keys key);
 	void RemovePressedKey(Keys key);
 	bool IsKeyDown(Keys key);
 
-protected:
-	struct KeyboardInputEventArgs {
+  protected:
+	struct KeyboardInputEventArgs
+	{
 		/*
 			* The "make" scan code (key depression).
 			*/
@@ -48,7 +48,7 @@ protected:
 		USHORT Flags;
 
 		USHORT VKey;
-		UINT   Message;
+		UINT Message;
 	};
 
 	enum class MouseButtonFlags

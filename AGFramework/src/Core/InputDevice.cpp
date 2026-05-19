@@ -34,19 +34,26 @@ void InputDevice::HandleKeyboardInput(KeyboardInputEventArgs args)
 
 	auto key = static_cast<Keys>(args.VKey);
 
-	if (args.MakeCode == 42) key = Keys::LeftShift;
-	if (args.MakeCode == 54) key = Keys::RightShift;
-	
-	if(Break) {
-		if(m_keys.count(key))	RemovePressedKey(key);
-	} else {
-		if (!m_keys.count(key))	AddPressedKey(key);
+	if (args.MakeCode == 42)
+		key = Keys::LeftShift;
+	if (args.MakeCode == 54)
+		key = Keys::RightShift;
+
+	if (Break)
+	{
+		if (m_keys.count(key))
+			RemovePressedKey(key);
+	}
+	else
+	{
+		if (!m_keys.count(key))
+			AddPressedKey(key);
 	}
 }
 
 void InputDevice::HandleMouseInput(RawMouseEventArgs args)
 {
-	if(args.ButtonFlags & static_cast<int>(MouseButtonFlags::LeftButtonDown))
+	if (args.ButtonFlags & static_cast<int>(MouseButtonFlags::LeftButtonDown))
 		AddPressedKey(Keys::LeftButton);
 	if (args.ButtonFlags & static_cast<int>(MouseButtonFlags::LeftButtonUp))
 		RemovePressedKey(Keys::LeftButton);
@@ -62,13 +69,13 @@ void InputDevice::HandleMouseInput(RawMouseEventArgs args)
 	POINT p;
 	GetCursorPos(&p);
 	ScreenToClient(m_hWnd, &p);
-	
-	MousePosition	= Vector2(p.x, p.y);
-	MouseOffset		= Vector2(args.X, args.Y);
+
+	MousePosition = Vector2(p.x, p.y);
+	MouseOffset = Vector2(args.X, args.Y);
 	MouseWheelDelta = args.WheelDelta;
 
 	const MouseMoveEventArgs moveArgs = {MousePosition, MouseOffset, MouseWheelDelta};
-	
+
 	MouseMove.Broadcast(moveArgs);
 }
 

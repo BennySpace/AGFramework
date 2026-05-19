@@ -24,32 +24,32 @@ class GameTimer;
 
 class DirectX12App
 {
-public:
+  public:
 	DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd);
 	virtual ~DirectX12App();
 
 	virtual bool Initialize();
-	virtual void Update(const GameTimer& gt);
-	virtual void Draw(const GameTimer& gt);
+	virtual void Update(const GameTimer &gt);
+	virtual void Draw(const GameTimer &gt);
 
 	void OnWindowResize(int width, int height);
 
 	float AspectRatio() const;
 
-	void UpdateCamera(const GameTimer& gt);
+	void UpdateCamera(const GameTimer &gt);
 	void UpdateMouseCaptureState();
 	void UpdateMouseLook();
-	void UpdateMainPassCB(const GameTimer& gt);
+	void UpdateMainPassCB(const GameTimer &gt);
 
-private:
+  private:
 	void ApplyResize(int width, int height);
 
-protected:
+  protected:
 	HINSTANCE m_hAppInst = nullptr;
-	HWND      m_hMainWnd = nullptr;
+	HWND m_hMainWnd = nullptr;
 
-	bool      m4xMsaaState = false;
-	UINT      m4xMsaaQuality = 0;
+	bool m4xMsaaState = false;
+	UINT m4xMsaaQuality = 0;
 
 	static const int SwapChainBufferCount = 2;
 
@@ -58,8 +58,8 @@ protected:
 	RenderSettings m_renderSettings;
 
 	DirectX::XMFLOAT4X4 m_proj = MathHelper::Identity4x4();
-	DirectX::XMFLOAT3 m_eyePos = { 0.0f, 8.0f, -30.0f };
-	DirectX::XMFLOAT3 m_lookDirection = { 0.0f, 0.0f, 1.0f };
+	DirectX::XMFLOAT3 m_eyePos = {0.0f, 8.0f, -30.0f};
+	DirectX::XMFLOAT3 m_lookDirection = {0.0f, 0.0f, 1.0f};
 	float m_cameraFieldOfViewY = 0.25f * DirectX::XM_PI;
 	float m_cameraNearPlane = 1.0f;
 	float m_cameraFarPlane = 1000.0f;

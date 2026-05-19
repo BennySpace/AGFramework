@@ -44,8 +44,8 @@ XMVECTOR MathHelper::RandUnitVec3()
 		// Generate random point in the cube [-1,1]^3.
 		XMVECTOR v = XMVectorSet(MathHelper::RandF(-1.0f, 1.0f), MathHelper::RandF(-1.0f, 1.0f), MathHelper::RandF(-1.0f, 1.0f), 0.0f);
 
-		// Ignore points outside the unit sphere in order to get an even distribution 
-		// over the unit sphere.  Otherwise points will clump more on the sphere near 
+		// Ignore points outside the unit sphere in order to get an even distribution
+		// over the unit sphere.  Otherwise points will clump more on the sphere near
 		// the corners of the cube.
 
 		if (XMVector3Greater(XMVector3LengthSq(v), One))
@@ -66,8 +66,8 @@ XMVECTOR MathHelper::RandHemisphereUnitVec3(XMVECTOR n)
 		// Generate random point in the cube [-1,1]^3.
 		XMVECTOR v = XMVectorSet(MathHelper::RandF(-1.0f, 1.0f), MathHelper::RandF(-1.0f, 1.0f), MathHelper::RandF(-1.0f, 1.0f), 0.0f);
 
-		// Ignore points outside the unit sphere in order to get an even distribution 
-		// over the unit sphere.  Otherwise points will clump more on the sphere near 
+		// Ignore points outside the unit sphere in order to get an even distribution
+		// over the unit sphere.  Otherwise points will clump more on the sphere near
 		// the corners of the cube.
 
 		if (XMVector3Greater(XMVector3LengthSq(v), One))

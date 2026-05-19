@@ -1,6 +1,7 @@
 #pragma once
 
-enum class Keys : int {
+enum class Keys : int
+{
 	None = 0,
 	LeftButton = 500,
 	RightButton = 501,

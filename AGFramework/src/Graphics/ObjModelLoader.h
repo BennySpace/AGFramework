@@ -6,7 +6,7 @@
 
 class ObjModelLoader
 {
-public:
+  public:
 	struct MeshData
 	{
 		std::vector<GeometryGenerator::Vertex> Vertices;
@@ -16,5 +16,5 @@ public:
 		bool HasAlphaCutout = false;
 	};
 
-	std::vector<MeshData> Load(const std::string& filename) const;
+	std::vector<MeshData> Load(const std::string &filename) const;
 };

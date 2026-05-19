@@ -1,10 +1,10 @@
 //***************************************************************************************
 // GeometryGenerator.h by Frank Luna (C) 2011 All Rights Reserved.
-//   
-// Defines a static class for procedurally generating the geometry of 
+//
+// Defines a static class for procedurally generating the geometry of
 // common mathematical objects.
 //
-// All triangles are generated "outward" facing.  If you want "inward" 
+// All triangles are generated "outward" facing.  If you want "inward"
 // facing triangles (for example, if you want to place the camera inside
 // a sphere to simulate a sky), you will need to:
 //   1. Change the Direct3D cull mode or manually reverse the winding order.
@@ -23,33 +23,20 @@
 
 class GeometryGenerator
 {
-public:
-
+  public:
 	using uint16 = std::uint16_t;
 	using uint32 = std::uint32_t;
 
 	struct Vertex
 	{
 		Vertex() {}
-		Vertex(
-			const DirectX::XMFLOAT3& p,
-			const DirectX::XMFLOAT3& n,
-			const DirectX::XMFLOAT3& t,
-			const DirectX::XMFLOAT2& uv) :
-			Position(p),
-			Normal(n),
-			TangentU(t),
-			TexC(uv) {
+		Vertex(const DirectX::XMFLOAT3 &p, const DirectX::XMFLOAT3 &n, const DirectX::XMFLOAT3 &t, const DirectX::XMFLOAT2 &uv)
+		    : Position(p), Normal(n), TangentU(t), TexC(uv)
+		{
 		}
-		Vertex(
-			float px, float py, float pz,
-			float nx, float ny, float nz,
-			float tx, float ty, float tz,
-			float u, float v) :
-			Position(px, py, pz),
-			Normal(nx, ny, nz),
-			TangentU(tx, ty, tz),
-			TexC(u, v) {
+		Vertex(float px, float py, float pz, float nx, float ny, float nz, float tx, float ty, float tz, float u, float v)
+		    : Position(px, py, pz), Normal(nx, ny, nz), TangentU(tx, ty, tz), TexC(u, v)
+		{
 		}
 
 		DirectX::XMFLOAT3 Position;
@@ -69,7 +56,7 @@ public:
 		std::vector<uint32> Indices32;
 		std::string matName;
 		std::string texfile;
-		std::vector<uint16>& GetIndices16()
+		std::vector<uint16> &GetIndices16()
 		{
 			if (mIndices16.empty())
 			{
@@ -81,7 +68,7 @@ public:
 			return mIndices16;
 		}
 
-	private:
+	  private:
 		std::vector<uint16> mIndices16;
 	};
 
@@ -104,7 +91,7 @@ public:
 	MeshData CreateGeosphere(float radius, uint32 numSubdivisions);
 
 	///<summary>
-	/// Creates a cylinder parallel to the y-axis, and centered about the origin.  
+	/// Creates a cylinder parallel to the y-axis, and centered about the origin.
 	/// The bottom and top radius can vary to form various cone shapes rather than true
 	// cylinders.  The slices and stacks parameters control the degree of tessellation.
 	///</summary>
@@ -121,12 +108,12 @@ public:
 	///</summary>
 	MeshData CreateQuad(float x, float y, float w, float h, float depth);
 
+	std::vector<GeometryGenerator::MeshData> LoadCustomMesh(const std::string &filename, unsigned int &nMeshes);
 
-	std::vector<GeometryGenerator::MeshData> LoadCustomMesh(const std::string& filename, unsigned int& nMeshes);
-
-private:
-	void Subdivide(MeshData& meshData);
-	Vertex MidPoint(const Vertex& v0, const Vertex& v1);
-	void BuildCylinderTopCap(float bottomRadius, float topRadius, float height, uint32 sliceCount, uint32 stackCount, MeshData& meshData);
-	void BuildCylinderBottomCap(float bottomRadius, float topRadius, float height, uint32 sliceCount, uint32 stackCount, MeshData& meshData);
+  private:
+	void Subdivide(MeshData &meshData);
+	Vertex MidPoint(const Vertex &v0, const Vertex &v1);
+	void BuildCylinderTopCap(float bottomRadius, float topRadius, float height, uint32 sliceCount, uint32 stackCount, MeshData &meshData);
+	void BuildCylinderBottomCap(float bottomRadius, float topRadius, float height, uint32 sliceCount, uint32 stackCount,
+	                            MeshData &meshData);
 };
