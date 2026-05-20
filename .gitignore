@@ -104,3 +104,7 @@ Desktop.ini
 ._
 .swp
 .swo
+
+# Temporary files
+*.tmp
+tmp_*
