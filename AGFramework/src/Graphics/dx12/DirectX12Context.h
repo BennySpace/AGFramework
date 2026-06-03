@@ -12,6 +12,9 @@ class DirectX12Context
 	                DXGI_FORMAT backBufferFormat, DXGI_FORMAT depthStencilFormat);
 	void Resize(int clientWidth, int clientHeight);
 	void FlushCommandQueue();
+	UINT64 SignalCommandQueue();
+	UINT64 GetCompletedFenceValue() const;
+	void WaitForFenceValue(UINT64 fenceValue) const;
 	void ExecuteCommandLists(UINT commandListCount, ID3D12CommandList *const *commandLists) const;
 	void Present(UINT syncInterval = 0, UINT flags = 0);
 

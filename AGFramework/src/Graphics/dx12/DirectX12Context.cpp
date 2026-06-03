@@ -123,14 +123,28 @@ void DirectX12Context::Resize(int clientWidth, int clientHeight)
 
 void DirectX12Context::FlushCommandQueue()
 {
+	const UINT64 fenceValue = SignalCommandQueue();
+	WaitForFenceValue(fenceValue);
+}
+
+UINT64 DirectX12Context::SignalCommandQueue()
+{
 	++m_fenceValue;
-
 	ThrowIfFailed(m_commandQueue->Signal(m_fence.Get(), m_fenceValue));
+	return m_fenceValue;
+}
 
-	if (m_fence->GetCompletedValue() < m_fenceValue)
+UINT64 DirectX12Context::GetCompletedFenceValue() const
+{
+	return m_fence->GetCompletedValue();
+}
+
+void DirectX12Context::WaitForFenceValue(UINT64 fenceValue) const
+{
+	if (m_fence->GetCompletedValue() < fenceValue)
 	{
-		HANDLE eventHandle = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
-		ThrowIfFailed(m_fence->SetEventOnCompletion(m_fenceValue, eventHandle));
+		HANDLE eventHandle = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
+		ThrowIfFailed(m_fence->SetEventOnCompletion(fenceValue, eventHandle));
 		WaitForSingleObject(eventHandle, INFINITE);
 		CloseHandle(eventHandle);
 	}

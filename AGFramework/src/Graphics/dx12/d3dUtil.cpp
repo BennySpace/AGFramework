@@ -1,8 +1,40 @@
 #include "d3dUtil.h"
 #include <comdef.h>
 #include <fstream>
+#include <stdexcept>
 
 using Microsoft::WRL::ComPtr;
+
+namespace
+{
+bool FileExists(const std::wstring &filename)
+{
+	if (filename.empty())
+	{
+		return false;
+	}
+
+	const DWORD attributes = GetFileAttributesW(filename.c_str());
+	return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+}
+
+std::string WideToUtf8(const std::wstring &value)
+{
+	if (value.empty())
+	{
+		return std::string();
+	}
+
+	const int sizeRequired = WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, nullptr, 0, nullptr, nullptr);
+	std::string result(sizeRequired > 0 ? sizeRequired - 1 : 0, '\0');
+	if (sizeRequired > 1)
+	{
+		WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, &result[0], sizeRequired - 1, nullptr, nullptr);
+	}
+
+	return result;
+}
+} // namespace
 
 DxException::DxException(HRESULT hr, const std::wstring &functionName, const std::wstring &filename, int lineNumber)
     : ErrorCode(hr), FunctionName(functionName), Filename(filename), LineNumber(lineNumber)
@@ -16,7 +48,16 @@ bool d3dUtil::IsKeyDown(int vkeyCode)
 
 ComPtr<ID3DBlob> d3dUtil::LoadBinary(const std::wstring &filename)
 {
+	if (!FileExists(filename))
+	{
+		throw std::runtime_error("Required binary asset not found: " + WideToUtf8(filename));
+	}
+
 	std::ifstream fin(filename, std::ios::binary);
+	if (!fin)
+	{
+		throw std::runtime_error("Failed to open binary asset: " + WideToUtf8(filename));
+	}
 
 	fin.seekg(0, std::ios_base::end);
 	std::ifstream::pos_type size = (int)fin.tellg();
@@ -73,6 +114,11 @@ Microsoft::WRL::ComPtr<ID3D12Resource> d3dUtil::CreateDefaultBuffer(ID3D12Device
 ComPtr<ID3DBlob> d3dUtil::CompileShader(const std::wstring &filename, const D3D_SHADER_MACRO *defines, const std::string &entrypoint,
                                         const std::string &target)
 {
+	if (!FileExists(filename))
+	{
+		throw std::runtime_error("Required shader asset not found: " + WideToUtf8(filename));
+	}
+
 	UINT compileFlags = 0;
 #if defined(DEBUG) || defined(_DEBUG)
 	compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
@@ -87,6 +133,12 @@ ComPtr<ID3DBlob> d3dUtil::CompileShader(const std::wstring &filename, const D3D_
 
 	if (errors != nullptr)
 		OutputDebugStringA((char *)errors->GetBufferPointer());
+
+	if (FAILED(hr) && errors != nullptr)
+	{
+		const char *shaderErrors = static_cast<const char *>(errors->GetBufferPointer());
+		throw std::runtime_error("Failed to compile shader " + WideToUtf8(filename) + ": " + shaderErrors);
+	}
 
 	ThrowIfFailed(hr);
 
