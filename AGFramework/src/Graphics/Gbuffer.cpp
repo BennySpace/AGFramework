@@ -16,9 +16,6 @@ bool Gbuffer::Initialize(ID3D12Device *device, const Desc &desc)
 
 	m_device = device;
 	m_desc = desc;
-	m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-	m_srvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
 	CreateDescriptorHeaps();
 	return CreateResources();
 }
@@ -49,7 +46,6 @@ void Gbuffer::Clear(ID3D12GraphicsCommandList *commandList) const
 
 	commandList->ClearRenderTargetView(GetRtv(Target::Albedo), m_desc.ClearColor, 0, nullptr);
 	commandList->ClearRenderTargetView(GetRtv(Target::Normal), m_desc.ClearNormal, 0, nullptr);
-	commandList->ClearRenderTargetView(GetRtv(Target::Position), m_desc.ClearPosition, 0, nullptr);
 	commandList->ClearRenderTargetView(GetRtv(Target::Material), m_desc.ClearMaterial, 0, nullptr);
 	commandList->ClearDepthStencilView(GetDsv(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, m_desc.ClearDepth, m_desc.ClearStencil,
 	                                   0, nullptr);
@@ -67,28 +63,22 @@ ID3D12Resource *Gbuffer::GetResource(Target target) const
 
 D3D12_CPU_DESCRIPTOR_HANDLE Gbuffer::GetRtv(Target target) const
 {
-	CD3DX12_CPU_DESCRIPTOR_HANDLE handle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart());
-	handle.Offset(static_cast<INT>(GetTargetIndex(target)), static_cast<INT>(m_rtvDescriptorSize));
-	return handle;
+	return m_rtvHeap.CpuHandleAt(GetTargetIndex(target));
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE Gbuffer::GetSrv(Target target) const
 {
-	CD3DX12_CPU_DESCRIPTOR_HANDLE handle(m_srvHeap->GetCPUDescriptorHandleForHeapStart());
-	handle.Offset(static_cast<INT>(GetTargetIndex(target)), static_cast<INT>(m_srvDescriptorSize));
-	return handle;
+	return m_srvHeap.CpuHandleAt(GetTargetIndex(target));
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE Gbuffer::GetDsv() const
 {
-	return m_dsvHeap->GetCPUDescriptorHandleForHeapStart();
+	return m_dsvHeap.CpuHandleAt(0);
 }
 
 D3D12_GPU_DESCRIPTOR_HANDLE Gbuffer::GetSrvGpuHandle(Target target) const
 {
-	CD3DX12_GPU_DESCRIPTOR_HANDLE handle(m_srvHeap->GetGPUDescriptorHandleForHeapStart());
-	handle.Offset(static_cast<INT>(GetTargetIndex(target)), static_cast<INT>(m_srvDescriptorSize));
-	return handle;
+	return m_srvHeap.GpuHandleAt(GetTargetIndex(target));
 }
 
 bool Gbuffer::CreateResources()
@@ -109,10 +99,6 @@ bool Gbuffer::CreateResources()
 		if (target == Target::Normal)
 		{
 			clearValue = m_desc.ClearNormal;
-		}
-		else if (target == Target::Position)
-		{
-			clearValue = m_desc.ClearPosition;
 		}
 		else if (target == Target::Material)
 		{
@@ -158,23 +144,9 @@ bool Gbuffer::CreateResources()
 
 void Gbuffer::CreateDescriptorHeaps()
 {
-	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
-	rtvHeapDesc.NumDescriptors = kTargetCount;
-	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	ThrowIfFailed(m_device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(m_rtvHeap.GetAddressOf())));
-
-	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.NumDescriptors = kTargetCount;
-	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	ThrowIfFailed(m_device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(m_srvHeap.GetAddressOf())));
-
-	D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
-	dsvHeapDesc.NumDescriptors = 1;
-	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-	dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	ThrowIfFailed(m_device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(m_dsvHeap.GetAddressOf())));
+	m_rtvHeap.Initialize(m_device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, kTargetCount, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
+	m_srvHeap.Initialize(m_device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, kTargetCount, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+	m_dsvHeap.Initialize(m_device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
 }
 
 void Gbuffer::CreateViews()
@@ -211,8 +183,6 @@ DXGI_FORMAT Gbuffer::ResolveTargetFormat(Target target) const
 			return m_desc.AlbedoFormat;
 		case Target::Normal:
 			return m_desc.NormalFormat;
-		case Target::Position:
-			return m_desc.PositionFormat;
 		case Target::Material:
 			return m_desc.MaterialFormat;
 		default:

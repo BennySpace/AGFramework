@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <string>
 
+#include "dx12/DescriptorHeap.h"
 #include "dx12/d3dUtil.h"
 
 class Gbuffer
@@ -13,8 +14,7 @@ class Gbuffer
 	{
 		Albedo = 0,
 		Normal = 1,
-		Position = 2,
-		Material = 3,
+		Material = 2,
 		Count
 	};
 
@@ -24,12 +24,10 @@ class Gbuffer
 		UINT Height = 0;
 		DXGI_FORMAT AlbedoFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 		DXGI_FORMAT NormalFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
-		DXGI_FORMAT PositionFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
 		DXGI_FORMAT MaterialFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
 		DXGI_FORMAT DepthFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 		float ClearColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 		float ClearNormal[4] = {0.5f, 0.5f, 1.0f, 0.0f};
-		float ClearPosition[4] = {0.0f, 0.0f, 0.0f, 1.0f};
 		float ClearMaterial[4] = {0.0f, 0.5f, 1.0f, 1.0f};
 		float ClearDepth = 1.0f;
 		std::uint8_t ClearStencil = 0;
@@ -88,12 +86,9 @@ class Gbuffer
 	ID3D12Device *m_device = nullptr;
 	Desc m_desc{};
 
-	UINT m_rtvDescriptorSize = 0;
-	UINT m_srvDescriptorSize = 0;
-
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvHeap;
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
+	DescriptorHeap m_rtvHeap;
+	DescriptorHeap m_srvHeap;
+	DescriptorHeap m_dsvHeap;
 	std::array<Microsoft::WRL::ComPtr<ID3D12Resource>, kTargetCount> m_targets;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_depthStencilBuffer;
 };

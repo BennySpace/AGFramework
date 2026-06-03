@@ -13,12 +13,18 @@
 #pragma comment(lib, "dxguid.lib")
 
 #include "DirectX12Context.h"
+#include "FrameResource.h"
+#include "../Demo/DemoLightEditSession.h"
+#include "../Demo/DemoShowcaseSession.h"
+#include "../Demo/DemoSceneComposer.h"
 #include "../DeferredRenderer.h"
 #include "../Overlay/DebugOverlay.h"
 #include "../LightSystem.h"
 #include "../MaterialSystem.h"
 #include "../RenderSettings.h"
 #include "../Scene/SponzaScene.h"
+#include <array>
+#include <memory>
 
 class GameTimer;
 
@@ -39,10 +45,14 @@ class DirectX12App
 	void UpdateCamera(const GameTimer &gt);
 	void UpdateMouseCaptureState();
 	void UpdateMouseLook();
-	void UpdateMainPassCB(const GameTimer &gt);
+	void UpdateMainPassCB(FrameResource &frameResource, const GameTimer &gt);
 
   private:
 	void ApplyResize(int width, int height);
+	void BuildFrameResources();
+	FrameResource &AdvanceFrameResource();
+	void ReloadSceneIfNeeded();
+	void ReloadShadowSettingsIfNeeded();
 
   protected:
 	HINSTANCE m_hAppInst = nullptr;
@@ -54,6 +64,9 @@ class DirectX12App
 	static const int SwapChainBufferCount = 2;
 
 	LightSystem m_lightSystem;
+	Demo::DemoSceneComposer m_demoSceneComposer;
+	Demo::DemoShowcaseSession m_demoShowcaseSession;
+	Demo::DemoLightEditSession m_demoLightEditSession;
 	MaterialSystem m_materialSystem;
 	RenderSettings m_renderSettings;
 
@@ -68,8 +81,14 @@ class DirectX12App
 	float m_cameraMoveSpeed = 10.0f;
 	float m_cameraMouseSensitivity = 0.0035f;
 	bool m_isMouseCaptured = false;
+	bool m_deferredRendererInitialized = false;
+	RenderSettings::DemoSettings m_activeDemoSettings;
+	RenderSettings::ShadowSettings m_activeShadowSettings;
 	DirectX12Context m_context;
 	SponzaScene m_scene;
 	DeferredRenderer m_deferredRenderer;
+	std::array<std::unique_ptr<FrameResource>, SwapChainBufferCount> m_frameResources;
+	FrameResource *m_currentFrameResource = nullptr;
+	int m_currentFrameResourceIndex = SwapChainBufferCount - 1;
 	DebugOverlay m_debugOverlay;
 };

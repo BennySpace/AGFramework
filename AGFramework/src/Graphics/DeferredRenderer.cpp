@@ -2,8 +2,8 @@
 
 #include "Resources/ResourceUploader.h"
 #include "dx12/DirectX12Context.h"
+#include "dx12/FrameResource.h"
 #include <algorithm>
-#include <cwctype>
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
@@ -58,24 +58,6 @@ std::wstring ResolveFirstExistingAssetPath(std::initializer_list<std::wstring> c
 	return L"";
 }
 
-bool ContainsCaseInsensitive(const std::wstring &text, const std::wstring &needle)
-{
-	if (needle.empty() || text.size() < needle.size())
-	{
-		return false;
-	}
-
-	auto toLower = [](wchar_t value) { return static_cast<wchar_t>(towlower(value)); };
-
-	std::wstring lowerText(text.size(), L'\0');
-	std::transform(text.begin(), text.end(), lowerText.begin(), toLower);
-
-	std::wstring lowerNeedle(needle.size(), L'\0');
-	std::transform(needle.begin(), needle.end(), lowerNeedle.begin(), toLower);
-
-	return lowerText.find(lowerNeedle) != std::wstring::npos;
-}
-
 void LoadDdsTextureOrFallback(DirectX12Context &context, Texture &texture, const std::wstring &path, bool isCubeTexture,
                               const std::array<std::uint8_t, 4> &fallbackPixel)
 {
@@ -99,25 +81,12 @@ void LoadDdsTextureOrFallback(DirectX12Context &context, Texture &texture, const
 }
 } // namespace
 
-DeferredRenderer::~DeferredRenderer()
-{
-	if (m_objectCB != nullptr && m_mappedObjectCB != nullptr)
-	{
-		m_objectCB->Unmap(0, nullptr);
-		m_mappedObjectCB = nullptr;
-	}
-
-	if (m_shadowPassCB != nullptr && m_mappedShadowPassCB != nullptr)
-	{
-		m_shadowPassCB->Unmap(0, nullptr);
-		m_mappedShadowPassCB = nullptr;
-	}
-}
+DeferredRenderer::~DeferredRenderer() = default;
 
 void DeferredRenderer::Initialize(DirectX12Context &context, bool enable4xMsaa, UINT msaaQuality)
 {
 	BuildShadersAndInputLayout();
-	BuildConstantBuffer(context);
+	BuildConstantBufferMetadata();
 	BuildGbuffer(context);
 	BuildCascadedShadowMap(context);
 	BuildImageBasedLightingTextures(context);
@@ -131,9 +100,22 @@ void DeferredRenderer::Resize(DirectX12Context &context)
 	BuildGbuffer(context);
 	BuildCascadedShadowMap(context);
 	BuildLightingSrvHeap(context);
+	BuildShadowPSOs(context);
 }
 
-void DeferredRenderer::UpdateMainPassCB(const FrameData &frameData)
+void DeferredRenderer::SetShadowSettings(const RenderSettings::ShadowSettings &shadowSettings)
+{
+	m_shadowSettings = shadowSettings;
+}
+
+void DeferredRenderer::ReloadShadowDependentResources(DirectX12Context &context)
+{
+	BuildCascadedShadowMap(context);
+	BuildLightingSrvHeap(context);
+	BuildShadowPSOs(context);
+}
+
+void DeferredRenderer::UpdateMainPassCB(FrameResource &frameResource, const FrameData &frameData)
 {
 	m_shadowSettings = frameData.ShadowSettings;
 	m_cascadedShadowData = frameData.CascadedShadowData;
@@ -143,6 +125,7 @@ void DeferredRenderer::UpdateMainPassCB(const FrameData &frameData)
 	XMMATRIX world = XMMatrixTranslation(-frameData.SceneCenter.x, -frameData.SceneCenter.y, -frameData.SceneCenter.z) *
 	                 XMMatrixScaling(frameData.SceneScale, frameData.SceneScale, frameData.SceneScale);
 	XMMATRIX texTransform = XMMatrixIdentity();
+	XMStoreFloat4x4(&m_texTransform, texTransform);
 
 	const XMVECTOR eyePos = XMLoadFloat3(&frameData.EyePos);
 	const XMVECTOR lookDirection = XMLoadFloat3(&frameData.LookDirection);
@@ -151,6 +134,7 @@ void DeferredRenderer::UpdateMainPassCB(const FrameData &frameData)
 
 	XMMATRIX view = XMMatrixLookAtLH(eyePos, target, up);
 	XMMATRIX proj = XMLoadFloat4x4(&frameData.Projection);
+	XMMATRIX invViewProj = XMMatrixInverse(nullptr, view * proj);
 	XMMATRIX worldInvTranspose = MathHelper::InverseTranspose(world);
 	XMMATRIX worldViewProj = world * view * proj;
 
@@ -159,22 +143,25 @@ void DeferredRenderer::UpdateMainPassCB(const FrameData &frameData)
 	XMStoreFloat4x4(&objectConstants.WorldInvTranspose, XMMatrixTranspose(worldInvTranspose));
 	XMStoreFloat4x4(&objectConstants.WorldViewProj, XMMatrixTranspose(worldViewProj));
 	XMStoreFloat4x4(&objectConstants.View, XMMatrixTranspose(view));
+	XMStoreFloat4x4(&objectConstants.InvViewProj, XMMatrixTranspose(invViewProj));
 	XMStoreFloat4x4(&objectConstants.TexTransform, XMMatrixTranspose(texTransform));
 	objectConstants.EyePosW = frameData.EyePos;
 	objectConstants.LightingSettings = frameData.LightingSettings;
 	objectConstants.Material = frameData.Material;
-	const bool decodeImageBasedLightingAsRgbm = frameData.ImageBasedLightingSettings.UseAutoDecoding
-	                                                ? m_imageBasedLightingUsesRgbm
-	                                                : frameData.ImageBasedLightingSettings.DecodeAsRgbm;
+	const bool showSkybox = frameData.ImageBasedLightingSettings.ShowSkybox;
+	const float skyboxIntensity = showSkybox && m_hasEnvironmentMapTexture ? frameData.ImageBasedLightingSettings.SkyboxIntensity : 0.0f;
+
 	objectConstants.ImageBasedLightingSettings = XMFLOAT4(
 	    m_prefilterMapTexture && m_prefilterMapTexture->Resource
 	        ? static_cast<float>(
 	              m_prefilterMapTexture->Resource->GetDesc().MipLevels > 0 ? m_prefilterMapTexture->Resource->GetDesc().MipLevels - 1 : 0)
 	        : 0.0f,
-	    decodeImageBasedLightingAsRgbm ? 1.0f : 0.0f,
-	    decodeImageBasedLightingAsRgbm ? frameData.ImageBasedLightingSettings.RgbmScale : 1.0f, 0.0f);
+	    0.0f,
+	    1.0f,
+	    showSkybox ? 1.0f : 0.0f);
 	objectConstants.ImageBasedLightingWeights =
-	    XMFLOAT4(frameData.ImageBasedLightingSettings.DiffuseStrength, frameData.ImageBasedLightingSettings.SpecularStrength, 0.0f, 0.0f);
+	    XMFLOAT4(frameData.ImageBasedLightingSettings.DiffuseStrength, frameData.ImageBasedLightingSettings.SpecularStrength,
+	             skyboxIntensity, frameData.ImageBasedLightingSettings.Exposure);
 
 	for (size_t lightIndex = 0; lightIndex < LightSystem::DirectionalLightCount; ++lightIndex)
 	{
@@ -208,7 +195,7 @@ void DeferredRenderer::UpdateMainPassCB(const FrameData &frameData)
 	objectConstants.ShadowSettings2 = XMFLOAT4(frameData.ShadowSettings.ReceiverBiasMin, frameData.ShadowSettings.ReceiverBiasSlopeScale,
 	                                           frameData.ShadowSettings.ReceiverBiasTexelFactor, 0.0f);
 
-	memcpy(m_mappedObjectCB, &objectConstants, sizeof(objectConstants));
+	memcpy(frameResource.MappedObjectConstantBuffer(), &objectConstants, sizeof(objectConstants));
 }
 
 void DeferredRenderer::BuildCascadedShadowMap(DirectX12Context &context)
@@ -245,7 +232,8 @@ void DeferredRenderer::BuildCascadedShadowMap(DirectX12Context &context)
 
 void DeferredRenderer::BuildImageBasedLightingTextures(DirectX12Context &context)
 {
-	if (m_irradianceMapTexture != nullptr && m_prefilterMapTexture != nullptr && m_brdfLutTexture != nullptr)
+	if (m_irradianceMapTexture != nullptr && m_prefilterMapTexture != nullptr && m_environmentMapTexture != nullptr &&
+	    m_brdfLutTexture != nullptr)
 	{
 		return;
 	}
@@ -254,23 +242,26 @@ void DeferredRenderer::BuildImageBasedLightingTextures(DirectX12Context &context
 	m_irradianceMapTexture->Name = "ibl_irradiance";
 	m_prefilterMapTexture = std::make_unique<Texture>();
 	m_prefilterMapTexture->Name = "ibl_prefilter";
+	m_environmentMapTexture = std::make_unique<Texture>();
+	m_environmentMapTexture->Name = "ibl_environment";
 	m_brdfLutTexture = std::make_unique<Texture>();
 	m_brdfLutTexture->Name = "ibl_brdf_lut";
 
 	const std::wstring irradiancePath = ResolveFirstExistingAssetPath({L"Assets\\ibl\\irradiance.dds"});
 	const std::wstring prefilterPath = ResolveFirstExistingAssetPath(
 	    {L"Assets\\ibl\\prefilter.dds", L"Assets\\ibl\\prefiltered_environment.dds", L"Assets\\ibl\\prefilteredEnv.dds"});
+	const std::wstring environmentPath = ResolveFirstExistingAssetPath(
+	    {L"Assets\\ibl\\environment.dds", L"Assets\\ibl\\skybox.dds", L"Assets\\ibl\\env.dds", L"Assets\\ibl\\environmentMap.dds"});
 	const std::wstring brdfLutPath =
 	    ResolveFirstExistingAssetPath({L"Assets\\ibl\\brdfLUT.dds", L"Assets\\ibl\\brdf_lut.dds", L"Assets\\ibl\\brdf_integration.dds"});
-
-	m_imageBasedLightingUsesRgbm = ContainsCaseInsensitive(irradiancePath, L"mdr") || ContainsCaseInsensitive(prefilterPath, L"mdr");
+	m_hasEnvironmentMapTexture = !environmentPath.empty();
 
 	const std::array<std::uint8_t, 4> blackPixel = {0, 0, 0, 255};
 	const std::array<std::uint8_t, 4> whitePixel = {255, 255, 255, 255};
 	LoadDdsTextureOrFallback(context, *m_irradianceMapTexture, irradiancePath, true, blackPixel);
 	LoadDdsTextureOrFallback(context, *m_prefilterMapTexture, prefilterPath, true, blackPixel);
+	LoadDdsTextureOrFallback(context, *m_environmentMapTexture, environmentPath, true, blackPixel);
 	LoadDdsTextureOrFallback(context, *m_brdfLutTexture, brdfLutPath, false, whitePixel);
-
 	m_lightingSrvHeapDirty = true;
 }
 
@@ -283,26 +274,19 @@ void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context &context)
 
 	BuildImageBasedLightingTextures(context);
 
-	if (m_lightingSrvHeap != nullptr && !m_lightingSrvHeapDirty)
+	if (m_lightingSrvHeap.IsValid() && !m_lightingSrvHeapDirty)
 	{
 		return;
 	}
 
-	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.NumDescriptors = 8;
-	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	srvHeapDesc.NodeMask = 0;
-	ThrowIfFailed(context.GetDevice()->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(m_lightingSrvHeap.ReleaseAndGetAddressOf())));
-
-	CD3DX12_CPU_DESCRIPTOR_HANDLE handle(m_lightingSrvHeap->GetCPUDescriptorHandleForHeapStart());
+	m_lightingSrvHeap.Initialize(context.GetDevice(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 9,
+	                             D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 	const DXGI_FORMAT gbufferFormats[] = {m_gbuffer->GetFormat(Gbuffer::Target::Albedo), m_gbuffer->GetFormat(Gbuffer::Target::Normal),
-	                                      m_gbuffer->GetFormat(Gbuffer::Target::Position), m_gbuffer->GetFormat(Gbuffer::Target::Material)};
+	                                      m_gbuffer->GetFormat(Gbuffer::Target::Material)};
 	ID3D12Resource *gbufferResources[] = {m_gbuffer->GetResource(Gbuffer::Target::Albedo), m_gbuffer->GetResource(Gbuffer::Target::Normal),
-	                                      m_gbuffer->GetResource(Gbuffer::Target::Position),
 	                                      m_gbuffer->GetResource(Gbuffer::Target::Material)};
 
-	for (int targetIndex = 0; targetIndex < 4; ++targetIndex)
+	for (int targetIndex = 0; targetIndex < 3; ++targetIndex)
 	{
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -311,8 +295,7 @@ void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context &context)
 		srvDesc.Texture2D.MostDetailedMip = 0;
 		srvDesc.Texture2D.MipLevels = 1;
 		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-		context.GetDevice()->CreateShaderResourceView(gbufferResources[targetIndex], &srvDesc, handle);
-		handle.Offset(1, context.GetCbvSrvUavDescriptorSize());
+		context.GetDevice()->CreateShaderResourceView(gbufferResources[targetIndex], &srvDesc, m_lightingSrvHeap.Allocate().CpuHandle);
 	}
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC shadowSrvDesc = {};
@@ -325,8 +308,8 @@ void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context &context)
 	shadowSrvDesc.Texture2DArray.ArraySize = m_cascadedShadowMap->GetDesc().CascadeCount;
 	shadowSrvDesc.Texture2DArray.PlaneSlice = 0;
 	shadowSrvDesc.Texture2DArray.ResourceMinLODClamp = 0.0f;
-	context.GetDevice()->CreateShaderResourceView(m_cascadedShadowMap->GetResource(), &shadowSrvDesc, handle);
-	handle.Offset(1, context.GetCbvSrvUavDescriptorSize());
+	context.GetDevice()->CreateShaderResourceView(m_cascadedShadowMap->GetResource(), &shadowSrvDesc,
+	                                              m_lightingSrvHeap.Allocate().CpuHandle);
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC irradianceSrvDesc = {};
 	irradianceSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -335,8 +318,8 @@ void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context &context)
 	irradianceSrvDesc.TextureCube.MostDetailedMip = 0;
 	irradianceSrvDesc.TextureCube.MipLevels = m_irradianceMapTexture->Resource->GetDesc().MipLevels;
 	irradianceSrvDesc.TextureCube.ResourceMinLODClamp = 0.0f;
-	context.GetDevice()->CreateShaderResourceView(m_irradianceMapTexture->Resource.Get(), &irradianceSrvDesc, handle);
-	handle.Offset(1, context.GetCbvSrvUavDescriptorSize());
+	context.GetDevice()->CreateShaderResourceView(m_irradianceMapTexture->Resource.Get(), &irradianceSrvDesc,
+	                                              m_lightingSrvHeap.Allocate().CpuHandle);
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC prefilterSrvDesc = {};
 	prefilterSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -345,8 +328,18 @@ void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context &context)
 	prefilterSrvDesc.TextureCube.MostDetailedMip = 0;
 	prefilterSrvDesc.TextureCube.MipLevels = m_prefilterMapTexture->Resource->GetDesc().MipLevels;
 	prefilterSrvDesc.TextureCube.ResourceMinLODClamp = 0.0f;
-	context.GetDevice()->CreateShaderResourceView(m_prefilterMapTexture->Resource.Get(), &prefilterSrvDesc, handle);
-	handle.Offset(1, context.GetCbvSrvUavDescriptorSize());
+	context.GetDevice()->CreateShaderResourceView(m_prefilterMapTexture->Resource.Get(), &prefilterSrvDesc,
+	                                              m_lightingSrvHeap.Allocate().CpuHandle);
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC environmentSrvDesc = {};
+	environmentSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	environmentSrvDesc.Format = m_environmentMapTexture->Resource->GetDesc().Format;
+	environmentSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+	environmentSrvDesc.TextureCube.MostDetailedMip = 0;
+	environmentSrvDesc.TextureCube.MipLevels = m_environmentMapTexture->Resource->GetDesc().MipLevels;
+	environmentSrvDesc.TextureCube.ResourceMinLODClamp = 0.0f;
+	context.GetDevice()->CreateShaderResourceView(m_environmentMapTexture->Resource.Get(), &environmentSrvDesc,
+	                                              m_lightingSrvHeap.Allocate().CpuHandle);
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC brdfLutSrvDesc = {};
 	brdfLutSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -355,11 +348,22 @@ void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context &context)
 	brdfLutSrvDesc.Texture2D.MostDetailedMip = 0;
 	brdfLutSrvDesc.Texture2D.MipLevels = m_brdfLutTexture->Resource->GetDesc().MipLevels;
 	brdfLutSrvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-	context.GetDevice()->CreateShaderResourceView(m_brdfLutTexture->Resource.Get(), &brdfLutSrvDesc, handle);
+	context.GetDevice()->CreateShaderResourceView(m_brdfLutTexture->Resource.Get(), &brdfLutSrvDesc,
+	                                              m_lightingSrvHeap.Allocate().CpuHandle);
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC depthSrvDesc = {};
+	depthSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	depthSrvDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+	depthSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	depthSrvDesc.Texture2D.MostDetailedMip = 0;
+	depthSrvDesc.Texture2D.MipLevels = 1;
+	depthSrvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+	context.GetDevice()->CreateShaderResourceView(m_gbuffer->GetDepthResource(), &depthSrvDesc, m_lightingSrvHeap.Allocate().CpuHandle);
 	m_lightingSrvHeapDirty = false;
 }
 
-void DeferredRenderer::RenderShadowMapPass(DirectX12Context &context, ID3D12DescriptorHeap *srvDescriptorHeap, UINT cbvSrvUavDescriptorSize,
+void DeferredRenderer::RenderShadowMapPass(DirectX12Context &context, FrameResource &frameResource,
+                                           ID3D12DescriptorHeap *srvDescriptorHeap, UINT cbvSrvUavDescriptorSize,
                                            const MeshGeometry &sceneGeometry, const std::vector<ModelDrawItem> &drawItems)
 {
 	BuildCascadedShadowMap(context);
@@ -386,7 +390,7 @@ void DeferredRenderer::RenderShadowMapPass(DirectX12Context &context, ID3D12Desc
 
 	const XMMATRIX world = XMMatrixTranslation(-m_sceneCenter.x, -m_sceneCenter.y, -m_sceneCenter.z) *
 	                       XMMatrixScaling(m_sceneScale, m_sceneScale, m_sceneScale);
-	const XMMATRIX texTransform = XMMatrixIdentity();
+	const XMMATRIX texTransform = XMLoadFloat4x4(&m_texTransform);
 
 	const std::uint32_t cascadeCount = (std::min)(m_shadowSettings.CascadeCount, RenderSettings::MaxShadowCascadeCount);
 	for (std::uint32_t cascadeIndex = 0; cascadeIndex < cascadeCount; ++cascadeIndex)
@@ -402,8 +406,9 @@ void DeferredRenderer::RenderShadowMapPass(DirectX12Context &context, ID3D12Desc
 		XMStoreFloat4x4(&shadowConstants.TexTransform, XMMatrixTranspose(texTransform));
 
 		const UINT cascadeCbOffset = cascadeIndex * m_shadowPassCBStride;
-		memcpy(m_mappedShadowPassCB + cascadeCbOffset, &shadowConstants, sizeof(shadowConstants));
-		commandList->SetGraphicsRootConstantBufferView(0, m_shadowPassCB->GetGPUVirtualAddress() + cascadeCbOffset);
+		memcpy(frameResource.MappedShadowPassConstantBuffer() + cascadeCbOffset, &shadowConstants, sizeof(shadowConstants));
+		commandList->SetGraphicsRootConstantBufferView(
+		    0, frameResource.ShadowPassConstantBuffer()->GetGPUVirtualAddress() + cascadeCbOffset);
 
 		for (const ModelDrawItem &drawItem : drawItems)
 		{
@@ -415,6 +420,7 @@ void DeferredRenderer::RenderShadowMapPass(DirectX12Context &context, ID3D12Desc
 			DrawSettings drawSettings;
 			drawSettings.AlphaCutoff = drawItem.HasAlphaCutout ? 0.5f : -1.0f;
 			commandList->SetGraphicsRoot32BitConstants(2, 4, &drawSettings, 0);
+			commandList->SetGraphicsRoot32BitConstants(3, 4, &drawItem.PositionOffset, 0);
 
 			if (drawItem.HasAlphaCutout)
 			{
@@ -437,14 +443,15 @@ void DeferredRenderer::RenderShadowMapPass(DirectX12Context &context, ID3D12Desc
 	commandList->RSSetScissorRects(1, &context.GetScissorRect());
 }
 
-void DeferredRenderer::DrawGeometryPass(DirectX12Context &context, ID3D12DescriptorHeap *srvDescriptorHeap, UINT cbvSrvUavDescriptorSize,
-                                        const MeshGeometry &sceneGeometry, const std::vector<ModelDrawItem> &drawItems)
+void DeferredRenderer::RenderOpaqueGeometryStage(DirectX12Context &context, FrameResource &frameResource,
+                                                 ID3D12DescriptorHeap *srvDescriptorHeap, UINT cbvSrvUavDescriptorSize,
+                                                 const MeshGeometry &sceneGeometry,
+                                                 const std::vector<ModelDrawItem> &drawItems)
 {
 	BuildCascadedShadowMap(context);
 	m_gbuffer->Clear(context.GetCommandList());
 
-	D3D12_CPU_DESCRIPTOR_HANDLE gbufferRtvs[4] = {m_gbuffer->GetRtv(Gbuffer::Target::Albedo), m_gbuffer->GetRtv(Gbuffer::Target::Normal),
-	                                              m_gbuffer->GetRtv(Gbuffer::Target::Position),
+	D3D12_CPU_DESCRIPTOR_HANDLE gbufferRtvs[3] = {m_gbuffer->GetRtv(Gbuffer::Target::Albedo), m_gbuffer->GetRtv(Gbuffer::Target::Normal),
 	                                              m_gbuffer->GetRtv(Gbuffer::Target::Material)};
 	const D3D12_CPU_DESCRIPTOR_HANDLE gbufferDsv = m_gbuffer->GetDsv();
 	context.GetCommandList()->OMSetRenderTargets(_countof(gbufferRtvs), gbufferRtvs, false, &gbufferDsv);
@@ -459,24 +466,36 @@ void DeferredRenderer::DrawGeometryPass(DirectX12Context &context, ID3D12Descrip
 	const D3D12_INDEX_BUFFER_VIEW indexBufferView = sceneGeometry.IndexBufferView();
 	context.GetCommandList()->IASetVertexBuffers(0, 1, &vertexBufferView);
 	context.GetCommandList()->IASetIndexBuffer(&indexBufferView);
-	context.GetCommandList()->SetGraphicsRootConstantBufferView(0, m_objectCB->GetGPUVirtualAddress());
+	context.GetCommandList()->SetGraphicsRootConstantBufferView(0, frameResource.ObjectConstantBuffer()->GetGPUVirtualAddress());
 
 	for (const ModelDrawItem &drawItem : drawItems)
 	{
 		CD3DX12_GPU_DESCRIPTOR_HANDLE textureHandle(srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 		textureHandle.Offset(static_cast<INT>(drawItem.DiffuseSrvHeapIndex), cbvSrvUavDescriptorSize);
 		context.GetCommandList()->SetGraphicsRootDescriptorTable(1, textureHandle);
+		CD3DX12_GPU_DESCRIPTOR_HANDLE normalTextureHandle(srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+		normalTextureHandle.Offset(static_cast<INT>(drawItem.NormalSrvHeapIndex), cbvSrvUavDescriptorSize);
+		context.GetCommandList()->SetGraphicsRootDescriptorTable(6, normalTextureHandle);
+		CD3DX12_GPU_DESCRIPTOR_HANDLE ormTextureHandle(srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+		ormTextureHandle.Offset(static_cast<INT>(drawItem.OrmSrvHeapIndex), cbvSrvUavDescriptorSize);
+		context.GetCommandList()->SetGraphicsRootDescriptorTable(7, ormTextureHandle);
 		DrawSettings drawSettings;
 		drawSettings.AlphaCutoff = drawItem.HasAlphaCutout ? 0.5f : -1.0f;
+		GeometryTextureSettings textureSettings;
+		textureSettings.HasNormalMap = drawItem.TextureFlags.x;
+		textureSettings.HasOrmMap = drawItem.TextureFlags.y;
 		context.GetCommandList()->SetGraphicsRoot32BitConstants(2, 4, &drawSettings, 0);
-		context.GetCommandList()->SetGraphicsRoot32BitConstants(3, 4, &drawItem.PbrParams, 0);
+		context.GetCommandList()->SetGraphicsRoot32BitConstants(3, 4, &drawItem.PositionOffset, 0);
+		context.GetCommandList()->SetGraphicsRoot32BitConstants(4, 4, &drawItem.PbrParams, 0);
+		context.GetCommandList()->SetGraphicsRoot32BitConstants(5, 4, &textureSettings, 0);
 
 		const auto &submesh = sceneGeometry.DrawArgs.at(drawItem.DrawName);
 		context.GetCommandList()->DrawIndexedInstanced(submesh.IndexCount, 1, submesh.StartIndexLocation, submesh.BaseVertexLocation, 0);
 	}
 }
 
-void DeferredRenderer::DrawLightingPass(DirectX12Context &context, DebugOverlay::DebugViewMode debugViewMode, int shadowDebugCascadeIndex)
+void DeferredRenderer::RenderLightingStage(DirectX12Context &context, FrameResource &frameResource,
+                                           DebugOverlay::DebugViewMode debugViewMode)
 {
 	const D3D12_CPU_DESCRIPTOR_HANDLE currentBackBufferView = context.CurrentBackBufferView();
 	context.GetCommandList()->OMSetRenderTargets(1, &currentBackBufferView, true, nullptr);
@@ -487,12 +506,10 @@ void DeferredRenderer::DrawLightingPass(DirectX12Context &context, DebugOverlay:
 
 	ID3D12DescriptorHeap *descriptorHeaps[] = {m_lightingSrvHeap.Get()};
 	context.GetCommandList()->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
-	context.GetCommandList()->SetGraphicsRootConstantBufferView(0, m_objectCB->GetGPUVirtualAddress());
-	context.GetCommandList()->SetGraphicsRootDescriptorTable(1, m_lightingSrvHeap->GetGPUDescriptorHandleForHeapStart());
+	context.GetCommandList()->SetGraphicsRootConstantBufferView(0, frameResource.ObjectConstantBuffer()->GetGPUVirtualAddress());
+	context.GetCommandList()->SetGraphicsRootDescriptorTable(1, m_lightingSrvHeap.GpuHandleAt(0));
 	LightingDebugSettings debugSettings;
 	debugSettings.ViewMode = static_cast<float>(debugViewMode);
-	debugSettings.PositionVizScale = 0.05f;
-	debugSettings.ShadowDebugCascadeIndex = static_cast<float>(shadowDebugCascadeIndex);
 	context.GetCommandList()->SetGraphicsRoot32BitConstants(2, 4, &debugSettings, 0);
 	context.GetCommandList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	context.GetCommandList()->DrawInstanced(3, 1, 0, 0);
@@ -512,11 +529,22 @@ void DeferredRenderer::TransitionCascadedShadowMap(DirectX12Context &context, D3
 
 void DeferredRenderer::TransitionGbuffer(DirectX12Context &context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState)
 {
+	D3D12_RESOURCE_STATES depthBeforeState = beforeState;
+	D3D12_RESOURCE_STATES depthAfterState = afterState;
+	if (beforeState == D3D12_RESOURCE_STATE_RENDER_TARGET)
+	{
+		depthBeforeState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+	}
+	if (afterState == D3D12_RESOURCE_STATE_RENDER_TARGET)
+	{
+		depthAfterState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+	}
+
 	D3D12_RESOURCE_BARRIER barriers[4] = {
 	    CD3DX12_RESOURCE_BARRIER::Transition(m_gbuffer->GetResource(Gbuffer::Target::Albedo), beforeState, afterState),
 	    CD3DX12_RESOURCE_BARRIER::Transition(m_gbuffer->GetResource(Gbuffer::Target::Normal), beforeState, afterState),
-	    CD3DX12_RESOURCE_BARRIER::Transition(m_gbuffer->GetResource(Gbuffer::Target::Position), beforeState, afterState),
-	    CD3DX12_RESOURCE_BARRIER::Transition(m_gbuffer->GetResource(Gbuffer::Target::Material), beforeState, afterState)};
+	    CD3DX12_RESOURCE_BARRIER::Transition(m_gbuffer->GetResource(Gbuffer::Target::Material), beforeState, afterState),
+	    CD3DX12_RESOURCE_BARRIER::Transition(m_gbuffer->GetDepthResource(), depthBeforeState, depthAfterState)};
 	context.GetCommandList()->ResourceBarrier(_countof(barriers), barriers);
 }
 
@@ -536,41 +564,17 @@ void DeferredRenderer::BuildShadersAndInputLayout()
 	                  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 	                 {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(GeometryGenerator::Vertex, Normal),
 	                  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+	                 {"TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(GeometryGenerator::Vertex, TangentU),
+	                  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 	                 {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, offsetof(GeometryGenerator::Vertex, TexC),
 	                  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0}};
 }
 
-void DeferredRenderer::BuildConstantBuffer(DirectX12Context &context)
+void DeferredRenderer::BuildConstantBufferMetadata()
 {
-	if (m_objectCB != nullptr && m_mappedObjectCB != nullptr)
-	{
-		m_objectCB->Unmap(0, nullptr);
-		m_mappedObjectCB = nullptr;
-		m_objectCB.Reset();
-	}
-
-	if (m_shadowPassCB != nullptr && m_mappedShadowPassCB != nullptr)
-	{
-		m_shadowPassCB->Unmap(0, nullptr);
-		m_mappedShadowPassCB = nullptr;
-		m_shadowPassCB.Reset();
-	}
-
 	m_objectCBByteSize = d3dUtil::CalcConstantBufferByteSize(sizeof(ObjectConstants));
 	m_shadowPassCBStride = d3dUtil::CalcConstantBufferByteSize(sizeof(ShadowPassConstants));
 	m_shadowPassCBByteSize = m_shadowPassCBStride * RenderSettings::MaxShadowCascadeCount;
-
-	ThrowIfFailed(context.GetDevice()->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
-	                                                           &CD3DX12_RESOURCE_DESC::Buffer(m_objectCBByteSize),
-	                                                           D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&m_objectCB)));
-
-	ThrowIfFailed(m_objectCB->Map(0, nullptr, reinterpret_cast<void **>(&m_mappedObjectCB)));
-
-	ThrowIfFailed(context.GetDevice()->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
-	                                                           &CD3DX12_RESOURCE_DESC::Buffer(m_shadowPassCBByteSize),
-	                                                           D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&m_shadowPassCB)));
-
-	ThrowIfFailed(m_shadowPassCB->Map(0, nullptr, reinterpret_cast<void **>(&m_mappedShadowPassCB)));
 }
 
 void DeferredRenderer::BuildGbuffer(DirectX12Context &context)
@@ -585,7 +589,6 @@ void DeferredRenderer::BuildGbuffer(DirectX12Context &context)
 	desc.Height = static_cast<UINT>(context.GetClientHeight());
 	desc.AlbedoFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 	desc.NormalFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
-	desc.PositionFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
 	desc.MaterialFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
 	desc.DepthFormat = context.GetDepthStencilFormat();
 
@@ -610,14 +613,22 @@ void DeferredRenderer::BuildRootSignature(DirectX12Context &context)
 
 	CD3DX12_DESCRIPTOR_RANGE geometryTexTable;
 	geometryTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
+	CD3DX12_DESCRIPTOR_RANGE geometryNormalTexTable;
+	geometryNormalTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1);
+	CD3DX12_DESCRIPTOR_RANGE geometryOrmTexTable;
+	geometryOrmTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 2);
 
-	CD3DX12_ROOT_PARAMETER geometryRootParameters[4];
+	CD3DX12_ROOT_PARAMETER geometryRootParameters[8];
 	geometryRootParameters[0].InitAsConstantBufferView(0);
 	geometryRootParameters[1].InitAsDescriptorTable(1, &geometryTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
 	geometryRootParameters[2].InitAsConstants(4, 1);
 	geometryRootParameters[3].InitAsConstants(4, 2);
+	geometryRootParameters[4].InitAsConstants(4, 3);
+	geometryRootParameters[5].InitAsConstants(4, 4);
+	geometryRootParameters[6].InitAsDescriptorTable(1, &geometryNormalTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
+	geometryRootParameters[7].InitAsDescriptorTable(1, &geometryOrmTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
 
-	CD3DX12_ROOT_SIGNATURE_DESC geometryRootSigDesc(4, geometryRootParameters, 1, &linearWrapSampler,
+	CD3DX12_ROOT_SIGNATURE_DESC geometryRootSigDesc(8, geometryRootParameters, 1, &linearWrapSampler,
 	                                                D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 	ComPtr<ID3DBlob> serializedRootSig = nullptr;
@@ -629,7 +640,7 @@ void DeferredRenderer::BuildRootSignature(DirectX12Context &context)
 	                                                       IID_PPV_ARGS(m_geometryRootSignature.GetAddressOf())));
 
 	CD3DX12_DESCRIPTOR_RANGE lightingTexTable;
-	lightingTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 8, 0);
+	lightingTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 9, 0);
 
 	CD3DX12_ROOT_PARAMETER lightingRootParameters[3];
 	lightingRootParameters[0].InitAsConstantBufferView(0);
@@ -650,12 +661,13 @@ void DeferredRenderer::BuildRootSignature(DirectX12Context &context)
 	CD3DX12_DESCRIPTOR_RANGE shadowTexTable;
 	shadowTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
 
-	CD3DX12_ROOT_PARAMETER shadowRootParameters[3];
+	CD3DX12_ROOT_PARAMETER shadowRootParameters[4];
 	shadowRootParameters[0].InitAsConstantBufferView(0);
 	shadowRootParameters[1].InitAsDescriptorTable(1, &shadowTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
 	shadowRootParameters[2].InitAsConstants(4, 1);
+	shadowRootParameters[3].InitAsConstants(4, 2);
 
-	CD3DX12_ROOT_SIGNATURE_DESC shadowRootSigDesc(3, shadowRootParameters, 1, &linearWrapSampler,
+	CD3DX12_ROOT_SIGNATURE_DESC shadowRootSigDesc(4, shadowRootParameters, 1, &linearWrapSampler,
 	                                              D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 	serializedRootSig.Reset();
@@ -679,11 +691,10 @@ void DeferredRenderer::BuildPSO(DirectX12Context &context, bool enable4xMsaa, UI
 	geometryPsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 	geometryPsoDesc.SampleMask = UINT_MAX;
 	geometryPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	geometryPsoDesc.NumRenderTargets = 4;
+	geometryPsoDesc.NumRenderTargets = 3;
 	geometryPsoDesc.RTVFormats[0] = m_gbuffer->GetFormat(Gbuffer::Target::Albedo);
 	geometryPsoDesc.RTVFormats[1] = m_gbuffer->GetFormat(Gbuffer::Target::Normal);
-	geometryPsoDesc.RTVFormats[2] = m_gbuffer->GetFormat(Gbuffer::Target::Position);
-	geometryPsoDesc.RTVFormats[3] = m_gbuffer->GetFormat(Gbuffer::Target::Material);
+	geometryPsoDesc.RTVFormats[2] = m_gbuffer->GetFormat(Gbuffer::Target::Material);
 	geometryPsoDesc.SampleDesc.Count = enable4xMsaa ? 4 : 1;
 	geometryPsoDesc.SampleDesc.Quality = enable4xMsaa ? (msaaQuality - 1) : 0;
 	geometryPsoDesc.DSVFormat = context.GetDepthStencilFormat();

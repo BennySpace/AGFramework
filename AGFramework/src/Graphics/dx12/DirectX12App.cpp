@@ -1,10 +1,40 @@
 #include "DirectX12App.h"
 #include "../../Core/GameTimer.h"
+#include "../Demo/DemoLightingController.h"
 #include <cfloat>
 using namespace DirectX;
 
 namespace
 {
+bool IsDebugOverlayEnabled()
+{
+#if defined(_DEBUG)
+	return true;
+#else
+	return false;
+#endif
+}
+
+bool NearlyEqualFloat(float a, float b, float epsilon = 0.0001f)
+{
+	return fabsf(a - b) <= epsilon;
+}
+
+bool RequiresShadowResourceReload(const RenderSettings::ShadowSettings &currentSettings,
+                                  const RenderSettings::ShadowSettings &requestedSettings)
+{
+	return currentSettings.CascadeCount != requestedSettings.CascadeCount ||
+	       currentSettings.ShadowMapSize != requestedSettings.ShadowMapSize ||
+	       !NearlyEqualFloat(currentSettings.DepthBias, requestedSettings.DepthBias) ||
+	       !NearlyEqualFloat(currentSettings.SlopeScaledDepthBias, requestedSettings.SlopeScaledDepthBias) ||
+	       !NearlyEqualFloat(currentSettings.DepthBiasClamp, requestedSettings.DepthBiasClamp);
+}
+
+bool RequiresSceneReload(const RenderSettings::DemoSettings &currentSettings, const RenderSettings::DemoSettings &requestedSettings)
+{
+	return currentSettings.EnablePbrGrid != requestedSettings.EnablePbrGrid;
+}
+
 XMVECTOR GetSafeNormalizedDirection(const XMFLOAT3 &direction, const XMVECTOR &fallbackDirection = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f))
 {
 	const XMVECTOR directionVector = XMLoadFloat3(&direction);
@@ -14,6 +44,30 @@ XMVECTOR GetSafeNormalizedDirection(const XMFLOAT3 &direction, const XMVECTOR &f
 	}
 
 	return XMVector3Normalize(directionVector);
+}
+
+bool IsCursorInsideClientArea(HWND windowHandle)
+{
+	POINT cursorPosition{};
+	if (!GetCursorPos(&cursorPosition))
+	{
+		return false;
+	}
+
+	POINT clientPosition = cursorPosition;
+	if (!ScreenToClient(windowHandle, &clientPosition))
+	{
+		return false;
+	}
+
+	RECT clientRect{};
+	if (!GetClientRect(windowHandle, &clientRect))
+	{
+		return false;
+	}
+
+	return clientPosition.x >= clientRect.left && clientPosition.x < clientRect.right && clientPosition.y >= clientRect.top &&
+	       clientPosition.y < clientRect.bottom;
 }
 
 RenderSettings::CascadedShadowData BuildCascadedShadowData(const RenderSettings::ShadowSettings &shadowSettings,
@@ -200,7 +254,10 @@ DirectX12App::DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd) : m_hAppInst(mhA
 
 DirectX12App::~DirectX12App()
 {
-	m_debugOverlay.Shutdown();
+	if (IsDebugOverlayEnabled())
+	{
+		m_debugOverlay.Shutdown();
+	}
 }
 
 bool DirectX12App::Initialize()
@@ -210,6 +267,9 @@ bool DirectX12App::Initialize()
 	const int clientWidth = clientRect.right - clientRect.left;
 	const int clientHeight = clientRect.bottom - clientRect.top;
 
+	// Start in the curated demo look so the scene reads well before any overlay tweaks.
+	Demo::DemoLightingController::ApplyRecommendedLook(m_materialSystem, m_renderSettings, m_demoLightEditSession);
+
 	m_context.Initialize(m_hMainWnd, clientWidth, clientHeight, m4xMsaaState, m4xMsaaQuality, SwapChainBufferCount,
 	                     DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
 
@@ -218,14 +278,23 @@ bool DirectX12App::Initialize()
 	ThrowIfFailed(m_context.GetCommandAllocator()->Reset());
 	ThrowIfFailed(m_context.GetCommandList()->Reset(m_context.GetCommandAllocator(), nullptr));
 
-	m_scene.Initialize(m_context);
+	m_activeDemoSettings = Demo::DemoLightingController::GetDemoSettings(m_renderSettings);
+	m_activeShadowSettings = m_renderSettings.GetShadowSettings();
+	m_scene.Initialize(m_context, m_activeDemoSettings);
+	m_demoSceneComposer.RebuildTrackedPbrGridDrawItems(m_scene.GetDrawItems());
 	m_eyePos = m_scene.GetInitialCamera().EyePos;
 	m_lookDirection = m_scene.GetInitialCamera().LookDirection;
 	m_yaw = m_scene.GetInitialCamera().Yaw;
 	m_pitch = m_scene.GetInitialCamera().Pitch;
+	m_deferredRenderer.SetShadowSettings(m_activeShadowSettings);
 	m_deferredRenderer.Initialize(m_context, m4xMsaaState, m4xMsaaQuality);
-	m_debugOverlay.Initialize(m_hMainWnd, m_context.GetDevice(), m_context.GetCommandQueue(), m_context.GetBackBufferFormat(),
-	                          SwapChainBufferCount);
+	BuildFrameResources();
+	m_deferredRendererInitialized = true;
+	if (IsDebugOverlayEnabled())
+	{
+		m_debugOverlay.Initialize(m_hMainWnd, m_context.GetDevice(), m_context.GetCommandQueue(), m_context.GetBackBufferFormat(),
+		                          SwapChainBufferCount);
+	}
 
 	ThrowIfFailed(m_context.GetCommandList()->Close());
 	ID3D12CommandList *initCmdsLists[] = {m_context.GetCommandList()};
@@ -239,17 +308,24 @@ bool DirectX12App::Initialize()
 
 void DirectX12App::Update(const GameTimer &gt)
 {
+	ReloadSceneIfNeeded();
+	ReloadShadowSettingsIfNeeded();
+	if (Demo::DemoLightingController::IsPbrGridEnabled(m_renderSettings))
+	{
+		m_demoSceneComposer.ApplyPbrGridOffset(m_scene, Demo::DemoLightingController::GetPbrGridOffset(m_demoShowcaseSession));
+	}
 	UpdateMouseCaptureState();
 	UpdateMouseLook();
 	UpdateCamera(gt);
-	UpdateMainPassCB(gt);
 }
 
 void DirectX12App::Draw(const GameTimer &gt)
 {
-	(void)gt;
-	ThrowIfFailed(m_context.GetCommandAllocator()->Reset());
-	ThrowIfFailed(m_context.GetCommandList()->Reset(m_context.GetCommandAllocator(), nullptr));
+	FrameResource &frameResource = AdvanceFrameResource();
+	UpdateMainPassCB(frameResource, gt);
+
+	ThrowIfFailed(frameResource.CommandAllocator()->Reset());
+	ThrowIfFailed(m_context.GetCommandList()->Reset(frameResource.CommandAllocator(), nullptr));
 
 	auto transitionToRT = CD3DX12_RESOURCE_BARRIER::Transition(m_context.CurrentBackBuffer(), D3D12_RESOURCE_STATE_PRESENT,
 	                                                           D3D12_RESOURCE_STATE_RENDER_TARGET);
@@ -264,16 +340,16 @@ void DirectX12App::Draw(const GameTimer &gt)
 		                                               D3D12_RESOURCE_STATE_DEPTH_WRITE);
 		m_deferredRenderer.SetCascadedShadowMapState(D3D12_RESOURCE_STATE_DEPTH_WRITE);
 	}
-	m_deferredRenderer.RenderShadowMapPass(m_context, m_scene.GetSrvDescriptorHeap(), m_context.GetCbvSrvUavDescriptorSize(),
-	                                       m_scene.GetGeometry(), m_scene.GetDrawItems());
+	m_deferredRenderer.RenderShadowMapPass(m_context, frameResource, m_scene.GetSrvDescriptorHeap(),
+	                                       m_context.GetCbvSrvUavDescriptorSize(), m_scene.GetGeometry(), m_scene.GetDrawItems());
 
 	if (m_deferredRenderer.GetGbufferState() != D3D12_RESOURCE_STATE_RENDER_TARGET)
 	{
 		m_deferredRenderer.TransitionGbuffer(m_context, m_deferredRenderer.GetGbufferState(), D3D12_RESOURCE_STATE_RENDER_TARGET);
 		m_deferredRenderer.SetGbufferState(D3D12_RESOURCE_STATE_RENDER_TARGET);
 	}
-	m_deferredRenderer.DrawGeometryPass(m_context, m_scene.GetSrvDescriptorHeap(), m_context.GetCbvSrvUavDescriptorSize(),
-	                                    m_scene.GetGeometry(), m_scene.GetDrawItems());
+	m_deferredRenderer.RenderOpaqueGeometryStage(m_context, frameResource, m_scene.GetSrvDescriptorHeap(),
+	                                             m_context.GetCbvSrvUavDescriptorSize(), m_scene.GetGeometry(), m_scene.GetDrawItems());
 	m_deferredRenderer.TransitionGbuffer(m_context, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	m_deferredRenderer.SetGbufferState(D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	if (m_deferredRenderer.GetCascadedShadowMapState() != D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
@@ -284,9 +360,18 @@ void DirectX12App::Draw(const GameTimer &gt)
 	}
 	const float clearColor[] = {0.03f, 0.05f, 0.08f, 1.0f};
 	m_context.GetCommandList()->ClearRenderTargetView(m_context.CurrentBackBufferView(), clearColor, 0, nullptr);
-	m_deferredRenderer.DrawLightingPass(m_context, m_debugOverlay.GetDebugViewMode(), m_debugOverlay.GetShadowDebugCascadeIndex());
-	m_debugOverlay.Draw(m_context.GetCommandList(), gt, m_eyePos, m_lookDirection, m_yaw, m_pitch, m_cameraMoveSpeed,
-	                    m_cameraMouseSensitivity, m_materialSystem, m_renderSettings, m_lightSystem);
+	DebugOverlay::DebugViewMode debugViewMode = DebugOverlay::DebugViewMode::Final;
+	if (IsDebugOverlayEnabled())
+	{
+		debugViewMode = m_debugOverlay.GetDebugViewMode();
+	}
+	m_deferredRenderer.RenderLightingStage(m_context, frameResource, debugViewMode);
+	if (IsDebugOverlayEnabled())
+	{
+		m_debugOverlay.Draw(m_context.GetCommandList(), gt, m_eyePos, m_lookDirection, m_yaw, m_pitch, m_cameraMoveSpeed,
+		                    m_cameraMouseSensitivity, m_materialSystem, m_renderSettings, m_lightSystem, m_demoShowcaseSession,
+		                    m_demoLightEditSession);
+	}
 
 	auto transitionToPresent = CD3DX12_RESOURCE_BARRIER::Transition(m_context.CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET,
 	                                                                D3D12_RESOURCE_STATE_PRESENT);
@@ -298,7 +383,77 @@ void DirectX12App::Draw(const GameTimer &gt)
 	m_context.ExecuteCommandLists(_countof(cmds), cmds);
 
 	m_context.Present();
+	frameResource.FenceValue = m_context.SignalCommandQueue();
+}
+
+void DirectX12App::BuildFrameResources()
+{
+	for (auto &frameResource : m_frameResources)
+	{
+		frameResource = std::make_unique<FrameResource>();
+		frameResource->Initialize(m_context.GetDevice(), m_deferredRenderer.GetObjectCBByteSize(),
+		                          m_deferredRenderer.GetShadowPassCBByteSize());
+	}
+}
+
+FrameResource &DirectX12App::AdvanceFrameResource()
+{
+	m_currentFrameResourceIndex = (m_currentFrameResourceIndex + 1) % SwapChainBufferCount;
+	m_currentFrameResource = m_frameResources[m_currentFrameResourceIndex].get();
+
+	if (m_currentFrameResource->FenceValue != 0 &&
+	    m_context.GetCompletedFenceValue() < m_currentFrameResource->FenceValue)
+	{
+		m_context.WaitForFenceValue(m_currentFrameResource->FenceValue);
+	}
+
+	return *m_currentFrameResource;
+}
+
+void DirectX12App::ReloadSceneIfNeeded()
+{
+	const RenderSettings::DemoSettings requestedDemoSettings = Demo::DemoLightingController::GetDemoSettings(m_renderSettings);
+	if (!RequiresSceneReload(m_activeDemoSettings, requestedDemoSettings))
+	{
+		return;
+	}
+
 	m_context.FlushCommandQueue();
+	ThrowIfFailed(m_context.GetCommandAllocator()->Reset());
+	ThrowIfFailed(m_context.GetCommandList()->Reset(m_context.GetCommandAllocator(), nullptr));
+
+	m_scene.Initialize(m_context, requestedDemoSettings);
+	m_demoSceneComposer.RebuildTrackedPbrGridDrawItems(m_scene.GetDrawItems());
+
+	ThrowIfFailed(m_context.GetCommandList()->Close());
+	ID3D12CommandList *reloadCmdLists[] = {m_context.GetCommandList()};
+	m_context.ExecuteCommandLists(_countof(reloadCmdLists), reloadCmdLists);
+	m_context.FlushCommandQueue();
+	m_scene.DisposeUploaders();
+	m_activeDemoSettings = requestedDemoSettings;
+}
+
+void DirectX12App::ReloadShadowSettingsIfNeeded()
+{
+	const RenderSettings::ShadowSettings requestedShadowSettings = m_renderSettings.GetShadowSettings();
+	if (!RequiresShadowResourceReload(m_activeShadowSettings, requestedShadowSettings))
+	{
+		return;
+	}
+
+	m_context.FlushCommandQueue();
+	ThrowIfFailed(m_context.GetCommandAllocator()->Reset());
+	ThrowIfFailed(m_context.GetCommandList()->Reset(m_context.GetCommandAllocator(), nullptr));
+
+	m_deferredRenderer.SetShadowSettings(requestedShadowSettings);
+	m_deferredRenderer.ReloadShadowDependentResources(m_context);
+
+	ThrowIfFailed(m_context.GetCommandList()->Close());
+	ID3D12CommandList *reloadCmdLists[] = {m_context.GetCommandList()};
+	m_context.ExecuteCommandLists(_countof(reloadCmdLists), reloadCmdLists);
+	m_context.FlushCommandQueue();
+
+	m_activeShadowSettings = requestedShadowSettings;
 }
 
 void DirectX12App::ApplyResize(int width, int height)
@@ -309,7 +464,16 @@ void DirectX12App::ApplyResize(int width, int height)
 	}
 
 	m_context.Resize(width, height);
-	m_deferredRenderer.Resize(m_context);
+	if (m_deferredRendererInitialized)
+	{
+		ThrowIfFailed(m_context.GetCommandAllocator()->Reset());
+		ThrowIfFailed(m_context.GetCommandList()->Reset(m_context.GetCommandAllocator(), nullptr));
+		m_deferredRenderer.Resize(m_context);
+		ThrowIfFailed(m_context.GetCommandList()->Close());
+		ID3D12CommandList *resizeCmds[] = {m_context.GetCommandList()};
+		m_context.ExecuteCommandLists(_countof(resizeCmds), resizeCmds);
+		m_context.FlushCommandQueue();
+	}
 
 	XMMATRIX P = XMMatrixPerspectiveFovLH(m_cameraFieldOfViewY, AspectRatio(), m_cameraNearPlane, m_cameraFarPlane);
 	XMStoreFloat4x4(&m_proj, P);
@@ -370,7 +534,8 @@ void DirectX12App::UpdateMouseCaptureState()
 {
 	const bool isWindowFocused = GetForegroundWindow() == m_hMainWnd;
 	const bool isRightMouseDown = d3dUtil::IsKeyDown(VK_RBUTTON);
-	const bool shouldCaptureMouse = isWindowFocused && isRightMouseDown;
+	const bool isCursorInsideClientArea = IsCursorInsideClientArea(m_hMainWnd);
+	const bool shouldCaptureMouse = isWindowFocused && isRightMouseDown && isCursorInsideClientArea;
 
 	if (shouldCaptureMouse && !m_isMouseCaptured)
 	{
@@ -434,13 +599,11 @@ void DirectX12App::UpdateMouseLook()
 	SetCursorPos(centerPoint.x, centerPoint.y);
 }
 
-void DirectX12App::UpdateMainPassCB(const GameTimer &gt)
+void DirectX12App::UpdateMainPassCB(FrameResource &frameResource, const GameTimer &gt)
 {
-	(void)gt;
-
 	const XMVECTOR safeLookDirection = GetSafeNormalizedDirection(m_lookDirection);
 	XMStoreFloat3(&m_lookDirection, safeLookDirection);
-	m_lightSystem.Update(m_eyePos, m_lookDirection);
+	m_lightSystem.Update(m_eyePos, m_lookDirection, m_demoLightEditSession.GetState());
 
 	DeferredRenderer::FrameData frameData;
 	frameData.EyePos = m_eyePos;
@@ -452,10 +615,11 @@ void DirectX12App::UpdateMainPassCB(const GameTimer &gt)
 	frameData.ImageBasedLightingSettings = m_renderSettings.GetImageBasedLightingSettings();
 	frameData.ShadowSettings = m_renderSettings.GetShadowSettings();
 	frameData.LightState = m_lightSystem.GetLightingState();
+	frameData.TotalTime = gt.TotalTime();
 	frameData.CascadedShadowData =
 	    BuildCascadedShadowData(frameData.ShadowSettings, frameData.EyePos, frameData.LookDirection, m_cameraNearPlane, m_cameraFarPlane,
 	                            frameData.Projection, m_lightSystem.GetShadowCastingDirectionalLight());
 	frameData.Material = m_materialSystem.GetMaterialState();
 
-	m_deferredRenderer.UpdateMainPassCB(frameData);
+	m_deferredRenderer.UpdateMainPassCB(frameResource, frameData);
 }

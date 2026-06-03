@@ -8,8 +8,10 @@
 #include "MaterialSystem.h"
 #include "Overlay/DebugOverlay.h"
 #include "RenderSettings.h"
+#include "dx12/DescriptorHeap.h"
 
 class DirectX12Context;
+class FrameResource;
 
 class DeferredRenderer
 {
@@ -19,10 +21,17 @@ class DeferredRenderer
 		std::string DrawName;
 		std::string MaterialName;
 		std::string DiffuseTexturePath;
-		DirectX::XMFLOAT4 PbrParams = {0.0f, 0.5f, 1.0f, 1.0f};
+		std::string NormalTexturePath;
+		std::string OrmTexturePath;
+		DirectX::XMFLOAT4 PositionOffset = {0.0f, 0.0f, 0.0f, 0.0f};
+		DirectX::XMFLOAT4 PbrParams = {0.0f, 0.58f, 1.0f, 0.95f};
 		UINT DiffuseSrvHeapIndex = 0;
+		UINT NormalSrvHeapIndex = 0;
+		UINT OrmSrvHeapIndex = 0;
+		DirectX::XMFLOAT4 TextureFlags = {0.0f, 0.0f, 0.0f, 0.0f};
 		bool HasAlphaCutout = false;
 		bool CastShadows = true;
+		bool IsDemoPbrGrid = false;
 	};
 
 	struct FrameData
@@ -38,6 +47,7 @@ class DeferredRenderer
 		RenderSettings::CascadedShadowData CascadedShadowData;
 		MaterialSystem::MaterialState Material;
 		LightSystem::LightingState LightState;
+		float TotalTime = 0.0f;
 	};
 
 	DeferredRenderer() = default;
@@ -45,12 +55,16 @@ class DeferredRenderer
 
 	void Initialize(DirectX12Context &context, bool enable4xMsaa, UINT msaaQuality);
 	void Resize(DirectX12Context &context);
-	void UpdateMainPassCB(const FrameData &frameData);
-	void RenderShadowMapPass(DirectX12Context &context, ID3D12DescriptorHeap *srvDescriptorHeap, UINT cbvSrvUavDescriptorSize,
-	                         const MeshGeometry &sceneGeometry, const std::vector<ModelDrawItem> &drawItems);
-	void DrawGeometryPass(DirectX12Context &context, ID3D12DescriptorHeap *srvDescriptorHeap, UINT cbvSrvUavDescriptorSize,
-	                      const MeshGeometry &sceneGeometry, const std::vector<ModelDrawItem> &drawItems);
-	void DrawLightingPass(DirectX12Context &context, DebugOverlay::DebugViewMode debugViewMode, int shadowDebugCascadeIndex);
+	void SetShadowSettings(const RenderSettings::ShadowSettings &shadowSettings);
+	void ReloadShadowDependentResources(DirectX12Context &context);
+	void UpdateMainPassCB(FrameResource &frameResource, const FrameData &frameData);
+	void RenderShadowMapPass(DirectX12Context &context, FrameResource &frameResource, ID3D12DescriptorHeap *srvDescriptorHeap,
+	                         UINT cbvSrvUavDescriptorSize, const MeshGeometry &sceneGeometry,
+	                         const std::vector<ModelDrawItem> &drawItems);
+	void RenderOpaqueGeometryStage(DirectX12Context &context, FrameResource &frameResource, ID3D12DescriptorHeap *srvDescriptorHeap,
+	                               UINT cbvSrvUavDescriptorSize, const MeshGeometry &sceneGeometry,
+	                               const std::vector<ModelDrawItem> &drawItems);
+	void RenderLightingStage(DirectX12Context &context, FrameResource &frameResource, DebugOverlay::DebugViewMode debugViewMode);
 	void TransitionCascadedShadowMap(DirectX12Context &context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
 	void TransitionGbuffer(DirectX12Context &context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
 
@@ -70,10 +84,18 @@ class DeferredRenderer
 	{
 		m_cascadedShadowMapState = state;
 	}
+	UINT GetObjectCBByteSize() const
+	{
+		return m_objectCBByteSize;
+	}
+	UINT GetShadowPassCBByteSize() const
+	{
+		return m_shadowPassCBByteSize;
+	}
 
   private:
 	void BuildShadersAndInputLayout();
-	void BuildConstantBuffer(DirectX12Context &context);
+	void BuildConstantBufferMetadata();
 	void BuildGbuffer(DirectX12Context &context);
 	void BuildCascadedShadowMap(DirectX12Context &context);
 	void BuildImageBasedLightingTextures(DirectX12Context &context);
@@ -88,6 +110,7 @@ class DeferredRenderer
 		DirectX::XMFLOAT4X4 WorldInvTranspose = MathHelper::Identity4x4();
 		DirectX::XMFLOAT4X4 WorldViewProj = MathHelper::Identity4x4();
 		DirectX::XMFLOAT4X4 View = MathHelper::Identity4x4();
+		DirectX::XMFLOAT4X4 InvViewProj = MathHelper::Identity4x4();
 		DirectX::XMFLOAT4X4 TexTransform = MathHelper::Identity4x4();
 		DirectX::XMFLOAT3 EyePosW = {0.0f, 0.0f, 0.0f};
 		float Pad0 = 0.0f;
@@ -112,6 +135,13 @@ class DeferredRenderer
 		float Padding[3] = {0.0f, 0.0f, 0.0f};
 	};
 
+	struct GeometryTextureSettings
+	{
+		float HasNormalMap = 0.0f;
+		float HasOrmMap = 0.0f;
+		float Padding[2] = {0.0f, 0.0f};
+	};
+
 	struct ShadowPassConstants
 	{
 		DirectX::XMFLOAT4X4 WorldLightViewProj = MathHelper::Identity4x4();
@@ -121,9 +151,7 @@ class DeferredRenderer
 	struct LightingDebugSettings
 	{
 		float ViewMode = static_cast<float>(DebugOverlay::DebugViewMode::Final);
-		float PositionVizScale = 0.05f;
-		float ShadowDebugCascadeIndex = 0.0f;
-		float Padding = 0.0f;
+		float Padding[3] = {0.0f, 0.0f, 0.0f};
 	};
 
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_geometryRootSignature;
@@ -133,9 +161,7 @@ class DeferredRenderer
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_lightingPSO;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_directionalShadowOpaquePSO;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_directionalShadowAlphaCutoutPSO;
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_objectCB;
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_shadowPassCB;
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_lightingSrvHeap;
+	DescriptorHeap m_lightingSrvHeap;
 	std::unique_ptr<CascadedShadowMap> m_cascadedShadowMap;
 	std::unique_ptr<Gbuffer> m_gbuffer;
 	D3D12_RESOURCE_STATES m_cascadedShadowMapState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
@@ -147,14 +173,14 @@ class DeferredRenderer
 	RenderSettings::CascadedShadowData m_cascadedShadowData;
 	DirectX::XMFLOAT3 m_sceneCenter = {0.0f, 0.0f, 0.0f};
 	float m_sceneScale = 1.0f;
-	UINT8 *m_mappedShadowPassCB = nullptr;
-	UINT8 *m_mappedObjectCB = nullptr;
+	DirectX::XMFLOAT4X4 m_texTransform = MathHelper::Identity4x4();
 	UINT m_objectCBByteSize = 0;
 	UINT m_shadowPassCBStride = 0;
 	UINT m_shadowPassCBByteSize = 0;
 	bool m_lightingSrvHeapDirty = true;
 	std::unique_ptr<Texture> m_irradianceMapTexture;
 	std::unique_ptr<Texture> m_prefilterMapTexture;
+	std::unique_ptr<Texture> m_environmentMapTexture;
 	std::unique_ptr<Texture> m_brdfLutTexture;
-	bool m_imageBasedLightingUsesRgbm = false;
+	bool m_hasEnvironmentMapTexture = false;
 };

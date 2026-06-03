@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "dx12/DescriptorHeap.h"
 #include "dx12/d3dUtil.h"
 
 class CascadedShadowMap
@@ -57,12 +58,10 @@ class CascadedShadowMap
   private:
 	ID3D12Device *m_device = nullptr;
 	Desc m_desc{};
-	UINT m_dsvDescriptorSize = 0;
-	UINT m_srvDescriptorSize = 0;
 	D3D12_VIEWPORT m_viewport{};
 	D3D12_RECT m_scissorRect{};
 
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvHeap;
+	DescriptorHeap m_dsvHeap;
+	DescriptorHeap m_srvHeap;
 	Microsoft::WRL::ComPtr<ID3D12Resource> m_shadowArray;
 };

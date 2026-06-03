@@ -1,13 +1,13 @@
 #pragma once
 
-#include "../dx12/d3dUtil.h"
+#include "../dx12/DescriptorHeap.h"
 
 struct SceneResources
 {
 	std::unique_ptr<MeshGeometry> Geometry;
 	std::unordered_map<std::string, std::unique_ptr<Texture>> Textures;
 	std::vector<Texture *> OrderedTextures;
-	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> SrvDescriptorHeap;
+	DescriptorHeap SrvDescriptorHeap;
 
 	void DisposeUploaders()
 	{

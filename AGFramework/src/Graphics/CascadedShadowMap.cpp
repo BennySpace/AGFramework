@@ -9,8 +9,6 @@ bool CascadedShadowMap::Initialize(ID3D12Device *device, const Desc &desc)
 
 	m_device = device;
 	m_desc = desc;
-	m_dsvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-	m_srvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	m_viewport = {0.0f, 0.0f, static_cast<float>(m_desc.Width), static_cast<float>(m_desc.Height), 0.0f, 1.0f};
 	m_scissorRect = {0, 0, static_cast<LONG>(m_desc.Width), static_cast<LONG>(m_desc.Height)};
 
@@ -22,19 +20,17 @@ bool CascadedShadowMap::Initialize(ID3D12Device *device, const Desc &desc)
 
 D3D12_CPU_DESCRIPTOR_HANDLE CascadedShadowMap::GetDsv(std::uint32_t cascadeIndex) const
 {
-	CD3DX12_CPU_DESCRIPTOR_HANDLE handle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
-	handle.Offset(static_cast<INT>(cascadeIndex), static_cast<INT>(m_dsvDescriptorSize));
-	return handle;
+	return m_dsvHeap.CpuHandleAt(cascadeIndex);
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE CascadedShadowMap::GetSrv() const
 {
-	return m_srvHeap->GetCPUDescriptorHandleForHeapStart();
+	return m_srvHeap.CpuHandleAt(0);
 }
 
 D3D12_GPU_DESCRIPTOR_HANDLE CascadedShadowMap::GetSrvGpuHandle() const
 {
-	return m_srvHeap->GetGPUDescriptorHandleForHeapStart();
+	return m_srvHeap.GpuHandleAt(0);
 }
 
 void CascadedShadowMap::ClearCascade(ID3D12GraphicsCommandList *commandList, std::uint32_t cascadeIndex) const
@@ -57,20 +53,8 @@ void CascadedShadowMap::ClearAll(ID3D12GraphicsCommandList *commandList) const
 
 void CascadedShadowMap::CreateDescriptorHeaps()
 {
-	m_dsvHeap.Reset();
-	m_srvHeap.Reset();
-
-	D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
-	dsvHeapDesc.NumDescriptors = m_desc.CascadeCount;
-	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-	dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	ThrowIfFailed(m_device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(m_dsvHeap.GetAddressOf())));
-
-	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.NumDescriptors = 1;
-	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	ThrowIfFailed(m_device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(m_srvHeap.GetAddressOf())));
+	m_dsvHeap.Initialize(m_device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, m_desc.CascadeCount, D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
+	m_srvHeap.Initialize(m_device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 }
 
 void CascadedShadowMap::CreateResource()
