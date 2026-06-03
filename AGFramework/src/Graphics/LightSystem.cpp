@@ -2,41 +2,71 @@
 
 using namespace DirectX;
 
-void LightSystem::Update(const XMFLOAT3 &eyePosition, const XMFLOAT3 &lookDirection)
+namespace
 {
-	m_lightingState.DirectionalLights[0].Direction = XMFLOAT4(0.45f, -0.82f, 0.35f, 0.0f);
-	m_lightingState.DirectionalLights[0].Color =
-	    m_lightEnableState.DirectionalLights[0] ? XMFLOAT4(0.72f, 0.74f, 0.70f, 1.0f) : XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
+constexpr XMFLOAT3 kDefaultDirectionalDirection = XMFLOAT3(-0.577f, -0.577f, 0.577f);
+constexpr XMFLOAT4 kPointLightParams = XMFLOAT4(12.0f, 1.35f, 0.0f, 1.0f);
+constexpr XMFLOAT4 kPrimarySpotLightParams = XMFLOAT4(48.0f, 0.96f, 0.88f, 3.25f);
+constexpr XMFLOAT3 kSecondarySpotLightDirection = XMFLOAT3(0.0f, -0.45f, 1.0f);
+constexpr XMFLOAT4 kSecondarySpotLightParams = XMFLOAT4(24.0f, 0.95f, 0.82f, 2.2f);
 
-	const std::array<XMFLOAT3, PointLightCount> pointPositions = {XMFLOAT3(-6.0f, 4.0f, -6.0f), XMFLOAT3(6.0f, 4.0f, -6.0f),
-	                                                              XMFLOAT3(-6.0f, 4.5f, 0.0f),  XMFLOAT3(6.0f, 4.5f, 0.0f),
-	                                                              XMFLOAT3(-5.0f, 4.0f, 6.0f),  XMFLOAT3(5.0f, 4.0f, 6.0f)};
-	const std::array<XMFLOAT4, PointLightCount> pointColors = {XMFLOAT4(1.0f, 0.45f, 0.30f, 1.0f),  XMFLOAT4(1.0f, 0.70f, 0.35f, 1.0f),
-	                                                           XMFLOAT4(0.35f, 0.85f, 1.0f, 1.0f),  XMFLOAT4(0.50f, 1.0f, 0.55f, 1.0f),
-	                                                           XMFLOAT4(0.95f, 0.35f, 0.95f, 1.0f), XMFLOAT4(1.0f, 0.95f, 0.55f, 1.0f)};
+XMFLOAT4 ScaleLightColor(const XMFLOAT4 &color, float intensity)
+{
+	return XMFLOAT4(color.x * intensity, color.y * intensity, color.z * intensity, color.w);
+}
+
+XMFLOAT3 NormalizeOrFallback(const XMFLOAT3 &value, const XMFLOAT3 &fallback)
+{
+	const XMVECTOR vector = XMLoadFloat3(&value);
+	if (XMVector3NearEqual(vector, XMVectorZero(), XMVectorReplicate(0.0001f)))
+	{
+		return fallback;
+	}
+
+	XMFLOAT3 normalized;
+	XMStoreFloat3(&normalized, XMVector3Normalize(vector));
+	return normalized;
+}
+} // namespace
+
+void LightSystem::Update(const XMFLOAT3 &eyePosition, const XMFLOAT3 &lookDirection, const EditState &editState)
+{
+	const XMFLOAT3 directionalDirection = NormalizeOrFallback(editState.DirectionState.DirectionalLights[0], kDefaultDirectionalDirection);
+	m_lightingState.DirectionalLights[0].Direction =
+	    XMFLOAT4(directionalDirection.x, directionalDirection.y, directionalDirection.z, 0.0f);
+	m_lightingState.DirectionalLights[0].Color =
+	    editState.EnableState.DirectionalLights[0]
+	        ? ScaleLightColor(editState.ColorState.DirectionalLights[0], editState.IntensityState.DirectionalLights[0])
+	        : XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
 
 	for (std::size_t lightIndex = 0; lightIndex < PointLightCount; ++lightIndex)
 	{
-		const XMFLOAT3 &position = pointPositions[lightIndex];
+		const XMFLOAT3 &position = editState.PositionState.PointLights[lightIndex];
 		m_lightingState.PointLights[lightIndex].Position = XMFLOAT4(position.x, position.y, position.z, 1.0f);
 		m_lightingState.PointLights[lightIndex].Color =
-		    m_lightEnableState.PointLights[lightIndex] ? pointColors[lightIndex] : XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
-		m_lightingState.PointLights[lightIndex].Params = XMFLOAT4(12.0f, 1.35f, 0.0f, 1.0f);
+		    editState.EnableState.PointLights[lightIndex]
+		        ? ScaleLightColor(editState.ColorState.PointLights[lightIndex], editState.IntensityState.PointLights[lightIndex])
+		        : XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
+		m_lightingState.PointLights[lightIndex].Params = kPointLightParams;
 	}
 
-	const XMVECTOR spotDirectionVector = XMVector3Normalize(XMLoadFloat3(&lookDirection));
-	XMFLOAT3 spotDirection;
-	XMStoreFloat3(&spotDirection, spotDirectionVector);
-
+	const XMFLOAT3 primarySpotDirection = NormalizeOrFallback(lookDirection, XMFLOAT3(0.0f, 0.0f, 1.0f));
 	m_lightingState.SpotLights[0].Position = XMFLOAT4(eyePosition.x, eyePosition.y, eyePosition.z, 1.0f);
-	m_lightingState.SpotLights[0].Direction = XMFLOAT4(spotDirection.x, spotDirection.y, spotDirection.z, 0.0f);
+	m_lightingState.SpotLights[0].Direction =
+	    XMFLOAT4(primarySpotDirection.x, primarySpotDirection.y, primarySpotDirection.z, 0.0f);
 	m_lightingState.SpotLights[0].Color =
-	    m_lightEnableState.SpotLights[0] ? XMFLOAT4(0.38f, 0.48f, 1.0f, 1.0f) : XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
-	m_lightingState.SpotLights[0].Params = XMFLOAT4(48.0f, 0.96f, 0.88f, 3.25f);
+	    editState.EnableState.SpotLights[0]
+	        ? ScaleLightColor(editState.ColorState.SpotLights[0], editState.IntensityState.SpotLights[0])
+	        : XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
+	m_lightingState.SpotLights[0].Params = kPrimarySpotLightParams;
 
-	m_lightingState.SpotLights[1].Position = XMFLOAT4(0.0f, 8.0f, -6.0f, 1.0f);
-	m_lightingState.SpotLights[1].Direction = XMFLOAT4(0.0f, -0.45f, 1.0f, 0.0f);
+	m_lightingState.SpotLights[1].Position = XMFLOAT4(editState.PositionState.SecondarySpotLight.x, editState.PositionState.SecondarySpotLight.y,
+	                                                   editState.PositionState.SecondarySpotLight.z, 1.0f);
+	m_lightingState.SpotLights[1].Direction =
+	    XMFLOAT4(kSecondarySpotLightDirection.x, kSecondarySpotLightDirection.y, kSecondarySpotLightDirection.z, 0.0f);
 	m_lightingState.SpotLights[1].Color =
-	    m_lightEnableState.SpotLights[1] ? XMFLOAT4(1.0f, 0.92f, 0.70f, 1.0f) : XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
-	m_lightingState.SpotLights[1].Params = XMFLOAT4(24.0f, 0.95f, 0.82f, 2.2f);
+	    editState.EnableState.SpotLights[1]
+	        ? ScaleLightColor(editState.ColorState.SpotLights[1], editState.IntensityState.SpotLights[1])
+	        : XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
+	m_lightingState.SpotLights[1].Params = kSecondarySpotLightParams;
 }
