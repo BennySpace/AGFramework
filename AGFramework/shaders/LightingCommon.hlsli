@@ -30,11 +30,13 @@ cbuffer ObjectConstants : register(b0)
 	float4x4 gWorldInvTranspose;
 	float4x4 gWorldViewProj;
 	float4x4 gView;
+	float4x4 gInvViewProj;
 	float4x4 gTexTransform;
 	float3 gEyePosW;
 	float gPad0;
 	float4 gAmbientLight;
 	float4 gBackgroundColor;
+	float4 gAmbientFloor;
 	float4 gDiffuseAlbedo;
 	float4 gPbrParams;
 	float4 gImageBasedLightingSettings;
@@ -58,11 +60,12 @@ cbuffer AuxiliarySettings : register(b1)
 Texture2D gTexture0 : register(t0);
 Texture2D gTexture1 : register(t1);
 Texture2D gTexture2 : register(t2);
-Texture2D gTexture3 : register(t3);
-Texture2DArray gShadowMap : register(t4);
-TextureCube gIrradianceMap : register(t5);
-TextureCube gPrefilterMap : register(t6);
+Texture2DArray gShadowMap : register(t3);
+TextureCube gIrradianceMap : register(t4);
+TextureCube gPrefilterMap : register(t5);
+TextureCube gEnvironmentMap : register(t6);
 Texture2D gBrdfLut : register(t7);
+Texture2D gDepthBuffer : register(t8);
 SamplerState gsamLinearWrap : register(s0);
 SamplerComparisonState gsamShadow : register(s1);
 SamplerState gsamLinearClamp : register(s2);
@@ -267,7 +270,7 @@ float3 ComputeMaterialF0(float3 albedo, float metallic)
 
 float3 ComputeDiffuseColor(float3 albedo, float metallic)
 {
-	return albedo * (1.0f - metallic);
+	return albedo;
 }
 
 float3 FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
@@ -278,12 +281,6 @@ float3 FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
 
 float3 DecodeImageBasedLightingSample(float4 encodedSample)
 {
-	if (gImageBasedLightingSettings.y > 0.5f)
-	{
-		const float rgbmScale = max(gImageBasedLightingSettings.z, 1.0f);
-		return encodedSample.rgb * encodedSample.a * rgbmScale;
-	}
-
 	return encodedSample.rgb;
 }
 

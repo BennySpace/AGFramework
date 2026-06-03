@@ -9,7 +9,7 @@ class MaterialSystem
 	{
 		DirectX::XMFLOAT4 DiffuseAlbedo = {1.0f, 1.0f, 1.0f, 1.0f};
 		// x = metallic, y = roughness, z = ambient occlusion, w = IBL intensity
-		DirectX::XMFLOAT4 PbrParams = {0.0f, 0.5f, 1.0f, 1.0f};
+		DirectX::XMFLOAT4 PbrParams = {0.0f, 0.58f, 1.0f, 0.95f};
 	};
 
 	const MaterialState &GetMaterialState() const

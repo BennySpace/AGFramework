@@ -9,6 +9,11 @@ cbuffer AuxiliarySettings : register(b1)
 	float4 gAuxiliarySettings;
 }
 
+cbuffer GeometryInstanceSettings : register(b2)
+{
+	float4 gDrawPositionOffset;
+}
+
 Texture2D gTexture0 : register(t0);
 SamplerState gsamLinearWrap : register(s0);
 
@@ -28,7 +33,7 @@ struct ShadowVertexOut
 ShadowVertexOut ShadowVS(VertexIn vin)
 {
 	ShadowVertexOut vout;
-	vout.PosH = mul(float4(vin.PosL, 1.0f), gWorldLightViewProj);
+	vout.PosH = mul(float4(vin.PosL + gDrawPositionOffset.xyz, 1.0f), gWorldLightViewProj);
 	float4 texCoord = mul(float4(vin.TexC, 0.0f, 1.0f), gTexTransform);
 	vout.TexC = texCoord.xy;
 	return vout;
