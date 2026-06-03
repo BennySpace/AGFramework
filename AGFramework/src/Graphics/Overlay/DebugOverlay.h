@@ -3,6 +3,11 @@
 #include "../dx12/d3dUtil.h"
 
 class GameTimer;
+namespace Demo
+{
+class DemoLightEditSession;
+class DemoShowcaseSession;
+}
 class MaterialSystem;
 class RenderSettings;
 class LightSystem;
@@ -15,19 +20,13 @@ class DebugOverlay
 		Final = 0,
 		Albedo = 1,
 		Normal = 2,
-		Position = 3,
 		ShadowCascade = 4,
 		ShadowFactor = 5,
-		DirectionalShadowMap = 6,
-		DirectionalShadowFrustum = 7,
 		Metallic = 8,
 		Roughness = 9,
 		AmbientOcclusion = 10,
-		IblIntensity = 11,
 		DirectLighting = 12,
-		AmbientLighting = 13,
-		DiffuseIbl = 14,
-		SpecularIbl = 15
+		AmbientLighting = 13
 	};
 
 	DebugOverlay() = default;
@@ -37,22 +36,21 @@ class DebugOverlay
 	void Shutdown();
 	void Draw(ID3D12GraphicsCommandList *commandList, const GameTimer &gameTimer, DirectX::XMFLOAT3 &eyePosition,
 	          DirectX::XMFLOAT3 &lookDirection, float &yaw, float &pitch, float &cameraMoveSpeed, float &cameraMouseSensitivity,
-	          MaterialSystem &materialSystem, RenderSettings &renderSettings, LightSystem &lightSystem);
+	          MaterialSystem &materialSystem, RenderSettings &renderSettings, LightSystem &lightSystem, Demo::DemoShowcaseSession &showcaseSession,
+	          Demo::DemoLightEditSession &lightEditSession);
 
 	DebugViewMode GetDebugViewMode() const
 	{
 		return m_debugViewMode;
 	}
-	int GetShadowDebugCascadeIndex() const
-	{
-		return m_shadowDebugCascadeIndex;
-	}
 
   private:
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvHeap;
 	bool m_isInitialized = false;
+	bool m_isResizingSidebar = false;
 	DebugViewMode m_debugViewMode = DebugViewMode::Final;
-	bool m_showLightMarkers = true;
+	bool m_showLightMarkers = false;
+	bool m_showLightBounds = false;
 	float m_lightMarkerScale = 1.0f;
-	int m_shadowDebugCascadeIndex = 0;
+	float m_sidebarWidth = 348.0f;
 };

@@ -2,7 +2,8 @@
 #define NOMINMAX
 
 #include "InputDevice.h"
-#include <iostream>
+#include <sstream>
+#include <stdexcept>
 #include <windows.h>
 
 using namespace DirectX::SimpleMath;
@@ -23,8 +24,10 @@ InputDevice::InputDevice(HWND hWnd) : m_hWnd(hWnd)
 
 	if (RegisterRawInputDevices(Rid, 2, sizeof(Rid[0])) == FALSE)
 	{
-		auto errorCode = GetLastError();
-		std::cout << "ERROR: " << errorCode << std::endl;
+		const DWORD errorCode = GetLastError();
+		std::ostringstream errorStream;
+		errorStream << "Failed to register raw input devices. Windows error code: " << errorCode;
+		throw std::runtime_error(errorStream.str());
 	}
 }
 
@@ -70,8 +73,8 @@ void InputDevice::HandleMouseInput(RawMouseEventArgs args)
 	GetCursorPos(&p);
 	ScreenToClient(m_hWnd, &p);
 
-	MousePosition = Vector2(p.x, p.y);
-	MouseOffset = Vector2(args.X, args.Y);
+	MousePosition = Vector2(static_cast<float>(p.x), static_cast<float>(p.y));
+	MouseOffset = Vector2(static_cast<float>(args.X), static_cast<float>(args.Y));
 	MouseWheelDelta = args.WheelDelta;
 
 	const MouseMoveEventArgs moveArgs = {MousePosition, MouseOffset, MouseWheelDelta};

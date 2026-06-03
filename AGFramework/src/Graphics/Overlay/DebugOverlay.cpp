@@ -1,6 +1,9 @@
 #include "DebugOverlay.h"
 
 #include "../../Core/GameTimer.h"
+#include "../Demo/DemoLightEditSession.h"
+#include "../Demo/DemoLightingController.h"
+#include "../Demo/DemoShowcaseSession.h"
 #include "../LightSystem.h"
 #include "../MaterialSystem.h"
 #include "../RenderSettings.h"
@@ -70,6 +73,109 @@ XMFLOAT3 ExtractDirection(const XMFLOAT4 &value)
 	return XMFLOAT3(value.x, value.y, value.z);
 }
 
+XMFLOAT4 WithAlpha(const XMFLOAT4 &color, float alpha)
+{
+	return XMFLOAT4(color.x, color.y, color.z, alpha);
+}
+
+ImU32 ToImColor(const XMFLOAT4 &color, bool isEnabled, float enabledAlpha = 1.0f, float disabledAlpha = 0.35f)
+{
+	return ImGui::ColorConvertFloat4ToU32(ImVec4(color.x, color.y, color.z, isEnabled ? enabledAlpha : disabledAlpha));
+}
+
+void DrawProjectedSegment(ImDrawList *drawList, const XMFLOAT3 &a, const XMFLOAT3 &b, const XMMATRIX &viewProj, const ImVec2 &displaySize,
+                          ImU32 color, float thickness)
+{
+	ImVec2 screenA;
+	ImVec2 screenB;
+	if (ProjectWorldToScreen(a, viewProj, displaySize, screenA) && ProjectWorldToScreen(b, viewProj, displaySize, screenB))
+	{
+		drawList->AddLine(screenA, screenB, color, thickness);
+	}
+}
+
+void DrawWorldCircle(ImDrawList *drawList, const XMFLOAT3 &center, float radius, const XMVECTOR &axisA, const XMVECTOR &axisB,
+                     const XMMATRIX &viewProj, const ImVec2 &displaySize, ImU32 color, float thickness)
+{
+	static constexpr int SegmentCount = 48;
+	if (radius <= 0.0f)
+	{
+		return;
+	}
+
+	XMFLOAT3 previousPoint;
+	for (int segmentIndex = 0; segmentIndex <= SegmentCount; ++segmentIndex)
+	{
+		const float angle = XM_2PI * static_cast<float>(segmentIndex) / static_cast<float>(SegmentCount);
+		const XMVECTOR offset = axisA * (cosf(angle) * radius) + axisB * (sinf(angle) * radius);
+		const XMVECTOR point = XMLoadFloat3(&center) + offset;
+		XMFLOAT3 currentPoint;
+		XMStoreFloat3(&currentPoint, point);
+
+		if (segmentIndex > 0)
+		{
+			DrawProjectedSegment(drawList, previousPoint, currentPoint, viewProj, displaySize, color, thickness);
+		}
+		previousPoint = currentPoint;
+	}
+}
+
+void DrawPointLightBounds(ImDrawList *drawList, const LightSystem::PointLightData &light, bool isEnabled, const XMMATRIX &viewProj,
+                          const ImVec2 &displaySize)
+{
+	const XMFLOAT3 center = ExtractPosition(light.Position);
+	const float radius = light.Params.x;
+	const ImU32 color = ToImColor(WithAlpha(light.Color, 1.0f), isEnabled, 0.42f, 0.16f);
+	const float thickness = isEnabled ? 1.6f : 1.0f;
+
+	DrawWorldCircle(drawList, center, radius, XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f), XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f), viewProj,
+	                displaySize, color, thickness);
+	DrawWorldCircle(drawList, center, radius, XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f), XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), viewProj,
+	                displaySize, color, thickness);
+	DrawWorldCircle(drawList, center, radius, XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f), XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), viewProj,
+	                displaySize, color, thickness);
+}
+
+void DrawSpotLightBounds(ImDrawList *drawList, const LightSystem::SpotLightData &light, bool isEnabled, const XMMATRIX &viewProj,
+                         const ImVec2 &displaySize)
+{
+	static constexpr int SegmentCount = 32;
+	const XMFLOAT3 position = ExtractPosition(light.Position);
+	const XMFLOAT3 directionF = ExtractDirection(light.Direction);
+	XMVECTOR direction = XMLoadFloat3(&directionF);
+	if (XMVector3NearEqual(direction, XMVectorZero(), XMVectorReplicate(0.0001f)))
+	{
+		return;
+	}
+	direction = XMVector3Normalize(direction);
+
+	const float range = (std::max)(0.0f, light.Params.x);
+	const float outerConeCos = (std::max)(-0.99f, (std::min)(0.99f, light.Params.z));
+	const float baseRadius = range * tanf(acosf(outerConeCos));
+	const XMVECTOR apex = XMLoadFloat3(&position);
+	const XMVECTOR baseCenter = apex + direction * range;
+	const XMVECTOR worldUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+	const XMVECTOR fallbackUp = XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f);
+	const XMVECTOR helperUp = fabsf(XMVectorGetX(XMVector3Dot(direction, worldUp))) > 0.95f ? fallbackUp : worldUp;
+	const XMVECTOR axisA = XMVector3Normalize(XMVector3Cross(helperUp, direction));
+	const XMVECTOR axisB = XMVector3Normalize(XMVector3Cross(direction, axisA));
+	const ImU32 color = ToImColor(WithAlpha(light.Color, 1.0f), isEnabled, 0.48f, 0.16f);
+	const float thickness = isEnabled ? 1.6f : 1.0f;
+
+	XMFLOAT3 baseCenterF;
+	XMStoreFloat3(&baseCenterF, baseCenter);
+	DrawWorldCircle(drawList, baseCenterF, baseRadius, axisA, axisB, viewProj, displaySize, color, thickness);
+
+	for (int segmentIndex = 0; segmentIndex < SegmentCount; segmentIndex += SegmentCount / 4)
+	{
+		const float angle = XM_2PI * static_cast<float>(segmentIndex) / static_cast<float>(SegmentCount);
+		const XMVECTOR edge = baseCenter + axisA * (cosf(angle) * baseRadius) + axisB * (sinf(angle) * baseRadius);
+		XMFLOAT3 edgeF;
+		XMStoreFloat3(&edgeF, edge);
+		DrawProjectedSegment(drawList, position, edgeF, viewProj, displaySize, color, thickness);
+	}
+}
+
 void DrawPointLightMarker(ImDrawList *drawList, const LightSystem::PointLightData &light, bool isEnabled, float markerScale,
                           const XMMATRIX &viewProj, const ImVec2 &displaySize, int lightIndex)
 {
@@ -79,7 +185,7 @@ void DrawPointLightMarker(ImDrawList *drawList, const LightSystem::PointLightDat
 		return;
 	}
 
-	const ImU32 color = ImGui::ColorConvertFloat4ToU32(ImVec4(light.Color.x, light.Color.y, light.Color.z, isEnabled ? 1.0f : 0.35f));
+	const ImU32 color = ToImColor(WithAlpha(light.Color, 1.0f), isEnabled);
 	const float radius = (std::max)(4.0f, 6.0f * markerScale);
 	drawList->AddCircleFilled(screenPosition, radius, color);
 	drawList->AddCircle(screenPosition, radius + 1.5f, IM_COL32(255, 255, 255, 220), 0, 2.0f);
@@ -113,7 +219,7 @@ void DrawSpotLightMarker(ImDrawList *drawList, const LightSystem::SpotLightData 
 		return;
 	}
 
-	const ImU32 color = ImGui::ColorConvertFloat4ToU32(ImVec4(light.Color.x, light.Color.y, light.Color.z, isEnabled ? 1.0f : 0.35f));
+	const ImU32 color = ToImColor(WithAlpha(light.Color, 1.0f), isEnabled);
 	const float radius = (std::max)(4.0f, 5.0f * markerScale);
 	drawList->AddCircleFilled(screenPosition, radius, color);
 	drawList->AddCircle(screenPosition, radius + 1.0f, IM_COL32(255, 255, 255, 220), 0, 2.0f);
@@ -152,7 +258,7 @@ void DrawDirectionalLightMarker(ImDrawList *drawList, const LightSystem::Directi
 		return;
 	}
 
-	const ImU32 color = ImGui::ColorConvertFloat4ToU32(ImVec4(light.Color.x, light.Color.y, light.Color.z, isEnabled ? 1.0f : 0.35f));
+	const ImU32 color = ToImColor(WithAlpha(light.Color, 1.0f), isEnabled);
 	drawList->AddLine(screenStart, screenEnd, color, (std::max)(2.5f, 2.5f * markerScale));
 	drawList->AddCircleFilled(screenEnd, (std::max)(4.0f, 4.0f * markerScale), color);
 	drawList->AddText(ImVec2(screenEnd.x + 6.0f, screenEnd.y - 10.0f), IM_COL32(255, 255, 255, 220), "D0");
@@ -210,105 +316,175 @@ void DebugOverlay::Shutdown()
 
 void DebugOverlay::Draw(ID3D12GraphicsCommandList *commandList, const GameTimer &gameTimer, XMFLOAT3 &eyePosition, XMFLOAT3 &lookDirection,
                         float &yaw, float &pitch, float &cameraMoveSpeed, float &cameraMouseSensitivity, MaterialSystem &materialSystem,
-                        RenderSettings &renderSettings, LightSystem &lightSystem)
+                        RenderSettings &renderSettings, LightSystem &lightSystem, Demo::DemoShowcaseSession &showcaseSession,
+                        Demo::DemoLightEditSession &lightEditSession)
 {
 	ImGui_ImplDX12_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
 
-	ImGui::Begin("Debug");
+	ImGuiIO &io = ImGui::GetIO();
+	const float minSidebarWidth = 280.0f;
+	const float maxSidebarWidth = (std::max)(minSidebarWidth, io.DisplaySize.x * 0.6f);
+	if (m_isResizingSidebar)
+	{
+		if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
+		{
+			m_sidebarWidth = (std::max)(minSidebarWidth, (std::min)(maxSidebarWidth, io.MousePos.x));
+		}
+		else
+		{
+			m_isResizingSidebar = false;
+		}
+	}
+	m_sidebarWidth = (std::max)(minSidebarWidth, (std::min)(maxSidebarWidth, m_sidebarWidth));
+
+	ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
+	ImGui::SetNextWindowSize(ImVec2(m_sidebarWidth, io.DisplaySize.y), ImGuiCond_Always);
+	const ImGuiWindowFlags debugWindowFlags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse;
+	ImGui::Begin("Debug", nullptr, debugWindowFlags);
 	ImGui::Text("Renderer: DirectX 12 + Dear ImGui");
 	ImGui::Separator();
 	ImGui::Text("FPS: %.1f", gameTimer.DeltaTime() > 0.0 ? (1.0 / gameTimer.DeltaTime()) : 0.0);
 	ImGui::Text("Frame time: %.3f ms", gameTimer.DeltaTime() * 1000.0);
+	const bool matchesRecommendedLook = Demo::DemoLightingController::MatchesRecommendedLook(materialSystem, renderSettings, lightEditSession);
+	RenderSettings::DemoSettings demoSettings = Demo::DemoLightingController::GetDemoSettings(renderSettings);
+	const ImVec4 lookStatusColor = matchesRecommendedLook ? ImVec4(0.55f, 0.88f, 0.62f, 1.0f) : ImVec4(0.95f, 0.78f, 0.42f, 1.0f);
+	ImGui::TextColored(lookStatusColor, "%s", matchesRecommendedLook ? "Look: Recommended" : "Look: Custom");
+	if (ImGui::CollapsingHeader("Demo"))
+	{
+		if (ImGui::Checkbox("Enable demo controls", &demoSettings.EnableDemoControls))
+		{
+			Demo::DemoLightingController::SetDemoSettings(renderSettings, demoSettings);
+		}
+		if (ImGui::Checkbox("Enable PBR grid", &demoSettings.EnablePbrGrid))
+		{
+			Demo::DemoLightingController::SetDemoSettings(renderSettings, demoSettings);
+		}
+		if (demoSettings.EnablePbrGrid && ImGui::TreeNode("PBR grid"))
+		{
+			XMFLOAT3 pbrGridOffset = Demo::DemoLightingController::GetPbrGridOffset(showcaseSession);
+			if (ImGui::DragFloat3("Offset##PbrGrid", &pbrGridOffset.x, 0.1f))
+			{
+				Demo::DemoLightingController::SetPbrGridOffset(showcaseSession, pbrGridOffset);
+			}
+			if (ImGui::Button("Reset PBR grid"))
+			{
+				Demo::DemoLightingController::ResetRecommendedPbrGridOffset(showcaseSession);
+			}
+			ImGui::TextUnformatted("Changes apply on the next frame.");
+			ImGui::TreePop();
+		}
+	}
 	if (ImGui::CollapsingHeader("View"))
 	{
 		const char *viewModeLabels[] = {"Final",
 		                                "Albedo",
 		                                "Normal",
-		                                "Position",
 		                                "Shadow cascade",
 		                                "Shadow factor",
-		                                "Directional shadow map",
-		                                "Directional shadow frustum",
 		                                "Metallic",
 		                                "Roughness",
 		                                "Ambient occlusion",
-		                                "IBL intensity",
 		                                "Direct lighting",
-		                                "Ambient lighting",
-		                                "Diffuse IBL",
-		                                "Specular IBL"};
-		int debugViewMode = static_cast<int>(m_debugViewMode);
-		if (ImGui::Combo("Debug view", &debugViewMode, viewModeLabels, IM_ARRAYSIZE(viewModeLabels)))
+		                                "Ambient lighting"};
+		const DebugViewMode debugViewModes[] = {DebugOverlay::DebugViewMode::Final,          DebugOverlay::DebugViewMode::Albedo,
+		                                        DebugOverlay::DebugViewMode::Normal,         DebugOverlay::DebugViewMode::ShadowCascade,
+		                                        DebugOverlay::DebugViewMode::ShadowFactor,   DebugOverlay::DebugViewMode::Metallic,
+		                                        DebugOverlay::DebugViewMode::Roughness,      DebugOverlay::DebugViewMode::AmbientOcclusion,
+		                                        DebugOverlay::DebugViewMode::DirectLighting, DebugOverlay::DebugViewMode::AmbientLighting};
+		int selectedViewIndex = 0;
+		for (int viewIndex = 0; viewIndex < static_cast<int>(IM_ARRAYSIZE(debugViewModes)); ++viewIndex)
 		{
-			m_debugViewMode = static_cast<DebugViewMode>(debugViewMode);
+			if (m_debugViewMode == debugViewModes[viewIndex])
+			{
+				selectedViewIndex = viewIndex;
+				break;
+			}
 		}
-		ImGui::SliderInt("Shadow debug cascade", &m_shadowDebugCascadeIndex, 0, 3);
-	}
-
-	if (ImGui::CollapsingHeader("Camera"))
-	{
-		ImGui::DragFloat3("Position", &eyePosition.x, 0.1f);
-		ImGui::DragFloat3("Look direction", &lookDirection.x, 0.01f);
-		ImGui::TextUnformatted("Use actions below to realign the camera.");
-		if (ImGui::Button("Reset look forward"))
+		if (ImGui::Combo("Debug view", &selectedViewIndex, viewModeLabels, IM_ARRAYSIZE(viewModeLabels)))
 		{
-			lookDirection = XMFLOAT3(0.0f, 0.0f, 1.0f);
-			yaw = 0.0f;
-			pitch = 0.0f;
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("Reset camera"))
-		{
-			eyePosition = XMFLOAT3(0.0f, 0.0f, 0.0f);
-			lookDirection = XMFLOAT3(0.0f, 0.0f, 1.0f);
-			yaw = 0.0f;
-			pitch = 0.0f;
-		}
-		ImGui::SliderFloat("Move speed", &cameraMoveSpeed, 1.0f, 50.0f);
-		const float minMouseSensitivity = 0.0005f;
-		const float maxMouseSensitivity = 0.02f;
-		float sensitivityPercent = 1.0f;
-		if (maxMouseSensitivity > minMouseSensitivity)
-		{
-			sensitivityPercent =
-			    1.0f + ((cameraMouseSensitivity - minMouseSensitivity) / (maxMouseSensitivity - minMouseSensitivity)) * 99.0f;
-		}
-		sensitivityPercent = (std::max)(1.0f, (std::min)(100.0f, sensitivityPercent));
-		if (ImGui::SliderFloat("Mouse sensitivity", &sensitivityPercent, 1.0f, 100.0f, "%.0f"))
-		{
-			const float normalizedValue = (sensitivityPercent - 1.0f) / 99.0f;
-			cameraMouseSensitivity = minMouseSensitivity + normalizedValue * (maxMouseSensitivity - minMouseSensitivity);
+			m_debugViewMode = debugViewModes[selectedViewIndex];
 		}
 	}
 
-	if (ImGui::CollapsingHeader("Material"))
+	if (demoSettings.EnableDemoControls && ImGui::CollapsingHeader("Advanced"))
 	{
-		MaterialSystem::MaterialState materialState = materialSystem.GetMaterialState();
-		if (ImGui::ColorEdit3("Base color", &materialState.DiffuseAlbedo.x))
+		if (ImGui::TreeNode("Camera"))
 		{
-			materialSystem.SetMaterialState(materialState);
+			ImGui::DragFloat3("Position", &eyePosition.x, 0.1f);
+			ImGui::DragFloat3("Look direction", &lookDirection.x, 0.01f);
+			if (ImGui::Button("Reset look forward"))
+			{
+				lookDirection = XMFLOAT3(0.0f, 0.0f, 1.0f);
+				yaw = 0.0f;
+				pitch = 0.0f;
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Reset camera"))
+			{
+				eyePosition = XMFLOAT3(0.0f, 0.0f, 0.0f);
+				lookDirection = XMFLOAT3(0.0f, 0.0f, 1.0f);
+				yaw = 0.0f;
+				pitch = 0.0f;
+			}
+			ImGui::SliderFloat("Move speed", &cameraMoveSpeed, 1.0f, 50.0f);
+			const float minMouseSensitivity = 0.0005f;
+			const float maxMouseSensitivity = 0.02f;
+			float sensitivityPercent = 1.0f;
+			if (maxMouseSensitivity > minMouseSensitivity)
+			{
+				sensitivityPercent =
+				    1.0f + ((cameraMouseSensitivity - minMouseSensitivity) / (maxMouseSensitivity - minMouseSensitivity)) * 99.0f;
+			}
+			sensitivityPercent = (std::max)(1.0f, (std::min)(100.0f, sensitivityPercent));
+			if (ImGui::SliderFloat("Mouse sensitivity", &sensitivityPercent, 1.0f, 100.0f, "%.0f"))
+			{
+				const float normalizedValue = (sensitivityPercent - 1.0f) / 99.0f;
+				cameraMouseSensitivity = minMouseSensitivity + normalizedValue * (maxMouseSensitivity - minMouseSensitivity);
+			}
+			ImGui::TreePop();
 		}
-		if (ImGui::SliderFloat("Opacity", &materialState.DiffuseAlbedo.w, 0.0f, 1.0f))
+		if (ImGui::TreeNode("Material"))
 		{
-			materialSystem.SetMaterialState(materialState);
-		}
-		if (ImGui::SliderFloat("Metallic", &materialState.PbrParams.x, 0.0f, 1.0f))
-		{
-			materialSystem.SetMaterialState(materialState);
-		}
-		if (ImGui::SliderFloat("Roughness", &materialState.PbrParams.y, 0.04f, 1.0f))
-		{
-			materialSystem.SetMaterialState(materialState);
-		}
-		if (ImGui::SliderFloat("Ambient occlusion", &materialState.PbrParams.z, 0.0f, 1.0f))
-		{
-			materialSystem.SetMaterialState(materialState);
-		}
-		if (ImGui::SliderFloat("IBL intensity", &materialState.PbrParams.w, 0.0f, 2.0f))
-		{
-			materialSystem.SetMaterialState(materialState);
+			MaterialSystem::MaterialState materialState = materialSystem.GetMaterialState();
+			if (ImGui::Button("Apply recommended material"))
+			{
+				materialState = Demo::DemoLightingController::BuildRecommendedMaterialState();
+				materialSystem.SetMaterialState(materialState);
+				materialState = materialSystem.GetMaterialState();
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Reset material"))
+			{
+				materialState = Demo::DemoLightingController::BuildRecommendedMaterialState();
+				materialSystem.SetMaterialState(materialState);
+			}
+			if (ImGui::ColorEdit3("Base color", &materialState.DiffuseAlbedo.x))
+			{
+				materialSystem.SetMaterialState(materialState);
+			}
+			if (ImGui::SliderFloat("Opacity", &materialState.DiffuseAlbedo.w, 0.0f, 1.0f))
+			{
+				materialSystem.SetMaterialState(materialState);
+			}
+			if (ImGui::SliderFloat("Metallic", &materialState.PbrParams.x, 0.0f, 1.0f))
+			{
+				materialSystem.SetMaterialState(materialState);
+			}
+			if (ImGui::SliderFloat("Roughness", &materialState.PbrParams.y, 0.04f, 1.0f))
+			{
+				materialSystem.SetMaterialState(materialState);
+			}
+			if (ImGui::SliderFloat("Ambient occlusion", &materialState.PbrParams.z, 0.0f, 1.0f))
+			{
+				materialSystem.SetMaterialState(materialState);
+			}
+			if (ImGui::SliderFloat("IBL intensity", &materialState.PbrParams.w, 0.0f, 2.0f))
+			{
+				materialSystem.SetMaterialState(materialState);
+			}
+			ImGui::TreePop();
 		}
 	}
 
@@ -317,7 +493,15 @@ void DebugOverlay::Draw(ID3D12GraphicsCommandList *commandList, const GameTimer 
 		RenderSettings::LightingSettings lightingSettings = renderSettings.GetLightingSettings();
 		RenderSettings::ImageBasedLightingSettings imageBasedLightingSettings = renderSettings.GetImageBasedLightingSettings();
 		RenderSettings::ShadowSettings shadowSettings = renderSettings.GetShadowSettings();
-		LightSystem::LightEnableState lightEnableState = lightSystem.GetLightEnableState();
+		Demo::DemoLightEditState lightEditState = Demo::DemoLightingController::GetLightEditState(lightEditSession);
+		if (ImGui::Button("Apply recommended look"))
+		{
+			Demo::DemoLightingController::ApplyRecommendedLook(materialSystem, renderSettings, lightEditSession);
+			lightingSettings = renderSettings.GetLightingSettings();
+			imageBasedLightingSettings = renderSettings.GetImageBasedLightingSettings();
+			shadowSettings = renderSettings.GetShadowSettings();
+			lightEditState = Demo::DemoLightingController::GetLightEditState(lightEditSession);
+		}
 		if (ImGui::ColorEdit3("Ambient", &lightingSettings.AmbientLight.x))
 		{
 			renderSettings.SetLightingSettings(lightingSettings);
@@ -330,20 +514,17 @@ void DebugOverlay::Draw(ID3D12GraphicsCommandList *commandList, const GameTimer 
 		{
 			renderSettings.SetLightingSettings(lightingSettings);
 		}
+		if (ImGui::ColorEdit3("Ambient floor", &lightingSettings.AmbientFloor.x))
+		{
+			renderSettings.SetLightingSettings(lightingSettings);
+		}
+		if (ImGui::SliderFloat("Ambient floor intensity", &lightingSettings.AmbientFloor.w, 0.0f, 3.0f))
+		{
+			renderSettings.SetLightingSettings(lightingSettings);
+		}
 
 		ImGui::SeparatorText("IBL");
-		if (ImGui::Checkbox("Auto IBL decode", &imageBasedLightingSettings.UseAutoDecoding))
-		{
-			renderSettings.SetImageBasedLightingSettings(imageBasedLightingSettings);
-		}
-		if (!imageBasedLightingSettings.UseAutoDecoding)
-		{
-			if (ImGui::Checkbox("Decode IBL as RGBM", &imageBasedLightingSettings.DecodeAsRgbm))
-			{
-				renderSettings.SetImageBasedLightingSettings(imageBasedLightingSettings);
-			}
-		}
-		if (ImGui::SliderFloat("IBL RGBM scale", &imageBasedLightingSettings.RgbmScale, 1.0f, 8.0f, "%.2f"))
+		if (ImGui::Checkbox("Show skybox", &imageBasedLightingSettings.ShowSkybox))
 		{
 			renderSettings.SetImageBasedLightingSettings(imageBasedLightingSettings);
 		}
@@ -355,136 +536,260 @@ void DebugOverlay::Draw(ID3D12GraphicsCommandList *commandList, const GameTimer 
 		{
 			renderSettings.SetImageBasedLightingSettings(imageBasedLightingSettings);
 		}
-
-		ImGui::SeparatorText("Shadows");
-		ImGui::TextUnformatted("Current scope: directional light only");
-		if (ImGui::Checkbox("Enable directional shadows", &shadowSettings.EnableDirectionalShadows))
+		if (ImGui::SliderFloat("Skybox intensity", &imageBasedLightingSettings.SkyboxIntensity, 0.0f, 5.0f, "%.2f"))
 		{
-			renderSettings.SetShadowSettings(shadowSettings);
+			renderSettings.SetImageBasedLightingSettings(imageBasedLightingSettings);
 		}
-		int cascadeCount = static_cast<int>(shadowSettings.CascadeCount);
-		if (ImGui::SliderInt("Cascade count", &cascadeCount, 1, 4))
+		if (ImGui::SliderFloat("Exposure", &imageBasedLightingSettings.Exposure, 0.25f, 5.0f, "%.2f"))
 		{
-			shadowSettings.CascadeCount = static_cast<std::uint32_t>(cascadeCount);
-			renderSettings.SetShadowSettings(shadowSettings);
-		}
-		int shadowMapSize = static_cast<int>(shadowSettings.ShadowMapSize);
-		if (ImGui::SliderInt("Shadow map size", &shadowMapSize, 512, 4096))
-		{
-			shadowMapSize = (std::max)(512, shadowMapSize);
-			shadowMapSize = ((shadowMapSize + 255) / 256) * 256;
-			shadowSettings.ShadowMapSize = static_cast<std::uint32_t>(shadowMapSize);
-			renderSettings.SetShadowSettings(shadowSettings);
-		}
-		if (ImGui::SliderFloat("Cascade split lambda", &shadowSettings.CascadeSplitLambda, 0.0f, 1.0f, "%.2f"))
-		{
-			renderSettings.SetShadowSettings(shadowSettings);
-		}
-		if (ImGui::SliderFloat("Max shadow distance", &shadowSettings.MaxShadowDistance, 25.0f, 500.0f, "%.1f"))
-		{
-			renderSettings.SetShadowSettings(shadowSettings);
-		}
-		if (ImGui::SliderFloat("Depth bias", &shadowSettings.DepthBias, 0.0f, 10000.0f, "%.0f"))
-		{
-			renderSettings.SetShadowSettings(shadowSettings);
-		}
-		if (ImGui::SliderFloat("Slope bias", &shadowSettings.SlopeScaledDepthBias, 0.0f, 8.0f, "%.2f"))
-		{
-			renderSettings.SetShadowSettings(shadowSettings);
-		}
-		if (ImGui::SliderFloat("Bias clamp", &shadowSettings.DepthBiasClamp, 0.0f, 10.0f, "%.3f"))
-		{
-			renderSettings.SetShadowSettings(shadowSettings);
-		}
-		if (ImGui::SliderFloat("PCF radius", &shadowSettings.PcfRadius, 0.0f, 4.0f, "%.2f"))
-		{
-			renderSettings.SetShadowSettings(shadowSettings);
-		}
-		if (ImGui::SliderFloat("Shadow strength", &shadowSettings.ShadowStrength, 0.0f, 1.0f, "%.2f"))
-		{
-			renderSettings.SetShadowSettings(shadowSettings);
-		}
-		if (ImGui::SliderFloat("Receiver bias min", &shadowSettings.ReceiverBiasMin, 0.00001f, 0.001f, "%.5f"))
-		{
-			renderSettings.SetShadowSettings(shadowSettings);
-		}
-		if (ImGui::SliderFloat("Receiver bias slope", &shadowSettings.ReceiverBiasSlopeScale, 0.0f, 0.005f, "%.5f"))
-		{
-			renderSettings.SetShadowSettings(shadowSettings);
-		}
-		if (ImGui::SliderFloat("Receiver bias texel", &shadowSettings.ReceiverBiasTexelFactor, 0.0f, 4.0f, "%.2f"))
-		{
-			renderSettings.SetShadowSettings(shadowSettings);
+			renderSettings.SetImageBasedLightingSettings(imageBasedLightingSettings);
 		}
 
-		ImGui::SeparatorText("Lights");
-		ImGui::Checkbox("Show light markers", &m_showLightMarkers);
-		ImGui::SliderFloat("Marker scale", &m_lightMarkerScale, 0.5f, 2.5f, "%.2f");
-
-		if (ImGui::TreeNode("Directional"))
+		if (demoSettings.EnableDemoControls)
 		{
-			bool enableDirectionalLight = lightEnableState.DirectionalLights[0];
-			if (ImGui::Checkbox("Directional 0", &enableDirectionalLight))
+			if (ImGui::TreeNode("Shadows"))
 			{
-				lightEnableState.DirectionalLights[0] = enableDirectionalLight;
-				lightSystem.SetLightEnableState(lightEnableState);
-			}
-			ImGui::TreePop();
-		}
-
-		if (ImGui::TreeNode("Point"))
-		{
-			for (int lightIndex = 0; lightIndex < static_cast<int>(LightSystem::PointLightCount); ++lightIndex)
-			{
-				bool isEnabled = lightEnableState.PointLights[lightIndex];
-				std::string label = "Point " + std::to_string(lightIndex);
-				if (ImGui::Checkbox(label.c_str(), &isEnabled))
+				ImGui::TextUnformatted("Current scope: directional light only.");
+				if (ImGui::Checkbox("Enable directional shadows", &shadowSettings.EnableDirectionalShadows))
 				{
-					lightEnableState.PointLights[lightIndex] = isEnabled;
-					lightSystem.SetLightEnableState(lightEnableState);
+					renderSettings.SetShadowSettings(shadowSettings);
 				}
-			}
-			ImGui::TreePop();
-		}
-
-		if (ImGui::TreeNode("Spot"))
-		{
-			for (int lightIndex = 0; lightIndex < static_cast<int>(LightSystem::SpotLightCount); ++lightIndex)
-			{
-				bool isEnabled = lightEnableState.SpotLights[lightIndex];
-				std::string label = "Spot " + std::to_string(lightIndex);
-				if (ImGui::Checkbox(label.c_str(), &isEnabled))
+				int cascadeCount = static_cast<int>(shadowSettings.CascadeCount);
+				if (ImGui::SliderInt("Cascade count", &cascadeCount, 1, 4))
 				{
-					lightEnableState.SpotLights[lightIndex] = isEnabled;
-					lightSystem.SetLightEnableState(lightEnableState);
+					shadowSettings.CascadeCount = static_cast<std::uint32_t>(cascadeCount);
+					renderSettings.SetShadowSettings(shadowSettings);
 				}
+				int shadowMapSize = static_cast<int>(shadowSettings.ShadowMapSize);
+				if (ImGui::SliderInt("Shadow map size", &shadowMapSize, 512, 4096))
+				{
+					shadowMapSize = (std::max)(512, shadowMapSize);
+					shadowMapSize = ((shadowMapSize + 255) / 256) * 256;
+					shadowSettings.ShadowMapSize = static_cast<std::uint32_t>(shadowMapSize);
+					renderSettings.SetShadowSettings(shadowSettings);
+				}
+				if (ImGui::SliderFloat("Cascade split lambda", &shadowSettings.CascadeSplitLambda, 0.0f, 1.0f, "%.2f"))
+				{
+					renderSettings.SetShadowSettings(shadowSettings);
+				}
+				if (ImGui::SliderFloat("Max shadow distance", &shadowSettings.MaxShadowDistance, 25.0f, 500.0f, "%.1f"))
+				{
+					renderSettings.SetShadowSettings(shadowSettings);
+				}
+				if (ImGui::SliderFloat("Depth bias", &shadowSettings.DepthBias, 0.0f, 10000.0f, "%.0f"))
+				{
+					renderSettings.SetShadowSettings(shadowSettings);
+				}
+				if (ImGui::SliderFloat("Slope bias", &shadowSettings.SlopeScaledDepthBias, 0.0f, 8.0f, "%.2f"))
+				{
+					renderSettings.SetShadowSettings(shadowSettings);
+				}
+				if (ImGui::SliderFloat("Bias clamp", &shadowSettings.DepthBiasClamp, 0.0f, 10.0f, "%.3f"))
+				{
+					renderSettings.SetShadowSettings(shadowSettings);
+				}
+				if (ImGui::SliderFloat("PCF radius", &shadowSettings.PcfRadius, 0.0f, 4.0f, "%.2f"))
+				{
+					renderSettings.SetShadowSettings(shadowSettings);
+				}
+				if (ImGui::SliderFloat("Shadow strength", &shadowSettings.ShadowStrength, 0.0f, 1.0f, "%.2f"))
+				{
+					renderSettings.SetShadowSettings(shadowSettings);
+				}
+				if (ImGui::SliderFloat("Receiver bias min", &shadowSettings.ReceiverBiasMin, 0.00001f, 0.001f, "%.5f"))
+				{
+					renderSettings.SetShadowSettings(shadowSettings);
+				}
+				if (ImGui::SliderFloat("Receiver bias slope", &shadowSettings.ReceiverBiasSlopeScale, 0.0f, 0.005f, "%.5f"))
+				{
+					renderSettings.SetShadowSettings(shadowSettings);
+				}
+				if (ImGui::SliderFloat("Receiver bias texel", &shadowSettings.ReceiverBiasTexelFactor, 0.0f, 4.0f, "%.2f"))
+				{
+					renderSettings.SetShadowSettings(shadowSettings);
+				}
+				ImGui::TreePop();
 			}
-			ImGui::TreePop();
+
+			if (ImGui::TreeNode("Lights"))
+			{
+				ImGui::Checkbox("Show light markers", &m_showLightMarkers);
+				ImGui::Checkbox("Show light bounds", &m_showLightBounds);
+				ImGui::SliderFloat("Marker scale", &m_lightMarkerScale, 0.5f, 2.5f, "%.2f");
+				if (ImGui::Button("Reset light positions"))
+				{
+					Demo::DemoLightingController::ResetRecommendedLightPositions(lightEditSession);
+					lightEditState = Demo::DemoLightingController::GetLightEditState(lightEditSession);
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Reset all lights"))
+				{
+					Demo::DemoLightingController::ApplyRecommendedLightPreset(lightEditSession);
+					lightEditState = Demo::DemoLightingController::GetLightEditState(lightEditSession);
+				}
+
+				if (ImGui::TreeNode("Directional"))
+				{
+					bool enableDirectionalLight = lightEditState.EnableState.DirectionalLights[0];
+					if (ImGui::Checkbox("Directional 0", &enableDirectionalLight))
+					{
+						lightEditState.EnableState.DirectionalLights[0] = enableDirectionalLight;
+						Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+					}
+					if (ImGui::ColorEdit3("Directional 0 color", &lightEditState.ColorState.DirectionalLights[0].x))
+					{
+						Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+					}
+					if (ImGui::SliderFloat("Directional 0 intensity", &lightEditState.IntensityState.DirectionalLights[0], 0.0f, 12.0f, "%.2f"))
+					{
+						Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+					}
+					if (ImGui::DragFloat3("Directional 0 direction", &lightEditState.DirectionState.DirectionalLights[0].x, 0.01f, -1.0f, 1.0f))
+					{
+						Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+					}
+					ImGui::TreePop();
+				}
+
+				if (ImGui::TreeNode("Point"))
+				{
+					for (int lightIndex = 0; lightIndex < static_cast<int>(LightSystem::PointLightCount); ++lightIndex)
+					{
+						bool isEnabled = lightEditState.EnableState.PointLights[lightIndex];
+						std::string label = "Point " + std::to_string(lightIndex);
+						if (ImGui::Checkbox(label.c_str(), &isEnabled))
+						{
+							lightEditState.EnableState.PointLights[lightIndex] = isEnabled;
+							Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+						}
+						ImGui::SameLine();
+						std::string colorLabel = "Color##Point" + std::to_string(lightIndex);
+						if (ImGui::ColorEdit3(colorLabel.c_str(), &lightEditState.ColorState.PointLights[lightIndex].x))
+						{
+							Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+						}
+						std::string intensityLabel = "Intensity##Point" + std::to_string(lightIndex);
+						if (ImGui::SliderFloat(intensityLabel.c_str(), &lightEditState.IntensityState.PointLights[lightIndex], 0.0f, 20.0f, "%.2f"))
+						{
+							Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+						}
+						std::string positionLabel = "Position##Point" + std::to_string(lightIndex);
+						if (ImGui::DragFloat3(positionLabel.c_str(), &lightEditState.PositionState.PointLights[lightIndex].x, 0.1f))
+						{
+							Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+						}
+					}
+					ImGui::TreePop();
+				}
+
+				if (ImGui::TreeNode("Spot"))
+				{
+					ImGui::TextUnformatted("Spot 0 follows the camera.");
+					for (int lightIndex = 0; lightIndex < static_cast<int>(LightSystem::SpotLightCount); ++lightIndex)
+					{
+						bool isEnabled = lightEditState.EnableState.SpotLights[lightIndex];
+						std::string label = "Spot " + std::to_string(lightIndex);
+						if (ImGui::Checkbox(label.c_str(), &isEnabled))
+						{
+							lightEditState.EnableState.SpotLights[lightIndex] = isEnabled;
+							Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+						}
+						ImGui::SameLine();
+						std::string colorLabel = "Color##Spot" + std::to_string(lightIndex);
+						if (ImGui::ColorEdit3(colorLabel.c_str(), &lightEditState.ColorState.SpotLights[lightIndex].x))
+						{
+							Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+						}
+						std::string intensityLabel = "Intensity##Spot" + std::to_string(lightIndex);
+						if (ImGui::SliderFloat(intensityLabel.c_str(), &lightEditState.IntensityState.SpotLights[lightIndex], 0.0f, 24.0f, "%.2f"))
+						{
+							Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+						}
+						if (lightIndex == 1 &&
+						    ImGui::DragFloat3("Position##Spot1", &lightEditState.PositionState.SecondarySpotLight.x, 0.1f))
+						{
+							Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+						}
+					}
+					ImGui::TreePop();
+				}
+				ImGui::TreePop();
+			}
+		}
+		else
+		{
+			ImGui::SeparatorText("Shadows");
+			if (ImGui::Checkbox("Enable directional shadows", &shadowSettings.EnableDirectionalShadows))
+			{
+				renderSettings.SetShadowSettings(shadowSettings);
+			}
+			ImGui::TextUnformatted("Advanced shadow and light controls are available in Demo mode.");
 		}
 	}
 	ImGui::End();
 
-	if (m_showLightMarkers)
+	const float splitterThickness = 8.0f;
+	const ImVec2 splitterMin(m_sidebarWidth - splitterThickness * 0.5f, 0.0f);
+	const ImVec2 splitterMax(m_sidebarWidth + splitterThickness * 0.5f, io.DisplaySize.y);
+	const bool splitterHovered = ImGui::IsMouseHoveringRect(splitterMin, splitterMax, false);
+	if (!m_isResizingSidebar && splitterHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
 	{
-		const ImVec2 displaySize = ImGui::GetIO().DisplaySize;
+		m_isResizingSidebar = true;
+	}
+	if (splitterHovered || m_isResizingSidebar)
+	{
+		ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+	}
+
+	ImDrawList *overlayDrawList = ImGui::GetForegroundDrawList();
+	const ImU32 splitterColor =
+	    ImGui::ColorConvertFloat4ToU32(splitterHovered || m_isResizingSidebar ? ImVec4(0.38f, 0.60f, 0.92f, 1.0f) : ImVec4(0.22f, 0.27f, 0.34f, 1.0f));
+	overlayDrawList->AddLine(ImVec2(m_sidebarWidth, 0.0f), ImVec2(m_sidebarWidth, io.DisplaySize.y), splitterColor, 2.0f);
+
+	if (demoSettings.EnableDemoControls && (m_showLightMarkers || m_showLightBounds))
+	{
+		const ImVec2 displaySize = io.DisplaySize;
 		const XMMATRIX viewProj = BuildViewProjection(eyePosition, lookDirection, displaySize);
 		const LightSystem::LightingState &lightingState = lightSystem.GetLightingState();
-		const LightSystem::LightEnableState &lightEnableState = lightSystem.GetLightEnableState();
-		ImDrawList *drawList = ImGui::GetForegroundDrawList();
+		const Demo::DemoLightEditState lightEditState = Demo::DemoLightingController::GetLightEditState(lightEditSession);
+		ImDrawList *drawList = overlayDrawList;
 
-		DrawDirectionalLightMarker(drawList, lightingState.DirectionalLights[0], lightEnableState.DirectionalLights[0], m_lightMarkerScale,
-		                           viewProj, displaySize);
+		LightSystem::DirectionalLightData directionalLight = lightingState.DirectionalLights[0];
+		directionalLight.Color = lightEditState.ColorState.DirectionalLights[0];
+		if (m_showLightMarkers)
+		{
+			DrawDirectionalLightMarker(drawList, directionalLight, lightEditState.EnableState.DirectionalLights[0], m_lightMarkerScale, viewProj,
+			                           displaySize);
+		}
 
 		for (int lightIndex = 0; lightIndex < static_cast<int>(LightSystem::PointLightCount); ++lightIndex)
 		{
-			DrawPointLightMarker(drawList, lightingState.PointLights[lightIndex], lightEnableState.PointLights[lightIndex],
-			                     m_lightMarkerScale, viewProj, displaySize, lightIndex);
+			LightSystem::PointLightData pointLight = lightingState.PointLights[lightIndex];
+			pointLight.Color = lightEditState.ColorState.PointLights[lightIndex];
+			if (m_showLightBounds)
+			{
+				DrawPointLightBounds(drawList, pointLight, lightEditState.EnableState.PointLights[lightIndex], viewProj, displaySize);
+			}
+			if (m_showLightMarkers)
+			{
+				DrawPointLightMarker(drawList, pointLight, lightEditState.EnableState.PointLights[lightIndex], m_lightMarkerScale, viewProj, displaySize,
+				                     lightIndex);
+			}
 		}
 
 		for (int lightIndex = 0; lightIndex < static_cast<int>(LightSystem::SpotLightCount); ++lightIndex)
 		{
-			DrawSpotLightMarker(drawList, lightingState.SpotLights[lightIndex], lightEnableState.SpotLights[lightIndex], m_lightMarkerScale,
-			                    viewProj, displaySize, lightIndex);
+			LightSystem::SpotLightData spotLight = lightingState.SpotLights[lightIndex];
+			spotLight.Color = lightEditState.ColorState.SpotLights[lightIndex];
+			if (m_showLightBounds)
+			{
+				DrawSpotLightBounds(drawList, spotLight, lightEditState.EnableState.SpotLights[lightIndex], viewProj, displaySize);
+			}
+			if (m_showLightMarkers)
+			{
+				DrawSpotLightMarker(drawList, spotLight, lightEditState.EnableState.SpotLights[lightIndex], m_lightMarkerScale, viewProj, displaySize,
+				                    lightIndex);
+			}
 		}
 	}
 
