@@ -2,6 +2,39 @@
 
 #include "../dx12/DirectX12Context.h"
 
+#include <stdexcept>
+
+namespace
+{
+std::string WStringToUtf8(const std::wstring &value)
+{
+	if (value.empty())
+	{
+		return std::string();
+	}
+
+	const int sizeRequired = WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, nullptr, 0, nullptr, nullptr);
+	std::string result(sizeRequired > 0 ? sizeRequired - 1 : 0, '\0');
+	if (sizeRequired > 1)
+	{
+		WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, &result[0], sizeRequired - 1, nullptr, nullptr);
+	}
+
+	return result;
+}
+
+bool FileExists(const std::wstring &filename)
+{
+	if (filename.empty())
+	{
+		return false;
+	}
+
+	const DWORD attributes = GetFileAttributesW(filename.c_str());
+	return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+}
+} // namespace
+
 void ResourceUploader::UploadTexture2D(DirectX12Context &context, Texture &texture, const void *pixelData, UINT width, UINT height,
                                        DXGI_FORMAT format)
 {
@@ -27,6 +60,26 @@ void ResourceUploader::UploadTexture2D(DirectX12Context &context, Texture &textu
 	auto transition = CD3DX12_RESOURCE_BARRIER::Transition(texture.Resource.Get(), D3D12_RESOURCE_STATE_COPY_DEST,
 	                                                       D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	context.GetCommandList()->ResourceBarrier(1, &transition);
+}
+
+void ResourceUploader::UploadSceneTexture(DirectX12Context &context, Texture &texture, const TextureLoader::SceneTextureSource &source,
+                                          DXGI_FORMAT format)
+{
+	texture.Filename = source.Filename;
+
+	if (source.SourceKind == TextureLoader::SceneTextureSource::Kind::DdsFile)
+	{
+		if (!FileExists(source.Filename))
+		{
+			throw std::runtime_error("Required DDS texture asset not found: " + WStringToUtf8(source.Filename));
+		}
+
+		ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(context.GetDevice(), context.GetCommandList(), source.Filename.c_str(),
+		                                                  texture.Resource, texture.UploadHeap));
+		return;
+	}
+
+	UploadTexture2D(context, texture, source.DecodedImage.Pixels.data(), source.DecodedImage.Width, source.DecodedImage.Height, format);
 }
 
 void ResourceUploader::UploadTextureCube(DirectX12Context &context, Texture &texture, const void *facePixelData, UINT faceWidth,

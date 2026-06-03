@@ -2,13 +2,14 @@
 
 #include "SceneData.h"
 #include "SceneResources.h"
+#include "../RenderSettings.h"
 
 class DirectX12Context;
 
 class SponzaScene
 {
   public:
-	void Initialize(DirectX12Context &context);
+	void Initialize(DirectX12Context &context, const RenderSettings::DemoSettings &demoSettings);
 	void DisposeUploaders();
 
 	const MeshGeometry &GetGeometry() const
@@ -35,9 +36,10 @@ class SponzaScene
 	{
 		return m_data.InitialCamera;
 	}
+	void ApplyPositionOffsetToDrawItems(const std::vector<int> &drawItemIndices, const DirectX::XMFLOAT3 &positionOffset);
 
   private:
-	void BuildGeometry(DirectX12Context &context);
+	void BuildGeometry(DirectX12Context &context, const RenderSettings::DemoSettings &demoSettings);
 	void BuildTextures(DirectX12Context &context);
 	void BuildDescriptorHeap(DirectX12Context &context);
 

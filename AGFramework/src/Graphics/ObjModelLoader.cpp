@@ -1,15 +1,47 @@
+#pragma warning(disable : 4244)
 #include "ObjModelLoader.h"
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
+
 #include <DirectXMath.h>
 #include <stdexcept>
+#include <windows.h>
 
 using namespace DirectX;
 
 namespace
 {
+std::wstring AnsiToWStringLocal(const std::string &value)
+{
+	if (value.empty())
+	{
+		return std::wstring();
+	}
+
+	const int sizeRequired = MultiByteToWideChar(CP_ACP, 0, value.c_str(), -1, nullptr, 0);
+	std::wstring result(sizeRequired > 0 ? sizeRequired - 1 : 0, L'\0');
+	if (sizeRequired > 1)
+	{
+		MultiByteToWideChar(CP_ACP, 0, value.c_str(), -1, &result[0], sizeRequired - 1);
+	}
+
+	return result;
+}
+
+bool FileExists(const std::string &path)
+{
+	if (path.empty())
+	{
+		return false;
+	}
+
+	const std::wstring widePath = AnsiToWStringLocal(path);
+	const DWORD attributes = GetFileAttributesW(widePath.c_str());
+	return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+}
+
 std::string JoinPath(const std::string &basePath, const std::string &relativePath)
 {
 	if (relativePath.empty())
@@ -39,10 +71,26 @@ std::string JoinPath(const std::string &basePath, const std::string &relativePat
 
 	return basePath + "\\" + relativePath;
 }
+
+std::string GetTexturePath(const aiMaterial *material, aiTextureType textureType, const std::string &basePath)
+{
+	aiString texturePath;
+	if (material->GetTexture(textureType, 0, &texturePath) == aiReturn_SUCCESS)
+	{
+		return JoinPath(basePath, texturePath.C_Str());
+	}
+
+	return std::string();
+}
 } // namespace
 
 std::vector<ObjModelLoader::MeshData> ObjModelLoader::Load(const std::string &filename) const
 {
+	if (!FileExists(filename))
+	{
+		throw std::runtime_error("Required model asset not found: " + filename);
+	}
+
 	Assimp::Importer importer;
 	const aiScene *scene =
 	    importer.ReadFile(filename, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_ConvertToLeftHanded |
@@ -76,11 +124,13 @@ std::vector<ObjModelLoader::MeshData> ObjModelLoader::Load(const std::string &fi
 				meshData.MaterialName = materialName.C_Str();
 			}
 
-			aiString diffusePath;
-			if (material->GetTexture(aiTextureType_DIFFUSE, 0, &diffusePath) == aiReturn_SUCCESS)
+			meshData.DiffuseTexturePath = GetTexturePath(material, aiTextureType_DIFFUSE, basePath);
+			meshData.NormalTexturePath = GetTexturePath(material, aiTextureType_NORMALS, basePath);
+			if (meshData.NormalTexturePath.empty())
 			{
-				meshData.DiffuseTexturePath = JoinPath(basePath, diffusePath.C_Str());
+				meshData.NormalTexturePath = GetTexturePath(material, aiTextureType_HEIGHT, basePath);
 			}
+			meshData.OrmTexturePath = GetTexturePath(material, aiTextureType_UNKNOWN, basePath);
 
 			aiString opacityPath;
 			meshData.HasAlphaCutout = material->GetTexture(aiTextureType_OPACITY, 0, &opacityPath) == aiReturn_SUCCESS;

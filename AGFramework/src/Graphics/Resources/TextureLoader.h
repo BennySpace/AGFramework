@@ -15,5 +15,21 @@ class TextureLoader
 		std::vector<std::uint8_t> Pixels;
 	};
 
+	struct SceneTextureSource
+	{
+		enum class Kind
+		{
+			DdsFile,
+			DecodedRgba
+		};
+
+		Kind SourceKind = Kind::DecodedRgba;
+		std::wstring Filename;
+		ImageData DecodedImage;
+		bool HasMipChain = false;
+	};
+
+	static ImageData LoadImage(const std::wstring &filename);
 	static ImageData LoadUncompressedTga(const std::wstring &filename);
+	static SceneTextureSource LoadSceneTexture(const std::wstring &filename);
 };

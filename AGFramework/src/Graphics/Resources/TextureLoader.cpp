@@ -2,22 +2,120 @@
 
 #include <array>
 #include <fstream>
+#include <wincodec.h>
+#include <wrl/client.h>
 #include <stdexcept>
+
+using Microsoft::WRL::ComPtr;
 
 namespace
 {
+std::string WStringToUtf8(const std::wstring &value)
+{
+	if (value.empty())
+	{
+		return std::string();
+	}
+
+	const int sizeRequired = WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, nullptr, 0, nullptr, nullptr);
+	std::string result(sizeRequired > 0 ? sizeRequired - 1 : 0, '\0');
+	if (sizeRequired > 1)
+	{
+		WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, &result[0], sizeRequired - 1, nullptr, nullptr);
+	}
+
+	return result;
+}
+
+bool FileExists(const std::wstring &filename)
+{
+	if (filename.empty())
+	{
+		return false;
+	}
+
+	const DWORD attributes = GetFileAttributesW(filename.c_str());
+	return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+}
+
 std::uint16_t ReadUInt16LE(const std::uint8_t *bytes)
 {
 	return static_cast<std::uint16_t>(bytes[0] | (bytes[1] << 8));
 }
+
+void ThrowIfFailedLocal(HRESULT hr, const char *message)
+{
+	if (FAILED(hr))
+	{
+		throw std::runtime_error(message);
+	}
+}
+
+bool HasExtension(const std::wstring &filename, const wchar_t *extension)
+{
+	const size_t extensionLength = wcslen(extension);
+	return filename.length() >= extensionLength &&
+	       _wcsicmp(filename.c_str() + (filename.length() - extensionLength), extension) == 0;
+}
 } // namespace
+
+TextureLoader::ImageData TextureLoader::LoadImage(const std::wstring &filename)
+{
+	if (!FileExists(filename))
+	{
+		throw std::runtime_error("Required texture asset not found: " + WStringToUtf8(filename));
+	}
+
+	if (HasExtension(filename, L".tga"))
+	{
+		return LoadUncompressedTga(filename);
+	}
+
+	const HRESULT initHr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+	if (FAILED(initHr) && initHr != RPC_E_CHANGED_MODE)
+	{
+		throw std::runtime_error("Failed to initialize COM for image loading.");
+	}
+
+	ComPtr<IWICImagingFactory> factory;
+	ThrowIfFailedLocal(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory)),
+	                   "Failed to create WIC imaging factory.");
+
+	ComPtr<IWICBitmapDecoder> decoder;
+	ThrowIfFailedLocal(factory->CreateDecoderFromFilename(filename.c_str(), nullptr, GENERIC_READ, WICDecodeMetadataCacheOnLoad, &decoder),
+	                   "Failed to create WIC decoder from file.");
+
+	ComPtr<IWICBitmapFrameDecode> frame;
+	ThrowIfFailedLocal(decoder->GetFrame(0, &frame), "Failed to get WIC frame.");
+
+	ComPtr<IWICFormatConverter> converter;
+	ThrowIfFailedLocal(factory->CreateFormatConverter(&converter), "Failed to create WIC format converter.");
+	ThrowIfFailedLocal(
+	    converter->Initialize(frame.Get(), GUID_WICPixelFormat32bppRGBA, WICBitmapDitherTypeNone, nullptr, 0.0, WICBitmapPaletteTypeCustom),
+	    "Failed to initialize WIC format converter.");
+
+	UINT width = 0;
+	UINT height = 0;
+	ThrowIfFailedLocal(converter->GetSize(&width, &height), "Failed to query image size.");
+
+	ImageData textureData;
+	textureData.Width = width;
+	textureData.Height = height;
+	textureData.Pixels.resize(static_cast<size_t>(width) * height * 4);
+
+	const UINT stride = width * 4;
+	const UINT bufferSize = stride * height;
+	ThrowIfFailedLocal(converter->CopyPixels(nullptr, stride, bufferSize, textureData.Pixels.data()), "Failed to copy image pixels.");
+
+	return textureData;
+}
 
 TextureLoader::ImageData TextureLoader::LoadUncompressedTga(const std::wstring &filename)
 {
 	std::ifstream input(filename, std::ios::binary);
 	if (!input)
 	{
-		throw std::runtime_error("Failed to open TGA texture file.");
+		throw std::runtime_error("Failed to open TGA texture file: " + WStringToUtf8(filename));
 	}
 
 	std::array<std::uint8_t, 18> header{};
@@ -82,4 +180,26 @@ TextureLoader::ImageData TextureLoader::LoadUncompressedTga(const std::wstring &
 	}
 
 	return textureData;
+}
+
+TextureLoader::SceneTextureSource TextureLoader::LoadSceneTexture(const std::wstring &filename)
+{
+	if (!FileExists(filename))
+	{
+		throw std::runtime_error("Required texture asset not found: " + WStringToUtf8(filename));
+	}
+
+	SceneTextureSource result;
+	result.Filename = filename;
+
+	if (HasExtension(filename, L".dds"))
+	{
+		result.SourceKind = SceneTextureSource::Kind::DdsFile;
+		result.HasMipChain = true;
+		return result;
+	}
+
+	result.SourceKind = SceneTextureSource::Kind::DecodedRgba;
+	result.DecodedImage = LoadImage(filename);
+	return result;
 }

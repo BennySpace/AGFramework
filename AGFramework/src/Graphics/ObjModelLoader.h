@@ -13,6 +13,8 @@ class ObjModelLoader
 		std::vector<std::uint32_t> Indices32;
 		std::string MaterialName;
 		std::string DiffuseTexturePath;
+		std::string NormalTexturePath;
+		std::string OrmTexturePath;
 		bool HasAlphaCutout = false;
 	};
 
