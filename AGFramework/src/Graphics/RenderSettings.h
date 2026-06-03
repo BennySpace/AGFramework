@@ -12,17 +12,18 @@ class RenderSettings
 
 	struct LightingSettings
 	{
-		DirectX::XMFLOAT4 AmbientLight = {0.28f, 0.30f, 0.34f, 1.35f};
-		DirectX::XMFLOAT4 BackgroundColor = {0.03f, 0.05f, 0.08f, 1.0f};
+		DirectX::XMFLOAT4 AmbientLight = {1.0f, 1.0f, 1.0f, 0.05f};
+		DirectX::XMFLOAT4 BackgroundColor = {0.0f, 0.0f, 0.0f, 1.0f};
+		DirectX::XMFLOAT4 AmbientFloor = {0.0f, 0.0f, 0.0f, 0.0f};
 	};
 
 	struct ImageBasedLightingSettings
 	{
-		bool UseAutoDecoding = true;
-		bool DecodeAsRgbm = true;
-		float RgbmScale = 5.0f;
-		float DiffuseStrength = 1.75f;
-		float SpecularStrength = 1.25f;
+		bool ShowSkybox = true;
+		float DiffuseStrength = 0.40f;
+		float SpecularStrength = 0.40f;
+		float SkyboxIntensity = 1.0f;
+		float Exposure = 1.0f;
 	};
 
 	struct ShadowSettings
@@ -40,6 +41,12 @@ class RenderSettings
 		float ReceiverBiasMin = 0.00005f;
 		float ReceiverBiasSlopeScale = 0.00035f;
 		float ReceiverBiasTexelFactor = 0.75f;
+	};
+
+	struct DemoSettings
+	{
+		bool EnableDemoControls = false;
+		bool EnablePbrGrid = false;
 	};
 
 	struct CascadedShadowData
@@ -83,9 +90,18 @@ class RenderSettings
 	{
 		m_shadowSettings = shadowSettings;
 	}
+	const DemoSettings &GetDemoSettings() const
+	{
+		return m_demoSettings;
+	}
+	void SetDemoSettings(const DemoSettings &demoSettings)
+	{
+		m_demoSettings = demoSettings;
+	}
 
-  private:
+ private:
 	LightingSettings m_lightingSettings;
 	ImageBasedLightingSettings m_imageBasedLightingSettings;
 	ShadowSettings m_shadowSettings;
+	DemoSettings m_demoSettings;
 };
