@@ -93,6 +93,7 @@ logs
 # User-specific files
 .user
 .rsuser
+imgui.ini
 
 # Thumbnails
 Thumbs.db

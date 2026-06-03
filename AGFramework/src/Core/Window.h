@@ -17,7 +17,6 @@ class Window
 	bool Create(const std::string &title, int width, int height);
 	void Show();
 	void Hide();
-	void Close();
 	void ProcessMessages();
 	bool ShouldClose() const;
 

@@ -50,11 +50,7 @@ void Window::Hide()
 {
 	ShowWindow(m_handle, SW_HIDE);
 }
-void Window::Close()
-{
-	DestroyWindow(m_handle);
-	m_shouldClose = true;
-}
+
 bool Window::ShouldClose() const
 {
 	return m_shouldClose;
@@ -159,8 +155,14 @@ LRESULT CALLBACK Window::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 			break;
 
 		case WM_DESTROY:
+			window->m_shouldClose = true;
 			PostQuitMessage(0);
 			return 0;
+
+		case WM_NCDESTROY:
+			window->m_handle = nullptr;
+			SetWindowLongPtr(hWnd, GWLP_USERDATA, 0);
+			return DefWindowProc(hWnd, uMsg, wParam, lParam);
 
 		case WM_INPUT:
 		{
