@@ -1,6 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
+    <ClCompile Include="src\Graphics\dx12\DescriptorHeap.cpp" />
     <ClCompile Include="src\Graphics\Overlay\DebugOverlay.cpp" />
     <ClCompile Include="src\Graphics\Resources\ResourceUploader.cpp" />
     <ClCompile Include="src\Graphics\Resources\TextureLoader.cpp" />
@@ -14,6 +15,10 @@
     <ClCompile Include="src\Graphics\dx12\d3dUtil.cpp" />
     <ClCompile Include="src\Graphics\dx12\DirectX12Context.cpp" />
     <ClCompile Include="src\Graphics\dx12\DDSTextureLoader.cpp" />
+    <ClCompile Include="src\Graphics\dx12\FrameResource.cpp" />
+    <ClCompile Include="src\Graphics\Demo\DemoSceneComposer.cpp" />
+    <ClCompile Include="src\Graphics\Demo\DemoLightingController.cpp" />
+    <ClCompile Include="src\Graphics\Demo\PbrGridBuilder.cpp" />
     <ClCompile Include="src\Utils\Delegates.cpp" />
     <ClCompile Include="src\Graphics\CascadedShadowMap.cpp" />
     <ClCompile Include="src\Graphics\DeferredRenderer.cpp" />
@@ -30,6 +35,7 @@
     <ClCompile Include="src\Graphics\GeometryGenerator.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Graphics\dx12\DescriptorHeap.h" />
     <ClInclude Include="src\Graphics\Overlay\DebugOverlay.h" />
     <ClInclude Include="src\Graphics\Resources\ResourceUploader.h" />
     <ClInclude Include="src\Graphics\Resources\TextureLoader.h" />
@@ -48,6 +54,11 @@
     <ClInclude Include="src\Graphics\common\d3dx12.h" />
     <ClInclude Include="src\Graphics\dx12\DirectX12Context.h" />
     <ClInclude Include="src\Graphics\dx12\DDSTextureLoader.h" />
+    <ClInclude Include="src\Graphics\dx12\FrameResource.h" />
+    <ClInclude Include="src\Graphics\Demo\DemoSceneComposer.h" />
+    <ClInclude Include="src\Graphics\Demo\DemoLightingController.h" />
+    <ClInclude Include="src\Graphics\Demo\DemoShowcaseSession.h" />
+    <ClInclude Include="src\Graphics\Demo\PbrGridBuilder.h" />
     <ClInclude Include="src\Utils\Delegates.h" />
     <ClInclude Include="src\Graphics\CascadedShadowMap.h" />
     <ClInclude Include="src\Graphics\DeferredRenderer.h" />

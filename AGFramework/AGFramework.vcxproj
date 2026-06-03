@@ -19,9 +19,14 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\Graphics\dx12\DescriptorHeap.cpp" />
     <ClCompile Include="src\Graphics\dx12\d3dUtil.cpp" />
     <ClCompile Include="src\Graphics\dx12\DirectX12Context.cpp" />
     <ClCompile Include="src\Graphics\dx12\DDSTextureLoader.cpp" />
+    <ClCompile Include="src\Graphics\dx12\FrameResource.cpp" />
+    <ClCompile Include="src\Graphics\Demo\DemoSceneComposer.cpp" />
+    <ClCompile Include="src\Graphics\Demo\DemoLightingController.cpp" />
+    <ClCompile Include="src\Graphics\Demo\PbrGridBuilder.cpp" />
     <ClCompile Include="src\Graphics\Overlay\DebugOverlay.cpp" />
     <ClCompile Include="src\Graphics\Resources\ResourceUploader.cpp" />
     <ClCompile Include="src\Graphics\Resources\TextureLoader.cpp" />
@@ -49,10 +54,16 @@
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Graphics\dx12\DescriptorHeap.h" />
     <ClInclude Include="src\Graphics\dx12\d3dUtil.h" />
     <ClInclude Include="src\Graphics\common\d3dx12.h" />
     <ClInclude Include="src\Graphics\dx12\DirectX12Context.h" />
     <ClInclude Include="src\Graphics\dx12\DDSTextureLoader.h" />
+    <ClInclude Include="src\Graphics\dx12\FrameResource.h" />
+    <ClInclude Include="src\Graphics\Demo\DemoSceneComposer.h" />
+    <ClInclude Include="src\Graphics\Demo\DemoLightingController.h" />
+    <ClInclude Include="src\Graphics\Demo\DemoShowcaseSession.h" />
+    <ClInclude Include="src\Graphics\Demo\PbrGridBuilder.h" />
     <ClInclude Include="src\Graphics\Overlay\DebugOverlay.h" />
     <ClInclude Include="src\Graphics\Resources\ResourceUploader.h" />
     <ClInclude Include="src\Graphics\Resources\TextureLoader.h" />
@@ -99,6 +110,10 @@
     <None Include="shaders\GeometryPass.hlsl" />
     <None Include="shaders\LightingCommon.hlsli" />
     <None Include="shaders\ShadowMap.hlsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <RuntimeAssetFiles Include="..\Assets\**\*.*" />
+    <RuntimeShaderFiles Include="shaders\**\*.*" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>
@@ -208,11 +223,11 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>external\imgui;external\imgui\backends;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp20</LanguageStandard>
+      <ConformanceMode>Default</ConformanceMode>
+      <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
@@ -229,5 +244,13 @@
     <Error Condition="!Exists('packages\directxtk12_uwp.2026.4.1.1\build\native\directxtk12_uwp.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\directxtk12_uwp.2026.4.1.1\build\native\directxtk12_uwp.targets'))" />
     <Error Condition="!Exists('packages\Assimp.redist.3.0.0\build\native\Assimp.redist.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Assimp.redist.3.0.0\build\native\Assimp.redist.targets'))" />
     <Error Condition="!Exists('packages\Assimp.3.0.0\build\native\Assimp.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Assimp.3.0.0\build\native\Assimp.targets'))" />
+  </Target>
+  <Target Name="StageRuntimeContent" AfterTargets="Build">
+    <Copy SourceFiles="@(RuntimeAssetFiles)"
+          DestinationFiles="@(RuntimeAssetFiles->'$(OutDir)Assets\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(RuntimeShaderFiles)"
+          DestinationFiles="@(RuntimeShaderFiles->'$(OutDir)shaders\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
   </Target>
 </Project>
