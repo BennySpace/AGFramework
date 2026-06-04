@@ -2,7 +2,7 @@
 # Visual Studio
 # =============================================
 .vs
-.vcxproj.user
+*.vcxproj.user
 .suo
 .sdf
 .opensdf
@@ -91,7 +91,7 @@ packages
 logs
 
 # User-specific files
-.user
+*.user
 .rsuser
 imgui.ini
 
