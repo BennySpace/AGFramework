@@ -15,6 +15,14 @@ cbuffer GeometryTextureSettings : register(b4)
 	float4 gTextureFlags;
 }
 
+Texture2D gOpacityTexture : register(t9);
+
+float ResolveOpacityMask(float4 opacitySample)
+{
+	const float rgbMask = max(max(opacitySample.r, opacitySample.g), opacitySample.b);
+	return opacitySample.a < 0.999f ? opacitySample.a : rgbMask;
+}
+
 struct VertexIn
 {
 	float3 PosL : POSITION;
@@ -58,9 +66,14 @@ GeometryVertexOut GeometryVS(VertexIn vin)
 GBufferOutput GeometryPS(GeometryVertexOut pin)
 {
 	float4 texColor = gTexture0.Sample(gsamLinearWrap, pin.TexC);
+	float opacity = texColor.a;
+	if (gTextureFlags.z > 0.5f)
+	{
+		opacity *= ResolveOpacityMask(gOpacityTexture.Sample(gsamLinearWrap, pin.TexC));
+	}
 	if (gAuxiliarySettings.x >= 0.0f)
 	{
-		clip(texColor.a - gAuxiliarySettings.x);
+		clip(opacity - gAuxiliarySettings.x);
 	}
 
 	float3 normalW = normalize(pin.NormalW);
@@ -90,7 +103,7 @@ GBufferOutput GeometryPS(GeometryVertexOut pin)
 	materialParams.w = max(materialParams.w * iblIntensityScale, 0.0f);
 
 	GBufferOutput output;
-	output.Albedo = float4(texColor.rgb * gDiffuseAlbedo.rgb, texColor.a * gDiffuseAlbedo.a);
+	output.Albedo = float4(texColor.rgb * gDiffuseAlbedo.rgb, opacity * gDiffuseAlbedo.a);
 	output.Normal = float4(normalW * 0.5f + 0.5f, (gTextureFlags.x > 0.5f ? 1.0f : 0.0f) + (gTextureFlags.y > 0.5f ? 2.0f : 0.0f));
 	output.Material = materialParams;
 	return output;

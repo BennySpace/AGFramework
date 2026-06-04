@@ -1,5 +1,7 @@
 #include "SponzaScene.h"
 
+#include "MaterialAssetContract.h"
+#include "MaterialTextureResolver.h"
 #include "../Demo/DemoSceneComposer.h"
 #include "../ObjModelLoader.h"
 #include "../Resources/ResourceUploader.h"
@@ -8,9 +10,7 @@
 
 #include <algorithm>
 #include <array>
-#include <cctype>
 #include <cstring>
-#include <initializer_list>
 #include <limits>
 #include <stdexcept>
 #include <unordered_map>
@@ -73,136 +73,6 @@ bool FileExists(const std::string &path)
 	return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
 }
 
-std::string ReplaceExtension(const std::string &path, const std::string &newExtension)
-{
-	const size_t extensionPos = path.find_last_of('.');
-	if (extensionPos == std::string::npos)
-	{
-		return std::string();
-	}
-
-	return path.substr(0, extensionPos) + newExtension;
-}
-
-std::string ToLower(std::string value)
-{
-	std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-	return value;
-}
-
-bool HasExtension(const std::string &path, const std::string &extension)
-{
-	const std::string lowerPath = ToLower(path);
-	const std::string lowerExtension = ToLower(extension);
-	return lowerPath.size() >= lowerExtension.size() &&
-	       lowerPath.compare(lowerPath.size() - lowerExtension.size(), lowerExtension.size(), lowerExtension) == 0;
-}
-
-std::string PreferDdsVariant(const std::string &path)
-{
-	if (path.empty())
-	{
-		return path;
-	}
-
-	if (HasExtension(path, ".dds"))
-	{
-		return path;
-	}
-
-	const std::string ddsPath = ReplaceExtension(path, ".dds");
-	return FileExists(ddsPath) ? ddsPath : path;
-}
-
-std::string ReplaceStemSuffix(const std::string &path, const std::string &stemSuffix, const std::string &replacement)
-{
-	const size_t extensionPos = path.find_last_of('.');
-	if (extensionPos == std::string::npos)
-	{
-		return std::string();
-	}
-
-	const std::string stem = path.substr(0, extensionPos);
-	const std::string extension = path.substr(extensionPos);
-	const std::string lowerStem = ToLower(stem);
-	const std::string lowerSuffix = ToLower(stemSuffix);
-	if (lowerStem.size() < lowerSuffix.size() ||
-	    lowerStem.compare(lowerStem.size() - lowerSuffix.size(), lowerSuffix.size(), lowerSuffix) != 0)
-	{
-		return std::string();
-	}
-
-	return stem.substr(0, stem.size() - stemSuffix.size()) + replacement + extension;
-}
-
-std::string AppendStemSuffix(const std::string &path, const std::string &suffix)
-{
-	const size_t extensionPos = path.find_last_of('.');
-	if (extensionPos == std::string::npos)
-	{
-		return std::string();
-	}
-
-	return path.substr(0, extensionPos) + suffix + path.substr(extensionPos);
-}
-
-std::string FindCompanionTexturePath(const std::string &diffusePath, std::initializer_list<std::string> suffixes)
-{
-	if (diffusePath.empty())
-	{
-		return std::string();
-	}
-
-	std::vector<std::string> candidates;
-	for (const std::string &suffix : suffixes)
-	{
-		const std::string fromDiff = ReplaceStemSuffix(diffusePath, "_diff", suffix);
-		if (!fromDiff.empty())
-		{
-			candidates.push_back(fromDiff);
-			candidates.push_back(ReplaceStemSuffix(diffusePath, "_diff", suffix + ".dds"));
-		}
-
-		const std::string fromDif = ReplaceStemSuffix(diffusePath, "_dif", suffix);
-		if (!fromDif.empty())
-		{
-			candidates.push_back(fromDif);
-			candidates.push_back(ReplaceStemSuffix(diffusePath, "_dif", suffix + ".dds"));
-		}
-
-		const std::string fromTexture = ReplaceStemSuffix(diffusePath, "_texture", "_texture" + suffix);
-		if (!fromTexture.empty())
-		{
-			candidates.push_back(fromTexture);
-			candidates.push_back(ReplaceStemSuffix(diffusePath, "_texture", "_texture" + suffix + ".dds"));
-		}
-
-		const std::string fromBaseColor = ReplaceStemSuffix(diffusePath, "_BaseColor", suffix);
-		if (!fromBaseColor.empty())
-		{
-			candidates.push_back(fromBaseColor);
-			candidates.push_back(ReplaceStemSuffix(diffusePath, "_BaseColor", suffix + ".dds"));
-		}
-
-		const std::string fromGeneric = AppendStemSuffix(diffusePath, suffix);
-		if (!fromGeneric.empty())
-		{
-			candidates.push_back(fromGeneric);
-			candidates.push_back(AppendStemSuffix(diffusePath, suffix + ".dds"));
-		}
-	}
-
-	for (const std::string &candidate : candidates)
-	{
-		if (FileExists(candidate))
-		{
-			return candidate;
-		}
-	}
-
-	return std::string();
-}
-
 void UpdateBounds(const GeometryGenerator::Vertex &vertex, XMFLOAT3 &minPoint, XMFLOAT3 &maxPoint)
 {
 	minPoint.x = (std::min)(minPoint.x, vertex.Position.x);
@@ -235,6 +105,10 @@ void SponzaScene::BuildGeometry(DirectX12Context &context, const RenderSettings:
 	{
 		throw std::runtime_error("No meshes were loaded from the OBJ model.");
 	}
+
+	MaterialAssetContract materialContract;
+	const std::string materialContractPath = ResolveAssetPathUtf8(L"Assets\\sponza\\sponza.materials.cfg");
+	materialContract.Load(materialContractPath);
 
 	XMFLOAT3 sponzaMinPoint((std::numeric_limits<float>::max)(), (std::numeric_limits<float>::max)(), (std::numeric_limits<float>::max)());
 	XMFLOAT3 sponzaMaxPoint(-(std::numeric_limits<float>::max)(), -(std::numeric_limits<float>::max)(), -(std::numeric_limits<float>::max)());
@@ -272,17 +146,22 @@ void SponzaScene::BuildGeometry(DirectX12Context &context, const RenderSettings:
 		DeferredRenderer::ModelDrawItem drawItem;
 		drawItem.DrawName = "mesh_" + std::to_string(meshIndex);
 		drawItem.MaterialName = mesh.MaterialName;
-		drawItem.DiffuseTexturePath = PreferDdsVariant(mesh.DiffuseTexturePath);
-		drawItem.NormalTexturePath = mesh.NormalTexturePath.empty()
-		                                 ? FindCompanionTexturePath(drawItem.DiffuseTexturePath, {"_norm", "_ddn", "_normal", "_nmap"})
-		                                 : PreferDdsVariant(mesh.NormalTexturePath);
-		drawItem.OrmTexturePath = mesh.OrmTexturePath.empty()
-		                              ? FindCompanionTexturePath(drawItem.DiffuseTexturePath, {"_orm", "_rma", "_metallicRoughness"})
-		                              : PreferDdsVariant(mesh.OrmTexturePath);
+		const MaterialAssetContract::Entry resolvedMaterialContract = materialContract.ResolveMaterial(mesh.MaterialName);
+		const MaterialTextureResolver::ResolvedMaterialTextures resolvedTextures =
+		    MaterialTextureResolver::Resolve(mesh, resolvedMaterialContract);
+		drawItem.DiffuseTexturePath = resolvedTextures.DiffuseTexturePath;
+		drawItem.NormalTexturePath = resolvedTextures.NormalTexturePath;
+		drawItem.OrmTexturePath = resolvedTextures.OrmTexturePath;
+		drawItem.OpacityTexturePath = resolvedTextures.OpacityTexturePath;
 		Demo::DemoSceneComposer::ApplyDemoMaterialDefaults(mesh, drawItem);
-		drawItem.TextureFlags.x = drawItem.NormalTexturePath.empty() ? 0.0f : 1.0f;
-		drawItem.TextureFlags.y = drawItem.OrmTexturePath.empty() ? 0.0f : 1.0f;
-		drawItem.HasAlphaCutout = mesh.HasAlphaCutout;
+		if (!drawItem.IsDemoPbrGrid && resolvedMaterialContract.HasPbrParams)
+		{
+			drawItem.PbrParams = resolvedMaterialContract.PbrParams;
+		}
+		drawItem.TextureFlags.x = resolvedTextures.HasNormalMap ? 1.0f : 0.0f;
+		drawItem.TextureFlags.y = resolvedTextures.HasOrmMap ? 1.0f : 0.0f;
+		drawItem.TextureFlags.z = resolvedTextures.HasOpacityMap ? 1.0f : 0.0f;
+		drawItem.HasAlphaCutout = resolvedTextures.HasAlphaCutout;
 		drawItem.CastShadows = !drawItem.IsDemoPbrGrid;
 		m_data.DrawItems.push_back(std::move(drawItem));
 	}
@@ -368,6 +247,7 @@ void SponzaScene::BuildTextures(DirectX12Context &context)
 	const std::array<std::uint8_t, 4> whitePixel = {255, 255, 255, 255};
 	const std::array<std::uint8_t, 4> defaultNormalPixel = {128, 128, 255, 255};
 	const std::array<std::uint8_t, 4> defaultOrmPixel = {255, 128, 0, 255};
+	const std::array<std::uint8_t, 4> defaultOpacityPixel = {255, 255, 255, 255};
 	std::unordered_map<std::string, UINT> textureIndices;
 
 	auto loadTexture = [&](const std::string &texturePath, const std::string &fallbackKey, const std::array<std::uint8_t, 4> &fallbackPixel,
@@ -440,6 +320,7 @@ void SponzaScene::BuildTextures(DirectX12Context &context)
 		drawItem.DiffuseSrvHeapIndex = loadTexture(drawItem.DiffuseTexturePath, "__default_white__", whitePixel, true);
 		drawItem.NormalSrvHeapIndex = loadTexture(drawItem.NormalTexturePath, "__default_normal__", defaultNormalPixel);
 		drawItem.OrmSrvHeapIndex = loadTexture(drawItem.OrmTexturePath, "__default_orm__", defaultOrmPixel);
+		drawItem.OpacitySrvHeapIndex = loadTexture(drawItem.OpacityTexturePath, "__default_opacity__", defaultOpacityPixel);
 	}
 }
 

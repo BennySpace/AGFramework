@@ -57,6 +57,32 @@ bool HasExtension(const std::wstring &filename, const wchar_t *extension)
 	return filename.length() >= extensionLength &&
 	       _wcsicmp(filename.c_str() + (filename.length() - extensionLength), extension) == 0;
 }
+
+class ScopedComInitialization
+{
+  public:
+	explicit ScopedComInitialization(DWORD apartmentType)
+	{
+		const HRESULT initHr = CoInitializeEx(nullptr, apartmentType);
+		if (FAILED(initHr) && initHr != RPC_E_CHANGED_MODE)
+		{
+			throw std::runtime_error("Failed to initialize COM for image loading.");
+		}
+
+		m_shouldUninitialize = SUCCEEDED(initHr);
+	}
+
+	~ScopedComInitialization()
+	{
+		if (m_shouldUninitialize)
+		{
+			CoUninitialize();
+		}
+	}
+
+  private:
+	bool m_shouldUninitialize = false;
+};
 } // namespace
 
 TextureLoader::ImageData TextureLoader::LoadImage(const std::wstring &filename)
@@ -71,11 +97,7 @@ TextureLoader::ImageData TextureLoader::LoadImage(const std::wstring &filename)
 		return LoadUncompressedTga(filename);
 	}
 
-	const HRESULT initHr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-	if (FAILED(initHr) && initHr != RPC_E_CHANGED_MODE)
-	{
-		throw std::runtime_error("Failed to initialize COM for image loading.");
-	}
+	ScopedComInitialization comInitialization(COINIT_MULTITHREADED);
 
 	ComPtr<IWICImagingFactory> factory;
 	ThrowIfFailedLocal(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory)),

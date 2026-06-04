@@ -14,8 +14,20 @@ cbuffer GeometryInstanceSettings : register(b2)
 	float4 gDrawPositionOffset;
 }
 
+cbuffer ShadowTextureSettings : register(b3)
+{
+	float4 gShadowTextureFlags;
+}
+
 Texture2D gTexture0 : register(t0);
+Texture2D gOpacityTexture : register(t1);
 SamplerState gsamLinearWrap : register(s0);
+
+float ResolveOpacityMask(float4 opacitySample)
+{
+	const float rgbMask = max(max(opacitySample.r, opacitySample.g), opacitySample.b);
+	return opacitySample.a < 0.999f ? opacitySample.a : rgbMask;
+}
 
 struct VertexIn
 {
@@ -42,8 +54,13 @@ ShadowVertexOut ShadowVS(VertexIn vin)
 void ShadowAlphaCutoutPS(ShadowVertexOut pin)
 {
 	float4 texColor = gTexture0.Sample(gsamLinearWrap, pin.TexC);
+	float opacity = texColor.a;
+	if (gShadowTextureFlags.x > 0.5f)
+	{
+		opacity *= ResolveOpacityMask(gOpacityTexture.Sample(gsamLinearWrap, pin.TexC));
+	}
 	if (gAuxiliarySettings.x >= 0.0f)
 	{
-		clip(texColor.a - gAuxiliarySettings.x);
+		clip(opacity - gAuxiliarySettings.x);
 	}
 }

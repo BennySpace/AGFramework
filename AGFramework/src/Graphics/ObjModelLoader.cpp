@@ -131,9 +131,8 @@ std::vector<ObjModelLoader::MeshData> ObjModelLoader::Load(const std::string &fi
 				meshData.NormalTexturePath = GetTexturePath(material, aiTextureType_HEIGHT, basePath);
 			}
 			meshData.OrmTexturePath = GetTexturePath(material, aiTextureType_UNKNOWN, basePath);
-
-			aiString opacityPath;
-			meshData.HasAlphaCutout = material->GetTexture(aiTextureType_OPACITY, 0, &opacityPath) == aiReturn_SUCCESS;
+			meshData.OpacityTexturePath = GetTexturePath(material, aiTextureType_OPACITY, basePath);
+			meshData.HasAlphaCutout = !meshData.OpacityTexturePath.empty();
 		}
 
 		for (unsigned int vertexIndex = 0; vertexIndex < sourceMesh->mNumVertices; ++vertexIndex)

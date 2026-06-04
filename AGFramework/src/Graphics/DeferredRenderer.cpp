@@ -421,13 +421,19 @@ void DeferredRenderer::RenderShadowMapPass(DirectX12Context &context, FrameResou
 			drawSettings.AlphaCutoff = drawItem.HasAlphaCutout ? 0.5f : -1.0f;
 			commandList->SetGraphicsRoot32BitConstants(2, 4, &drawSettings, 0);
 			commandList->SetGraphicsRoot32BitConstants(3, 4, &drawItem.PositionOffset, 0);
+			GeometryTextureSettings textureSettings;
+			textureSettings.HasOpacityMap = drawItem.TextureFlags.z;
+			commandList->SetGraphicsRoot32BitConstants(5, 4, &textureSettings, 0);
 
 			if (drawItem.HasAlphaCutout)
 			{
 				CD3DX12_GPU_DESCRIPTOR_HANDLE textureHandle(srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 				textureHandle.Offset(static_cast<INT>(drawItem.DiffuseSrvHeapIndex), cbvSrvUavDescriptorSize);
+				CD3DX12_GPU_DESCRIPTOR_HANDLE opacityTextureHandle(srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+				opacityTextureHandle.Offset(static_cast<INT>(drawItem.OpacitySrvHeapIndex), cbvSrvUavDescriptorSize);
 				commandList->SetPipelineState(m_directionalShadowAlphaCutoutPSO.Get());
 				commandList->SetGraphicsRootDescriptorTable(1, textureHandle);
+				commandList->SetGraphicsRootDescriptorTable(4, opacityTextureHandle);
 			}
 			else
 			{
@@ -479,11 +485,15 @@ void DeferredRenderer::RenderOpaqueGeometryStage(DirectX12Context &context, Fram
 		CD3DX12_GPU_DESCRIPTOR_HANDLE ormTextureHandle(srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 		ormTextureHandle.Offset(static_cast<INT>(drawItem.OrmSrvHeapIndex), cbvSrvUavDescriptorSize);
 		context.GetCommandList()->SetGraphicsRootDescriptorTable(7, ormTextureHandle);
+		CD3DX12_GPU_DESCRIPTOR_HANDLE opacityTextureHandle(srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+		opacityTextureHandle.Offset(static_cast<INT>(drawItem.OpacitySrvHeapIndex), cbvSrvUavDescriptorSize);
+		context.GetCommandList()->SetGraphicsRootDescriptorTable(8, opacityTextureHandle);
 		DrawSettings drawSettings;
 		drawSettings.AlphaCutoff = drawItem.HasAlphaCutout ? 0.5f : -1.0f;
 		GeometryTextureSettings textureSettings;
 		textureSettings.HasNormalMap = drawItem.TextureFlags.x;
 		textureSettings.HasOrmMap = drawItem.TextureFlags.y;
+		textureSettings.HasOpacityMap = drawItem.TextureFlags.z;
 		context.GetCommandList()->SetGraphicsRoot32BitConstants(2, 4, &drawSettings, 0);
 		context.GetCommandList()->SetGraphicsRoot32BitConstants(3, 4, &drawItem.PositionOffset, 0);
 		context.GetCommandList()->SetGraphicsRoot32BitConstants(4, 4, &drawItem.PbrParams, 0);
@@ -617,8 +627,10 @@ void DeferredRenderer::BuildRootSignature(DirectX12Context &context)
 	geometryNormalTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1);
 	CD3DX12_DESCRIPTOR_RANGE geometryOrmTexTable;
 	geometryOrmTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 2);
+	CD3DX12_DESCRIPTOR_RANGE geometryOpacityTexTable;
+	geometryOpacityTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 9);
 
-	CD3DX12_ROOT_PARAMETER geometryRootParameters[8];
+	CD3DX12_ROOT_PARAMETER geometryRootParameters[9];
 	geometryRootParameters[0].InitAsConstantBufferView(0);
 	geometryRootParameters[1].InitAsDescriptorTable(1, &geometryTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
 	geometryRootParameters[2].InitAsConstants(4, 1);
@@ -627,8 +639,9 @@ void DeferredRenderer::BuildRootSignature(DirectX12Context &context)
 	geometryRootParameters[5].InitAsConstants(4, 4);
 	geometryRootParameters[6].InitAsDescriptorTable(1, &geometryNormalTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
 	geometryRootParameters[7].InitAsDescriptorTable(1, &geometryOrmTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
+	geometryRootParameters[8].InitAsDescriptorTable(1, &geometryOpacityTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
 
-	CD3DX12_ROOT_SIGNATURE_DESC geometryRootSigDesc(8, geometryRootParameters, 1, &linearWrapSampler,
+	CD3DX12_ROOT_SIGNATURE_DESC geometryRootSigDesc(9, geometryRootParameters, 1, &linearWrapSampler,
 	                                                D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 	ComPtr<ID3DBlob> serializedRootSig = nullptr;
@@ -660,14 +673,18 @@ void DeferredRenderer::BuildRootSignature(DirectX12Context &context)
 
 	CD3DX12_DESCRIPTOR_RANGE shadowTexTable;
 	shadowTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
+	CD3DX12_DESCRIPTOR_RANGE shadowOpacityTexTable;
+	shadowOpacityTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1);
 
-	CD3DX12_ROOT_PARAMETER shadowRootParameters[4];
+	CD3DX12_ROOT_PARAMETER shadowRootParameters[6];
 	shadowRootParameters[0].InitAsConstantBufferView(0);
 	shadowRootParameters[1].InitAsDescriptorTable(1, &shadowTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
 	shadowRootParameters[2].InitAsConstants(4, 1);
 	shadowRootParameters[3].InitAsConstants(4, 2);
+	shadowRootParameters[4].InitAsDescriptorTable(1, &shadowOpacityTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
+	shadowRootParameters[5].InitAsConstants(4, 3);
 
-	CD3DX12_ROOT_SIGNATURE_DESC shadowRootSigDesc(4, shadowRootParameters, 1, &linearWrapSampler,
+	CD3DX12_ROOT_SIGNATURE_DESC shadowRootSigDesc(6, shadowRootParameters, 1, &linearWrapSampler,
 	                                              D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 	serializedRootSig.Reset();

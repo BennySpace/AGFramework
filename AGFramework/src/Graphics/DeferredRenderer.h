@@ -23,11 +23,13 @@ class DeferredRenderer
 		std::string DiffuseTexturePath;
 		std::string NormalTexturePath;
 		std::string OrmTexturePath;
+		std::string OpacityTexturePath;
 		DirectX::XMFLOAT4 PositionOffset = {0.0f, 0.0f, 0.0f, 0.0f};
 		DirectX::XMFLOAT4 PbrParams = {0.0f, 0.58f, 1.0f, 0.95f};
 		UINT DiffuseSrvHeapIndex = 0;
 		UINT NormalSrvHeapIndex = 0;
 		UINT OrmSrvHeapIndex = 0;
+		UINT OpacitySrvHeapIndex = 0;
 		DirectX::XMFLOAT4 TextureFlags = {0.0f, 0.0f, 0.0f, 0.0f};
 		bool HasAlphaCutout = false;
 		bool CastShadows = true;
@@ -139,7 +141,8 @@ class DeferredRenderer
 	{
 		float HasNormalMap = 0.0f;
 		float HasOrmMap = 0.0f;
-		float Padding[2] = {0.0f, 0.0f};
+		float HasOpacityMap = 0.0f;
+		float Padding = 0.0f;
 	};
 
 	struct ShadowPassConstants

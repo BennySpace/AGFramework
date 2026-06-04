@@ -15,6 +15,7 @@ class ObjModelLoader
 		std::string DiffuseTexturePath;
 		std::string NormalTexturePath;
 		std::string OrmTexturePath;
+		std::string OpacityTexturePath;
 		bool HasAlphaCutout = false;
 	};
 

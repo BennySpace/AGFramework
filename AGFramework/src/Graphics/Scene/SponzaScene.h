@@ -42,7 +42,6 @@ class SponzaScene
 	void BuildGeometry(DirectX12Context &context, const RenderSettings::DemoSettings &demoSettings);
 	void BuildTextures(DirectX12Context &context);
 	void BuildDescriptorHeap(DirectX12Context &context);
-
 	SceneData m_data;
 	SceneResources m_resources;
 };
