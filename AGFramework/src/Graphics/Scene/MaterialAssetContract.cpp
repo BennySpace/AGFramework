@@ -37,6 +37,18 @@ bool ParseBool(const std::string &value)
 	return normalized == "1" || normalized == "true" || normalized == "yes" || normalized == "on";
 }
 
+std::string FormatConfigError(const std::string &filename, std::size_t lineNumber, const std::string &message)
+{
+	std::ostringstream errorStream;
+	errorStream << "Failed to load material contract '" << filename << "'";
+	if (lineNumber > 0)
+	{
+		errorStream << " at line " << lineNumber;
+	}
+	errorStream << ": " << message;
+	return errorStream.str();
+}
+
 std::string GetBasePath(const std::string &filename)
 {
 	const size_t lastSlash = filename.find_last_of("\\/");
@@ -80,7 +92,7 @@ void ApplyTextureProperty(const std::string &value, const std::string &basePath,
 }
 } // namespace
 
-bool MaterialAssetContract::Load(const std::string &filename)
+void MaterialAssetContract::Load(const std::string &filename)
 {
 	m_defaultEntry = Entry();
 	m_entries.clear();
@@ -88,14 +100,16 @@ bool MaterialAssetContract::Load(const std::string &filename)
 	std::ifstream input(filename);
 	if (!input)
 	{
-		return false;
+		throw std::runtime_error(FormatConfigError(filename, 0, "file not found or cannot be opened"));
 	}
 
 	const std::string basePath = GetBasePath(filename);
 	Entry *currentEntry = &m_defaultEntry;
 	std::string line;
+	std::size_t lineNumber = 0;
 	while (std::getline(input, line))
 	{
+		++lineNumber;
 		const std::string trimmed = Trim(line);
 		if (trimmed.empty() || trimmed[0] == '#' || trimmed[0] == ';')
 		{
@@ -121,55 +135,64 @@ bool MaterialAssetContract::Load(const std::string &filename)
 		const size_t equalsPos = trimmed.find('=');
 		if (equalsPos == std::string::npos)
 		{
-			continue;
+			throw std::runtime_error(FormatConfigError(filename, lineNumber, "expected 'key=value' entry"));
 		}
 
 		const std::string key = ToLower(Trim(trimmed.substr(0, equalsPos)));
 		const std::string value = Trim(trimmed.substr(equalsPos + 1));
-		if (key == "diffuse")
+		try
 		{
-			ApplyTextureProperty(value, basePath, currentEntry->DiffuseTexturePath, currentEntry->HasDiffuseTexturePath);
+			if (key == "diffuse")
+			{
+				ApplyTextureProperty(value, basePath, currentEntry->DiffuseTexturePath, currentEntry->HasDiffuseTexturePath);
+			}
+			else if (key == "normal")
+			{
+				ApplyTextureProperty(value, basePath, currentEntry->NormalTexturePath, currentEntry->HasNormalTexturePath);
+			}
+			else if (key == "orm")
+			{
+				ApplyTextureProperty(value, basePath, currentEntry->OrmTexturePath, currentEntry->HasOrmTexturePath);
+			}
+			else if (key == "opacity")
+			{
+				ApplyTextureProperty(value, basePath, currentEntry->OpacityTexturePath, currentEntry->HasOpacityTexturePath);
+			}
+			else if (key == "metallic")
+			{
+				currentEntry->PbrParams.x = std::stof(value);
+				currentEntry->HasPbrParams = true;
+			}
+			else if (key == "roughness")
+			{
+				currentEntry->PbrParams.y = std::stof(value);
+				currentEntry->HasPbrParams = true;
+			}
+			else if (key == "ao")
+			{
+				currentEntry->PbrParams.z = std::stof(value);
+				currentEntry->HasPbrParams = true;
+			}
+			else if (key == "ibl")
+			{
+				currentEntry->PbrParams.w = std::stof(value);
+				currentEntry->HasPbrParams = true;
+			}
+			else if (key == "alpha_cutout")
+			{
+				currentEntry->HasAlphaCutoutOverride = true;
+				currentEntry->AlphaCutout = ParseBool(value);
+			}
+			else
+			{
+				throw std::runtime_error("unknown property '" + key + "'");
+			}
 		}
-		else if (key == "normal")
+		catch (const std::exception &error)
 		{
-			ApplyTextureProperty(value, basePath, currentEntry->NormalTexturePath, currentEntry->HasNormalTexturePath);
-		}
-		else if (key == "orm")
-		{
-			ApplyTextureProperty(value, basePath, currentEntry->OrmTexturePath, currentEntry->HasOrmTexturePath);
-		}
-		else if (key == "opacity")
-		{
-			ApplyTextureProperty(value, basePath, currentEntry->OpacityTexturePath, currentEntry->HasOpacityTexturePath);
-		}
-		else if (key == "metallic")
-		{
-			currentEntry->PbrParams.x = std::stof(value);
-			currentEntry->HasPbrParams = true;
-		}
-		else if (key == "roughness")
-		{
-			currentEntry->PbrParams.y = std::stof(value);
-			currentEntry->HasPbrParams = true;
-		}
-		else if (key == "ao")
-		{
-			currentEntry->PbrParams.z = std::stof(value);
-			currentEntry->HasPbrParams = true;
-		}
-		else if (key == "ibl")
-		{
-			currentEntry->PbrParams.w = std::stof(value);
-			currentEntry->HasPbrParams = true;
-		}
-		else if (key == "alpha_cutout")
-		{
-			currentEntry->HasAlphaCutoutOverride = true;
-			currentEntry->AlphaCutout = ParseBool(value);
+			throw std::runtime_error(FormatConfigError(filename, lineNumber, error.what()));
 		}
 	}
-
-	return true;
 }
 
 MaterialAssetContract::Entry MaterialAssetContract::ResolveMaterial(const std::string &materialName) const

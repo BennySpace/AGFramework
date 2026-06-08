@@ -24,7 +24,7 @@ class MaterialAssetContract
 		bool AlphaCutout = false;
 	};
 
-	bool Load(const std::string &filename);
+	void Load(const std::string &filename);
 	Entry ResolveMaterial(const std::string &materialName) const;
 
   private:
