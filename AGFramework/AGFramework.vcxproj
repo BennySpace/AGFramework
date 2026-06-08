@@ -116,7 +116,11 @@
     <None Include="shaders\ShadowMap.hlsl" />
   </ItemGroup>
   <ItemGroup>
-    <RuntimeAssetFiles Include="..\Assets\**\*.*" />
+    <RuntimeAssetFiles Include="..\Assets\ibl\**\*.*" />
+    <RuntimeAssetFiles Include="..\Assets\icons\**\*.*" />
+    <RuntimeAssetFiles Include="..\Assets\shared\**\*.*" />
+    <RuntimeAssetFiles Include="..\Assets\sponza\**\*.*" />
+    <RuntimeAssetFiles Remove="..\Assets\sponza\**\*.md" />
     <RuntimeShaderFiles Include="shaders\**\*.*" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -250,11 +254,13 @@
     <Error Condition="!Exists('packages\Assimp.3.0.0\build\native\Assimp.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Assimp.3.0.0\build\native\Assimp.targets'))" />
   </Target>
   <Target Name="StageRuntimeContent" AfterTargets="Build">
+    <RemoveDir Directories="$(OutDir)Assets\readme" Condition="Exists('$(OutDir)Assets\readme')" />
     <Copy SourceFiles="@(RuntimeAssetFiles)"
           DestinationFiles="@(RuntimeAssetFiles->'$(OutDir)Assets\%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(RuntimeShaderFiles)"
           DestinationFiles="@(RuntimeShaderFiles->'$(OutDir)shaders\%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
+    <Delete Files="$(OutDir)Assets\sponza\README.md" Condition="Exists('$(OutDir)Assets\sponza\README.md')" />
   </Target>
 </Project>
