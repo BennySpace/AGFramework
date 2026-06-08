@@ -92,8 +92,6 @@ inline std::wstring AnsiToWString(const std::string &str)
 class d3dUtil
 {
   public:
-	static bool IsKeyDown(int vkeyCode);
-
 	static std::string ToString(HRESULT hr);
 
 	static UINT CalcConstantBufferByteSize(UINT byteSize)

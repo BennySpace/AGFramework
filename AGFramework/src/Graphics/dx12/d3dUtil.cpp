@@ -41,11 +41,6 @@ DxException::DxException(HRESULT hr, const std::wstring &functionName, const std
 {
 }
 
-bool d3dUtil::IsKeyDown(int vkeyCode)
-{
-	return (GetAsyncKeyState(vkeyCode) & 0x8000) != 0;
-}
-
 ComPtr<ID3DBlob> d3dUtil::LoadBinary(const std::wstring &filename)
 {
 	if (!FileExists(filename))
