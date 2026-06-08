@@ -78,7 +78,8 @@ void CascadedShadowMap::CreateResource()
 	clearValue.DepthStencil.Depth = m_desc.ClearDepth;
 	clearValue.DepthStencil.Stencil = 0;
 
-	ThrowIfFailed(m_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), D3D12_HEAP_FLAG_NONE, &resourceDesc,
+	const CD3DX12_HEAP_PROPERTIES defaultHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
+	ThrowIfFailed(m_device->CreateCommittedResource(&defaultHeapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc,
 	                                                D3D12_RESOURCE_STATE_DEPTH_WRITE, &clearValue,
 	                                                IID_PPV_ARGS(m_shadowArray.GetAddressOf())));
 }

@@ -49,5 +49,13 @@ jobs:
           /m
           /p:Configuration=Debug
           /p:Platform=x64
-          /p:PlatformToolset=v143
+          /verbosity:minimal
+
+      - name: Build Release x64
+        shell: pwsh
+        run: >
+          msbuild AGFramework/AGFramework.vcxproj
+          /m
+          /p:Configuration=Release
+          /p:Platform=x64
           /verbosity:minimal

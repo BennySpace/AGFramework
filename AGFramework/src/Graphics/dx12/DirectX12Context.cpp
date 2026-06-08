@@ -102,8 +102,9 @@ void DirectX12Context::Resize(int clientWidth, int clientHeight)
 	optClear.DepthStencil.Depth = 1.0f;
 	optClear.DepthStencil.Stencil = 0;
 
-	ThrowIfFailed(m_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), D3D12_HEAP_FLAG_NONE,
-	                                                &depthStencilDesc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &optClear,
+	const CD3DX12_HEAP_PROPERTIES defaultHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
+	ThrowIfFailed(m_device->CreateCommittedResource(&defaultHeapProperties, D3D12_HEAP_FLAG_NONE, &depthStencilDesc,
+	                                                D3D12_RESOURCE_STATE_DEPTH_WRITE, &optClear,
 	                                                IID_PPV_ARGS(m_depthStencilBuffer.GetAddressOf())));
 
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc{};
