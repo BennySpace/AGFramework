@@ -3,17 +3,18 @@
 #include <memory>
 #include <Windows.h>
 
+#include "../Core/InputDevice.h"
 #include "dx12/DirectX12App.h"
 
 class GameTimer;
 
 class RenderingSystem
 {
-  public:
+ public:
 	RenderingSystem() = default;
 	~RenderingSystem();
 
-	bool Initialize(HINSTANCE hInstance, HWND hWnd);
+	bool Initialize(HINSTANCE hInstance, HWND hWnd, InputDevice *inputDevice);
 	void Update(const GameTimer &gameTimer);
 	void Render(const GameTimer &gameTimer);
 	void OnWindowResize(int width, int height);

@@ -14,6 +14,7 @@
 
 #include "DirectX12Context.h"
 #include "FrameResource.h"
+#include "../../Core/InputDevice.h"
 #include "../Demo/DemoLightEditSession.h"
 #include "../Demo/DemoShowcaseSession.h"
 #include "../Demo/DemoSceneComposer.h"
@@ -31,7 +32,7 @@ class GameTimer;
 class DirectX12App
 {
   public:
-	DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd);
+	DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd, InputDevice *inputDevice);
 	virtual ~DirectX12App();
 
 	virtual bool Initialize();
@@ -57,6 +58,7 @@ class DirectX12App
   protected:
 	HINSTANCE m_hAppInst = nullptr;
 	HWND m_hMainWnd = nullptr;
+	InputDevice *m_inputDevice = nullptr;
 
 	bool m4xMsaaState = false;
 	UINT m4xMsaaQuality = 0;

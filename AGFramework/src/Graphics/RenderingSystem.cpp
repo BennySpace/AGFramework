@@ -4,14 +4,14 @@
 
 RenderingSystem::~RenderingSystem() = default;
 
-bool RenderingSystem::Initialize(HINSTANCE hInstance, HWND hWnd)
+bool RenderingSystem::Initialize(HINSTANCE hInstance, HWND hWnd, InputDevice *inputDevice)
 {
 	if (m_renderer)
 	{
 		return true;
 	}
 
-	m_renderer = std::make_unique<DirectX12App>(hInstance, hWnd);
+	m_renderer = std::make_unique<DirectX12App>(hInstance, hWnd, inputDevice);
 	if (!m_renderer->Initialize())
 	{
 		m_renderer.reset();

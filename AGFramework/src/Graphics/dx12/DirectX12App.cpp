@@ -250,7 +250,10 @@ RenderSettings::CascadedShadowData BuildCascadedShadowData(const RenderSettings:
 
 } // namespace
 
-DirectX12App::DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd) : m_hAppInst(mhAppInst), m_hMainWnd(mhMainWnd) {}
+DirectX12App::DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd, InputDevice *inputDevice)
+    : m_hAppInst(mhAppInst), m_hMainWnd(mhMainWnd), m_inputDevice(inputDevice)
+{
+}
 
 DirectX12App::~DirectX12App()
 {
@@ -503,26 +506,28 @@ float DirectX12App::AspectRatio() const
 void DirectX12App::UpdateCamera(const GameTimer &gt)
 {
 	const float sprintMultiplier = 3.0f;
-	const float moveSpeed = m_cameraMoveSpeed * (d3dUtil::IsKeyDown(VK_SHIFT) ? sprintMultiplier : 1.0f) * gt.DeltaTime();
+	const bool isShiftPressed =
+	    m_inputDevice != nullptr && (m_inputDevice->IsKeyDown(Keys::LeftShift) || m_inputDevice->IsKeyDown(Keys::RightShift));
+	const float moveSpeed = m_cameraMoveSpeed * (isShiftPressed ? sprintMultiplier : 1.0f) * gt.DeltaTime();
 
 	XMVECTOR eyePosition = XMLoadFloat3(&m_eyePos);
 	XMVECTOR lookDirection = GetSafeNormalizedDirection(m_lookDirection);
 	const XMVECTOR worldUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 	XMVECTOR rightDirection = XMVector3Normalize(XMVector3Cross(worldUp, lookDirection));
 
-	if (d3dUtil::IsKeyDown('W'))
+	if (m_inputDevice != nullptr && m_inputDevice->IsKeyDown(Keys::W))
 	{
 		eyePosition += lookDirection * moveSpeed;
 	}
-	if (d3dUtil::IsKeyDown('S'))
+	if (m_inputDevice != nullptr && m_inputDevice->IsKeyDown(Keys::S))
 	{
 		eyePosition -= lookDirection * moveSpeed;
 	}
-	if (d3dUtil::IsKeyDown('A'))
+	if (m_inputDevice != nullptr && m_inputDevice->IsKeyDown(Keys::A))
 	{
 		eyePosition -= rightDirection * moveSpeed;
 	}
-	if (d3dUtil::IsKeyDown('D'))
+	if (m_inputDevice != nullptr && m_inputDevice->IsKeyDown(Keys::D))
 	{
 		eyePosition += rightDirection * moveSpeed;
 	}
@@ -533,7 +538,7 @@ void DirectX12App::UpdateCamera(const GameTimer &gt)
 void DirectX12App::UpdateMouseCaptureState()
 {
 	const bool isWindowFocused = GetForegroundWindow() == m_hMainWnd;
-	const bool isRightMouseDown = d3dUtil::IsKeyDown(VK_RBUTTON);
+	const bool isRightMouseDown = m_inputDevice != nullptr && m_inputDevice->IsKeyDown(Keys::RightButton);
 	const bool isCursorInsideClientArea = IsCursorInsideClientArea(m_hMainWnd);
 	const bool shouldCaptureMouse = isWindowFocused && isRightMouseDown && isCursorInsideClientArea;
 

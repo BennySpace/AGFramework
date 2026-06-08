@@ -1,8 +1,5 @@
 #pragma once
 
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-
 #include "../Utils/Delegates.h"
 #include "InputDevice.h"
 #include <string>

@@ -40,7 +40,7 @@ void AGFramework::Initialize()
 
 	m_window->Show();
 
-	if (!m_renderingSystem->Initialize(m_hInstance, m_hWnd))
+	if (!m_renderingSystem->Initialize(m_hInstance, m_hWnd, m_inputDevice.get()))
 		throw std::runtime_error("Failed to initialize rendering system");
 }
 
