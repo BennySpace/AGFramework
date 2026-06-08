@@ -4,11 +4,11 @@
 
 ## Screenshots
 
-![Screenshot 1](Assets/readme/screenshots/01.jpg)
+![Screenshot 1](Assets/readme/screenshots/01.png)
 
-![Screenshot 2](Assets/readme/screenshots/02.jpg)
+![Screenshot 2](Assets/readme/screenshots/02.png)
 
-![Screenshot 3](Assets/readme/screenshots/03.jpg)
+![Screenshot 3](Assets/readme/screenshots/03.png)
 
 ## Goal
 
