@@ -21,6 +21,7 @@ namespace
 {
 constexpr wchar_t kSharedWhiteTexturePath[] = L"Assets\\shared\\textures\\white1x1.dds";
 constexpr wchar_t kSharedErrorTexturePath[] = L"Assets\\shared\\textures\\texture_error.dds";
+std::string WStringToString(const std::wstring &wideString);
 
 std::wstring ResolveAssetPath(const std::wstring &assetRelativePath)
 {
@@ -37,6 +38,18 @@ std::wstring ResolveAssetPath(const std::wstring &assetRelativePath)
 	}
 
 	return assetRelativePath;
+}
+
+std::wstring ResolveRequiredAssetPath(const std::wstring &assetRelativePath)
+{
+	const std::wstring resolvedPath = ResolveAssetPath(assetRelativePath);
+	const DWORD attributes = GetFileAttributesW(resolvedPath.c_str());
+	if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
+	{
+		throw std::runtime_error("Required runtime asset not found: " + WStringToString(assetRelativePath));
+	}
+
+	return resolvedPath;
 }
 
 std::string WStringToString(const std::wstring &wideString)
@@ -99,7 +112,7 @@ void SponzaScene::DisposeUploaders()
 
 void SponzaScene::BuildGeometry(DirectX12Context &context, const RenderSettings::DemoSettings &demoSettings)
 {
-	const std::wstring modelPath = ResolveAssetPath(L"Assets\\sponza\\sponza.obj");
+	const std::wstring modelPath = ResolveRequiredAssetPath(L"Assets\\sponza\\sponza.obj");
 	std::vector<ObjModelLoader::MeshData> meshes = ObjModelLoader().Load(WStringToString(modelPath));
 	if (meshes.empty())
 	{
@@ -107,7 +120,7 @@ void SponzaScene::BuildGeometry(DirectX12Context &context, const RenderSettings:
 	}
 
 	MaterialAssetContract materialContract;
-	const std::string materialContractPath = ResolveAssetPathUtf8(L"Assets\\sponza\\sponza.materials.cfg");
+	const std::string materialContractPath = WStringToString(ResolveRequiredAssetPath(L"Assets\\sponza\\sponza.materials.cfg"));
 	materialContract.Load(materialContractPath);
 
 	XMFLOAT3 sponzaMinPoint((std::numeric_limits<float>::max)(), (std::numeric_limits<float>::max)(), (std::numeric_limits<float>::max)());
@@ -242,8 +255,8 @@ void SponzaScene::BuildTextures(DirectX12Context &context)
 	m_resources.Textures.clear();
 	m_resources.OrderedTextures.clear();
 
-	const std::string defaultWhiteTexturePath = ResolveAssetPathUtf8(kSharedWhiteTexturePath);
-	const std::string errorTexturePath = ResolveAssetPathUtf8(kSharedErrorTexturePath);
+	const std::string defaultWhiteTexturePath = WStringToString(ResolveRequiredAssetPath(kSharedWhiteTexturePath));
+	const std::string errorTexturePath = WStringToString(ResolveRequiredAssetPath(kSharedErrorTexturePath));
 	const std::array<std::uint8_t, 4> whitePixel = {255, 255, 255, 255};
 	const std::array<std::uint8_t, 4> defaultNormalPixel = {128, 128, 255, 255};
 	const std::array<std::uint8_t, 4> defaultOrmPixel = {255, 128, 0, 255};

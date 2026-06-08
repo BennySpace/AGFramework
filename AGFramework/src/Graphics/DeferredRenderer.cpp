@@ -10,6 +10,23 @@ using namespace DirectX;
 
 namespace
 {
+std::string WStringToUtf8(const std::wstring &value)
+{
+	if (value.empty())
+	{
+		return std::string();
+	}
+
+	const int sizeRequired = WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, nullptr, 0, nullptr, nullptr);
+	std::string result(sizeRequired > 0 ? sizeRequired - 1 : 0, '\0');
+	if (sizeRequired > 1)
+	{
+		WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, &result[0], sizeRequired - 1, nullptr, nullptr);
+	}
+
+	return result;
+}
+
 std::wstring ResolveShaderPath(const std::wstring &shaderRelativePath)
 {
 	const std::wstring candidates[] = {shaderRelativePath, L"..\\" + shaderRelativePath, L"..\\..\\" + shaderRelativePath,
@@ -44,6 +61,36 @@ std::wstring ResolveAssetPath(const std::wstring &assetRelativePath)
 	return L"";
 }
 
+std::wstring ResolveRequiredAssetPath(const char *assetLabel, std::initializer_list<std::wstring> candidatePaths)
+{
+	for (const std::wstring &candidatePath : candidatePaths)
+	{
+		const std::wstring resolvedPath = ResolveAssetPath(candidatePath);
+		if (!resolvedPath.empty())
+		{
+			return resolvedPath;
+		}
+	}
+
+	std::string errorMessage = "Required runtime asset is missing: ";
+	errorMessage += assetLabel;
+	errorMessage += ". Expected one of: ";
+
+	bool isFirstPath = true;
+	for (const std::wstring &candidatePath : candidatePaths)
+	{
+		if (!isFirstPath)
+		{
+			errorMessage += ", ";
+		}
+
+		errorMessage += WStringToUtf8(candidatePath);
+		isFirstPath = false;
+	}
+
+	throw std::runtime_error(errorMessage);
+}
+
 std::wstring ResolveFirstExistingAssetPath(std::initializer_list<std::wstring> candidatePaths)
 {
 	for (const std::wstring &candidatePath : candidatePaths)
@@ -57,27 +104,10 @@ std::wstring ResolveFirstExistingAssetPath(std::initializer_list<std::wstring> c
 
 	return L"";
 }
-
-void LoadDdsTextureOrFallback(DirectX12Context &context, Texture &texture, const std::wstring &path, bool isCubeTexture,
-                              const std::array<std::uint8_t, 4> &fallbackPixel)
+void LoadRequiredDdsTexture(DirectX12Context &context, Texture &texture, const std::wstring &path)
 {
-	if (!path.empty())
-	{
-		texture.Filename = path;
-		ThrowIfFailed(
-		    CreateDDSTextureFromFile12(context.GetDevice(), context.GetCommandList(), path.c_str(), texture.Resource, texture.UploadHeap));
-		return;
-	}
-
-	texture.Filename = isCubeTexture ? L"generated-cube-fallback" : L"generated-2d-fallback";
-	if (isCubeTexture)
-	{
-		ResourceUploader::UploadTextureCube(context, texture, fallbackPixel.data(), 1, 1);
-	}
-	else
-	{
-		ResourceUploader::UploadTexture2D(context, texture, fallbackPixel.data(), 1, 1);
-	}
+	texture.Filename = path;
+	ThrowIfFailed(CreateDDSTextureFromFile12(context.GetDevice(), context.GetCommandList(), path.c_str(), texture.Resource, texture.UploadHeap));
 }
 } // namespace
 
@@ -247,21 +277,21 @@ void DeferredRenderer::BuildImageBasedLightingTextures(DirectX12Context &context
 	m_brdfLutTexture = std::make_unique<Texture>();
 	m_brdfLutTexture->Name = "ibl_brdf_lut";
 
-	const std::wstring irradiancePath = ResolveFirstExistingAssetPath({L"Assets\\ibl\\irradiance.dds"});
-	const std::wstring prefilterPath = ResolveFirstExistingAssetPath(
+	const std::wstring irradiancePath = ResolveRequiredAssetPath("IBL irradiance map", {L"Assets\\ibl\\irradiance.dds"});
+	const std::wstring prefilterPath = ResolveRequiredAssetPath(
+	    "IBL prefiltered environment map",
 	    {L"Assets\\ibl\\prefilter.dds", L"Assets\\ibl\\prefiltered_environment.dds", L"Assets\\ibl\\prefilteredEnv.dds"});
-	const std::wstring environmentPath = ResolveFirstExistingAssetPath(
+	const std::wstring environmentPath = ResolveRequiredAssetPath(
+	    "IBL environment map",
 	    {L"Assets\\ibl\\environment.dds", L"Assets\\ibl\\skybox.dds", L"Assets\\ibl\\env.dds", L"Assets\\ibl\\environmentMap.dds"});
-	const std::wstring brdfLutPath =
-	    ResolveFirstExistingAssetPath({L"Assets\\ibl\\brdfLUT.dds", L"Assets\\ibl\\brdf_lut.dds", L"Assets\\ibl\\brdf_integration.dds"});
-	m_hasEnvironmentMapTexture = !environmentPath.empty();
+	const std::wstring brdfLutPath = ResolveRequiredAssetPath(
+	    "IBL BRDF integration map", {L"Assets\\ibl\\brdfLUT.dds", L"Assets\\ibl\\brdf_lut.dds", L"Assets\\ibl\\brdf_integration.dds"});
+	m_hasEnvironmentMapTexture = true;
 
-	const std::array<std::uint8_t, 4> blackPixel = {0, 0, 0, 255};
-	const std::array<std::uint8_t, 4> whitePixel = {255, 255, 255, 255};
-	LoadDdsTextureOrFallback(context, *m_irradianceMapTexture, irradiancePath, true, blackPixel);
-	LoadDdsTextureOrFallback(context, *m_prefilterMapTexture, prefilterPath, true, blackPixel);
-	LoadDdsTextureOrFallback(context, *m_environmentMapTexture, environmentPath, true, blackPixel);
-	LoadDdsTextureOrFallback(context, *m_brdfLutTexture, brdfLutPath, false, whitePixel);
+	LoadRequiredDdsTexture(context, *m_irradianceMapTexture, irradiancePath);
+	LoadRequiredDdsTexture(context, *m_prefilterMapTexture, prefilterPath);
+	LoadRequiredDdsTexture(context, *m_environmentMapTexture, environmentPath);
+	LoadRequiredDdsTexture(context, *m_brdfLutTexture, brdfLutPath);
 	m_lightingSrvHeapDirty = true;
 }
 
