@@ -51,7 +51,6 @@
     <ClCompile Include="src\Core\InputDevice.cpp" />
     <ClCompile Include="src\Math\MathHelper.cpp" />
     <ClCompile Include="src\App\AGFramework.cpp" />
-    <ClCompile Include="src\Graphics\RenderingSystem.cpp" />
     <ClCompile Include="src\Core\Window.cpp" />
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
@@ -98,7 +97,6 @@
     <ClInclude Include="src\Core\Keys.h" />
     <ClInclude Include="src\Math\MathHelper.h" />
     <ClInclude Include="src\App\AGFramework.h" />
-    <ClInclude Include="src\Graphics\RenderingSystem.h" />
     <ClInclude Include="src\Core\Window.h" />
   </ItemGroup>
   <ItemGroup>
