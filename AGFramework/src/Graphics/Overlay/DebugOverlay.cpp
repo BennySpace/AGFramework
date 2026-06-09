@@ -348,25 +348,25 @@ void DebugOverlay::Draw(ID3D12GraphicsCommandList *commandList, const GameTimer 
 	ImGui::Text("FPS: %.1f", gameTimer.DeltaTime() > 0.0 ? (1.0 / gameTimer.DeltaTime()) : 0.0);
 	ImGui::Text("Frame time: %.3f ms", gameTimer.DeltaTime() * 1000.0);
 	const bool matchesRecommendedLook = Demo::DemoLightingController::MatchesRecommendedLook(materialSystem, renderSettings, lightEditSession);
-	RenderSettings::DemoSettings demoSettings = Demo::DemoLightingController::GetDemoSettings(renderSettings);
+	RenderSettings::DemoSettings demoSettings = renderSettings.GetDemoSettings();
 	const ImVec4 lookStatusColor = matchesRecommendedLook ? ImVec4(0.55f, 0.88f, 0.62f, 1.0f) : ImVec4(0.95f, 0.78f, 0.42f, 1.0f);
 	ImGui::TextColored(lookStatusColor, "%s", matchesRecommendedLook ? "Look: Recommended" : "Look: Custom");
 	if (ImGui::CollapsingHeader("Demo"))
 	{
 		if (ImGui::Checkbox("Enable demo controls", &demoSettings.EnableDemoControls))
 		{
-			Demo::DemoLightingController::SetDemoSettings(renderSettings, demoSettings);
+			renderSettings.SetDemoSettings(demoSettings);
 		}
 		if (ImGui::Checkbox("Enable PBR grid", &demoSettings.EnablePbrGrid))
 		{
-			Demo::DemoLightingController::SetDemoSettings(renderSettings, demoSettings);
+			renderSettings.SetDemoSettings(demoSettings);
 		}
 		if (demoSettings.EnablePbrGrid && ImGui::TreeNode("PBR grid"))
 		{
-			XMFLOAT3 pbrGridOffset = Demo::DemoLightingController::GetPbrGridOffset(showcaseSession);
+			XMFLOAT3 pbrGridOffset = showcaseSession.GetPbrGridOffset();
 			if (ImGui::DragFloat3("Offset##PbrGrid", &pbrGridOffset.x, 0.1f))
 			{
-				Demo::DemoLightingController::SetPbrGridOffset(showcaseSession, pbrGridOffset);
+				showcaseSession.SetPbrGridOffset(pbrGridOffset);
 			}
 			if (ImGui::Button("Reset PBR grid"))
 			{
@@ -493,14 +493,14 @@ void DebugOverlay::Draw(ID3D12GraphicsCommandList *commandList, const GameTimer 
 		RenderSettings::LightingSettings lightingSettings = renderSettings.GetLightingSettings();
 		RenderSettings::ImageBasedLightingSettings imageBasedLightingSettings = renderSettings.GetImageBasedLightingSettings();
 		RenderSettings::ShadowSettings shadowSettings = renderSettings.GetShadowSettings();
-		Demo::DemoLightEditState lightEditState = Demo::DemoLightingController::GetLightEditState(lightEditSession);
+		Demo::DemoLightEditState lightEditState = lightEditSession.GetState();
 		if (ImGui::Button("Apply recommended look"))
 		{
 			Demo::DemoLightingController::ApplyRecommendedLook(materialSystem, renderSettings, lightEditSession);
 			lightingSettings = renderSettings.GetLightingSettings();
 			imageBasedLightingSettings = renderSettings.GetImageBasedLightingSettings();
 			shadowSettings = renderSettings.GetShadowSettings();
-			lightEditState = Demo::DemoLightingController::GetLightEditState(lightEditSession);
+			lightEditState = lightEditSession.GetState();
 		}
 		if (ImGui::ColorEdit3("Ambient", &lightingSettings.AmbientLight.x))
 		{
@@ -619,13 +619,13 @@ void DebugOverlay::Draw(ID3D12GraphicsCommandList *commandList, const GameTimer 
 				if (ImGui::Button("Reset light positions"))
 				{
 					Demo::DemoLightingController::ResetRecommendedLightPositions(lightEditSession);
-					lightEditState = Demo::DemoLightingController::GetLightEditState(lightEditSession);
+					lightEditState = lightEditSession.GetState();
 				}
 				ImGui::SameLine();
 				if (ImGui::Button("Reset all lights"))
 				{
 					Demo::DemoLightingController::ApplyRecommendedLightPreset(lightEditSession);
-					lightEditState = Demo::DemoLightingController::GetLightEditState(lightEditSession);
+					lightEditState = lightEditSession.GetState();
 				}
 
 				if (ImGui::TreeNode("Directional"))
@@ -634,19 +634,19 @@ void DebugOverlay::Draw(ID3D12GraphicsCommandList *commandList, const GameTimer 
 					if (ImGui::Checkbox("Directional 0", &enableDirectionalLight))
 					{
 						lightEditState.EnableState.DirectionalLights[0] = enableDirectionalLight;
-						Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+						lightEditSession.SetState(lightEditState);
 					}
 					if (ImGui::ColorEdit3("Directional 0 color", &lightEditState.ColorState.DirectionalLights[0].x))
 					{
-						Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+						lightEditSession.SetState(lightEditState);
 					}
 					if (ImGui::SliderFloat("Directional 0 intensity", &lightEditState.IntensityState.DirectionalLights[0], 0.0f, 12.0f, "%.2f"))
 					{
-						Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+						lightEditSession.SetState(lightEditState);
 					}
 					if (ImGui::DragFloat3("Directional 0 direction", &lightEditState.DirectionState.DirectionalLights[0].x, 0.01f, -1.0f, 1.0f))
 					{
-						Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+						lightEditSession.SetState(lightEditState);
 					}
 					ImGui::TreePop();
 				}
@@ -660,23 +660,23 @@ void DebugOverlay::Draw(ID3D12GraphicsCommandList *commandList, const GameTimer 
 						if (ImGui::Checkbox(label.c_str(), &isEnabled))
 						{
 							lightEditState.EnableState.PointLights[lightIndex] = isEnabled;
-							Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+							lightEditSession.SetState(lightEditState);
 						}
 						ImGui::SameLine();
 						std::string colorLabel = "Color##Point" + std::to_string(lightIndex);
 						if (ImGui::ColorEdit3(colorLabel.c_str(), &lightEditState.ColorState.PointLights[lightIndex].x))
 						{
-							Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+							lightEditSession.SetState(lightEditState);
 						}
 						std::string intensityLabel = "Intensity##Point" + std::to_string(lightIndex);
 						if (ImGui::SliderFloat(intensityLabel.c_str(), &lightEditState.IntensityState.PointLights[lightIndex], 0.0f, 20.0f, "%.2f"))
 						{
-							Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+							lightEditSession.SetState(lightEditState);
 						}
 						std::string positionLabel = "Position##Point" + std::to_string(lightIndex);
 						if (ImGui::DragFloat3(positionLabel.c_str(), &lightEditState.PositionState.PointLights[lightIndex].x, 0.1f))
 						{
-							Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+							lightEditSession.SetState(lightEditState);
 						}
 					}
 					ImGui::TreePop();
@@ -692,23 +692,23 @@ void DebugOverlay::Draw(ID3D12GraphicsCommandList *commandList, const GameTimer 
 						if (ImGui::Checkbox(label.c_str(), &isEnabled))
 						{
 							lightEditState.EnableState.SpotLights[lightIndex] = isEnabled;
-							Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+							lightEditSession.SetState(lightEditState);
 						}
 						ImGui::SameLine();
 						std::string colorLabel = "Color##Spot" + std::to_string(lightIndex);
 						if (ImGui::ColorEdit3(colorLabel.c_str(), &lightEditState.ColorState.SpotLights[lightIndex].x))
 						{
-							Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+							lightEditSession.SetState(lightEditState);
 						}
 						std::string intensityLabel = "Intensity##Spot" + std::to_string(lightIndex);
 						if (ImGui::SliderFloat(intensityLabel.c_str(), &lightEditState.IntensityState.SpotLights[lightIndex], 0.0f, 24.0f, "%.2f"))
 						{
-							Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+							lightEditSession.SetState(lightEditState);
 						}
 						if (lightIndex == 1 &&
 						    ImGui::DragFloat3("Position##Spot1", &lightEditState.PositionState.SecondarySpotLight.x, 0.1f))
 						{
-							Demo::DemoLightingController::SetLightEditState(lightEditSession, lightEditState);
+							lightEditSession.SetState(lightEditState);
 						}
 					}
 					ImGui::TreePop();
@@ -751,7 +751,7 @@ void DebugOverlay::Draw(ID3D12GraphicsCommandList *commandList, const GameTimer 
 		const ImVec2 displaySize = io.DisplaySize;
 		const XMMATRIX viewProj = BuildViewProjection(eyePosition, lookDirection, displaySize);
 		const LightSystem::LightingState &lightingState = lightSystem.GetLightingState();
-		const Demo::DemoLightEditState lightEditState = Demo::DemoLightingController::GetLightEditState(lightEditSession);
+		const Demo::DemoLightEditState lightEditState = lightEditSession.GetState();
 		ImDrawList *drawList = overlayDrawList;
 
 		LightSystem::DirectionalLightData directionalLight = lightingState.DirectionalLights[0];

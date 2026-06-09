@@ -281,7 +281,7 @@ bool DirectX12App::Initialize()
 	ThrowIfFailed(m_context.GetCommandAllocator()->Reset());
 	ThrowIfFailed(m_context.GetCommandList()->Reset(m_context.GetCommandAllocator(), nullptr));
 
-	m_activeDemoSettings = Demo::DemoLightingController::GetDemoSettings(m_renderSettings);
+	m_activeDemoSettings = m_renderSettings.GetDemoSettings();
 	m_activeShadowSettings = m_renderSettings.GetShadowSettings();
 	m_scene.Initialize(m_context, m_activeDemoSettings);
 	m_demoSceneComposer.RebuildTrackedPbrGridDrawItems(m_scene.GetDrawItems());
@@ -313,9 +313,9 @@ void DirectX12App::Update(const GameTimer &gt)
 {
 	ReloadSceneIfNeeded();
 	ReloadShadowSettingsIfNeeded();
-	if (Demo::DemoLightingController::IsPbrGridEnabled(m_renderSettings))
+	if (m_renderSettings.GetDemoSettings().EnablePbrGrid)
 	{
-		m_demoSceneComposer.ApplyPbrGridOffset(m_scene, Demo::DemoLightingController::GetPbrGridOffset(m_demoShowcaseSession));
+		m_demoSceneComposer.ApplyPbrGridOffset(m_scene, m_demoShowcaseSession.GetPbrGridOffset());
 	}
 	UpdateMouseCaptureState();
 	UpdateMouseLook();
@@ -415,7 +415,7 @@ FrameResource &DirectX12App::AdvanceFrameResource()
 
 void DirectX12App::ReloadSceneIfNeeded()
 {
-	const RenderSettings::DemoSettings requestedDemoSettings = Demo::DemoLightingController::GetDemoSettings(m_renderSettings);
+	const RenderSettings::DemoSettings requestedDemoSettings = m_renderSettings.GetDemoSettings();
 	if (!RequiresSceneReload(m_activeDemoSettings, requestedDemoSettings))
 	{
 		return;

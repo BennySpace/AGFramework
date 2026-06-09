@@ -96,41 +96,6 @@ RecommendedLightPreset DemoLightingController::BuildRecommendedLightPreset()
 	return preset;
 }
 
-RenderSettings::DemoSettings DemoLightingController::GetDemoSettings(const RenderSettings &renderSettings)
-{
-	return renderSettings.GetDemoSettings();
-}
-
-void DemoLightingController::SetDemoSettings(RenderSettings &renderSettings, const RenderSettings::DemoSettings &demoSettings)
-{
-	renderSettings.SetDemoSettings(demoSettings);
-}
-
-bool DemoLightingController::IsPbrGridEnabled(const RenderSettings &renderSettings)
-{
-	return renderSettings.GetDemoSettings().EnablePbrGrid;
-}
-
-XMFLOAT3 DemoLightingController::GetPbrGridOffset(const DemoShowcaseSession &showcaseSession)
-{
-	return showcaseSession.GetPbrGridOffset();
-}
-
-void DemoLightingController::SetPbrGridOffset(DemoShowcaseSession &showcaseSession, const XMFLOAT3 &offset)
-{
-	showcaseSession.SetPbrGridOffset(offset);
-}
-
-DemoLightEditState DemoLightingController::GetLightEditState(const DemoLightEditSession &lightEditSession)
-{
-	return lightEditSession.GetState();
-}
-
-void DemoLightingController::SetLightEditState(DemoLightEditSession &lightEditSession, const DemoLightEditState &lightEditState)
-{
-	lightEditSession.SetState(lightEditState);
-}
-
 void DemoLightingController::ApplyRecommendedLightPreset(DemoLightEditSession &lightEditSession)
 {
 	const RecommendedLightPreset preset = BuildRecommendedLightPreset();
@@ -154,7 +119,7 @@ void DemoLightingController::ResetRecommendedLightPositions(DemoLightEditSession
 
 void DemoLightingController::ResetRecommendedPbrGridOffset(DemoShowcaseSession &showcaseSession)
 {
-	SetPbrGridOffset(showcaseSession, XMFLOAT3(0.0f, 0.0f, 0.0f));
+	showcaseSession.SetPbrGridOffset(XMFLOAT3(0.0f, 0.0f, 0.0f));
 }
 
 void DemoLightingController::ApplyRecommendedLook(MaterialSystem &materialSystem, RenderSettings &renderSettings,
