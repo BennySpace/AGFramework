@@ -89,6 +89,8 @@ bool Gbuffer::CreateResources()
 	}
 	m_depthStencilBuffer.Reset();
 
+	const CD3DX12_HEAP_PROPERTIES defaultHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
+
 	for (UINT i = 0; i < kTargetCount; ++i)
 	{
 		const auto target = static_cast<Target>(i);
@@ -112,8 +114,8 @@ bool Gbuffer::CreateResources()
 		optimizedClearValue.Color[2] = clearValue[2];
 		optimizedClearValue.Color[3] = clearValue[3];
 
-		ThrowIfFailed(m_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), D3D12_HEAP_FLAG_NONE,
-		                                                &targetDesc, D3D12_RESOURCE_STATE_RENDER_TARGET, &optimizedClearValue,
+		ThrowIfFailed(m_device->CreateCommittedResource(&defaultHeapProperties, D3D12_HEAP_FLAG_NONE, &targetDesc,
+		                                                D3D12_RESOURCE_STATE_RENDER_TARGET, &optimizedClearValue,
 		                                                IID_PPV_ARGS(m_targets[i].GetAddressOf())));
 	}
 
@@ -134,7 +136,7 @@ bool Gbuffer::CreateResources()
 	depthClearValue.DepthStencil.Depth = m_desc.ClearDepth;
 	depthClearValue.DepthStencil.Stencil = m_desc.ClearStencil;
 
-	ThrowIfFailed(m_device->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), D3D12_HEAP_FLAG_NONE, &depthDesc,
+	ThrowIfFailed(m_device->CreateCommittedResource(&defaultHeapProperties, D3D12_HEAP_FLAG_NONE, &depthDesc,
 	                                                D3D12_RESOURCE_STATE_DEPTH_WRITE, &depthClearValue,
 	                                                IID_PPV_ARGS(m_depthStencilBuffer.GetAddressOf())));
 

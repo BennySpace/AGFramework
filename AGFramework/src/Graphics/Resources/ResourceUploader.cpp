@@ -39,16 +39,19 @@ void ResourceUploader::UploadTexture2D(DirectX12Context &context, Texture &textu
                                        DXGI_FORMAT format)
 {
 	const auto textureDesc = CD3DX12_RESOURCE_DESC::Tex2D(format, width, height, 1, 1);
+	const CD3DX12_HEAP_PROPERTIES defaultHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
+	const CD3DX12_HEAP_PROPERTIES uploadHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
 
-	ThrowIfFailed(context.GetDevice()->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), D3D12_HEAP_FLAG_NONE,
-	                                                           &textureDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
+	ThrowIfFailed(context.GetDevice()->CreateCommittedResource(&defaultHeapProperties, D3D12_HEAP_FLAG_NONE, &textureDesc,
+	                                                           D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
 	                                                           IID_PPV_ARGS(&texture.Resource)));
 
 	const UINT64 uploadBufferSize = GetRequiredIntermediateSize(texture.Resource.Get(), 0, 1);
+	const auto uploadBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
 
-	ThrowIfFailed(context.GetDevice()->CreateCommittedResource(
-	    &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize),
-	    D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&texture.UploadHeap)));
+	ThrowIfFailed(context.GetDevice()->CreateCommittedResource(&uploadHeapProperties, D3D12_HEAP_FLAG_NONE, &uploadBufferDesc,
+	                                                           D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+	                                                           IID_PPV_ARGS(&texture.UploadHeap)));
 
 	D3D12_SUBRESOURCE_DATA subresourceData = {};
 	subresourceData.pData = pixelData;
@@ -86,16 +89,19 @@ void ResourceUploader::UploadTextureCube(DirectX12Context &context, Texture &tex
                                          UINT faceHeight, DXGI_FORMAT format)
 {
 	const auto textureDesc = CD3DX12_RESOURCE_DESC::Tex2D(format, faceWidth, faceHeight, 6, 1);
+	const CD3DX12_HEAP_PROPERTIES defaultHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
+	const CD3DX12_HEAP_PROPERTIES uploadHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
 
-	ThrowIfFailed(context.GetDevice()->CreateCommittedResource(&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), D3D12_HEAP_FLAG_NONE,
-	                                                           &textureDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
+	ThrowIfFailed(context.GetDevice()->CreateCommittedResource(&defaultHeapProperties, D3D12_HEAP_FLAG_NONE, &textureDesc,
+	                                                           D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
 	                                                           IID_PPV_ARGS(&texture.Resource)));
 
 	const UINT64 uploadBufferSize = GetRequiredIntermediateSize(texture.Resource.Get(), 0, 6);
+	const auto uploadBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
 
-	ThrowIfFailed(context.GetDevice()->CreateCommittedResource(
-	    &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE, &CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize),
-	    D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&texture.UploadHeap)));
+	ThrowIfFailed(context.GetDevice()->CreateCommittedResource(&uploadHeapProperties, D3D12_HEAP_FLAG_NONE, &uploadBufferDesc,
+	                                                           D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+	                                                           IID_PPV_ARGS(&texture.UploadHeap)));
 
 	D3D12_SUBRESOURCE_DATA subresources[6] = {};
 	for (UINT faceIndex = 0; faceIndex < 6; ++faceIndex)

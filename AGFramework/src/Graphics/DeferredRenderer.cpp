@@ -728,6 +728,9 @@ void DeferredRenderer::BuildRootSignature(DirectX12Context &context)
 
 void DeferredRenderer::BuildPSO(DirectX12Context &context, bool enable4xMsaa, UINT msaaQuality)
 {
+	(void)enable4xMsaa;
+	(void)msaaQuality;
+
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC geometryPsoDesc = {};
 	geometryPsoDesc.InputLayout = {m_inputLayout.data(), static_cast<UINT>(m_inputLayout.size())};
 	geometryPsoDesc.pRootSignature = m_geometryRootSignature.Get();
@@ -742,8 +745,8 @@ void DeferredRenderer::BuildPSO(DirectX12Context &context, bool enable4xMsaa, UI
 	geometryPsoDesc.RTVFormats[0] = m_gbuffer->GetFormat(Gbuffer::Target::Albedo);
 	geometryPsoDesc.RTVFormats[1] = m_gbuffer->GetFormat(Gbuffer::Target::Normal);
 	geometryPsoDesc.RTVFormats[2] = m_gbuffer->GetFormat(Gbuffer::Target::Material);
-	geometryPsoDesc.SampleDesc.Count = enable4xMsaa ? 4 : 1;
-	geometryPsoDesc.SampleDesc.Quality = enable4xMsaa ? (msaaQuality - 1) : 0;
+	geometryPsoDesc.SampleDesc.Count = 1;
+	geometryPsoDesc.SampleDesc.Quality = 0;
 	geometryPsoDesc.DSVFormat = context.GetDepthStencilFormat();
 
 	ThrowIfFailed(context.GetDevice()->CreateGraphicsPipelineState(&geometryPsoDesc, IID_PPV_ARGS(&m_geometryPSO)));
