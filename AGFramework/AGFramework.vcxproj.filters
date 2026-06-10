@@ -2,6 +2,7 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="src\Graphics\Assets\AssetPathUtils.cpp" />
+    <ClCompile Include="src\Utils\StringUtils.cpp" />
     <ClCompile Include="src\Graphics\dx12\DescriptorHeap.cpp" />
     <ClCompile Include="src\Graphics\Overlay\DebugOverlay.cpp" />
     <ClCompile Include="src\Graphics\Resources\ResourceUploader.cpp" />
@@ -38,6 +39,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Graphics\Assets\AssetPathUtils.h" />
+    <ClInclude Include="src\Utils\StringUtils.h" />
     <ClInclude Include="src\Graphics\dx12\DescriptorHeap.h" />
     <ClInclude Include="src\Graphics\Overlay\DebugOverlay.h" />
     <ClInclude Include="src\Graphics\Resources\ResourceUploader.h" />

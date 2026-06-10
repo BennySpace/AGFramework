@@ -2,6 +2,7 @@
 
 #include "MaterialAssetContract.h"
 #include "MaterialTextureResolver.h"
+#include "../../Utils/StringUtils.h"
 #include "../Assets/AssetPathUtils.h"
 #include "../Demo/DemoSceneComposer.h"
 #include "../ObjModelLoader.h"
@@ -50,14 +51,14 @@ void SponzaScene::DisposeUploaders()
 void SponzaScene::BuildGeometry(DirectX12Context &context, const RenderSettings::DemoSettings &demoSettings)
 {
 	const std::wstring modelPath = AssetPathUtils::ResolveRequiredPath(L"Assets\\sponza\\sponza.obj");
-	std::vector<ObjModelLoader::MeshData> meshes = ObjModelLoader().Load(AssetPathUtils::WideToUtf8(modelPath));
+	std::vector<ObjModelLoader::MeshData> meshes = ObjModelLoader().Load(StringUtils::WideToUtf8(modelPath));
 	if (meshes.empty())
 	{
 		throw std::runtime_error("No meshes were loaded from the OBJ model.");
 	}
 
 	MaterialAssetContract materialContract;
-	const std::string materialContractPath = AssetPathUtils::WideToUtf8(AssetPathUtils::ResolveRequiredPath(L"Assets\\sponza\\sponza.materials.cfg"));
+	const std::string materialContractPath = StringUtils::WideToUtf8(AssetPathUtils::ResolveRequiredPath(L"Assets\\sponza\\sponza.materials.cfg"));
 	materialContract.Load(materialContractPath);
 
 	XMFLOAT3 sponzaMinPoint((std::numeric_limits<float>::max)(), (std::numeric_limits<float>::max)(), (std::numeric_limits<float>::max)());
@@ -192,8 +193,8 @@ void SponzaScene::BuildTextures(DirectX12Context &context)
 	m_resources.Textures.clear();
 	m_resources.OrderedTextures.clear();
 
-	const std::string defaultWhiteTexturePath = AssetPathUtils::WideToUtf8(AssetPathUtils::ResolveRequiredPath(kSharedWhiteTexturePath));
-	const std::string errorTexturePath = AssetPathUtils::WideToUtf8(AssetPathUtils::ResolveRequiredPath(kSharedErrorTexturePath));
+	const std::string defaultWhiteTexturePath = StringUtils::WideToUtf8(AssetPathUtils::ResolveRequiredPath(kSharedWhiteTexturePath));
+	const std::string errorTexturePath = StringUtils::WideToUtf8(AssetPathUtils::ResolveRequiredPath(kSharedErrorTexturePath));
 	const std::array<std::uint8_t, 4> whitePixel = {255, 255, 255, 255};
 	const std::array<std::uint8_t, 4> defaultNormalPixel = {128, 128, 255, 255};
 	const std::array<std::uint8_t, 4> defaultOrmPixel = {255, 128, 0, 255};
@@ -233,14 +234,14 @@ void SponzaScene::BuildTextures(DirectX12Context &context)
 
 		if (useProceduralFallback)
 		{
-			texture->Filename = AssetPathUtils::AnsiToWide(fallbackKey);
+			texture->Filename = StringUtils::AnsiToWide(fallbackKey);
 			ResourceUploader::UploadTexture2D(context, *texture, fallbackPixel.data(), 1, 1);
 		}
 		else
 		{
 			try
 			{
-				const std::wstring wideTexturePath = AssetPathUtils::AnsiToWide(resolvedTexturePath);
+				const std::wstring wideTexturePath = StringUtils::AnsiToWide(resolvedTexturePath);
 				const TextureLoader::SceneTextureSource textureSource = TextureLoader::LoadSceneTexture(wideTexturePath);
 				ResourceUploader::UploadSceneTexture(context, *texture, textureSource);
 			}
@@ -248,7 +249,7 @@ void SponzaScene::BuildTextures(DirectX12Context &context)
 			{
 				if (useSharedDiffuseFallbacks && resolvedTexturePath != errorTexturePath && AssetPathUtils::FileExists(errorTexturePath))
 				{
-					const std::wstring wideErrorTexturePath = AssetPathUtils::AnsiToWide(errorTexturePath);
+					const std::wstring wideErrorTexturePath = StringUtils::AnsiToWide(errorTexturePath);
 					const TextureLoader::SceneTextureSource textureSource = TextureLoader::LoadSceneTexture(wideErrorTexturePath);
 					ResourceUploader::UploadSceneTexture(context, *texture, textureSource);
 				}

@@ -1,6 +1,7 @@
 #include "ResourceUploader.h"
 
 #include "../Assets/AssetPathUtils.h"
+#include "../../Utils/StringUtils.h"
 #include "../dx12/DirectX12Context.h"
 
 #include <stdexcept>
@@ -44,7 +45,7 @@ void ResourceUploader::UploadSceneTexture(DirectX12Context &context, Texture &te
 	{
 		if (!AssetPathUtils::FileExists(source.Filename))
 		{
-			throw std::runtime_error("Required DDS texture asset not found: " + AssetPathUtils::WideToUtf8(source.Filename));
+			throw std::runtime_error("Required DDS texture asset not found: " + StringUtils::WideToUtf8(source.Filename));
 		}
 
 		ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(context.GetDevice(), context.GetCommandList(), source.Filename.c_str(),

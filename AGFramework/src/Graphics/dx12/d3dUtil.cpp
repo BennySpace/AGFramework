@@ -1,4 +1,6 @@
 #include "d3dUtil.h"
+#include "../Assets/AssetPathUtils.h"
+#include "../../Utils/StringUtils.h"
 #include <comdef.h>
 #include <fstream>
 #include <stdexcept>
@@ -14,13 +16,13 @@ ComPtr<ID3DBlob> d3dUtil::LoadBinary(const std::wstring &filename)
 {
 	if (!AssetPathUtils::FileExists(filename))
 	{
-		throw std::runtime_error("Required binary asset not found: " + AssetPathUtils::WideToUtf8(filename));
+		throw std::runtime_error("Required binary asset not found: " + StringUtils::WideToUtf8(filename));
 	}
 
 	std::ifstream fin(filename, std::ios::binary);
 	if (!fin)
 	{
-		throw std::runtime_error("Failed to open binary asset: " + AssetPathUtils::WideToUtf8(filename));
+		throw std::runtime_error("Failed to open binary asset: " + StringUtils::WideToUtf8(filename));
 	}
 
 	fin.seekg(0, std::ios_base::end);
@@ -83,7 +85,7 @@ ComPtr<ID3DBlob> d3dUtil::CompileShader(const std::wstring &filename, const D3D_
 {
 	if (!AssetPathUtils::FileExists(filename))
 	{
-		throw std::runtime_error("Required shader asset not found: " + AssetPathUtils::WideToUtf8(filename));
+		throw std::runtime_error("Required shader asset not found: " + StringUtils::WideToUtf8(filename));
 	}
 
 	UINT compileFlags = 0;
@@ -104,7 +106,7 @@ ComPtr<ID3DBlob> d3dUtil::CompileShader(const std::wstring &filename, const D3D_
 	if (FAILED(hr) && errors != nullptr)
 	{
 		const char *shaderErrors = static_cast<const char *>(errors->GetBufferPointer());
-		throw std::runtime_error("Failed to compile shader " + AssetPathUtils::WideToUtf8(filename) + ": " + shaderErrors);
+		throw std::runtime_error("Failed to compile shader " + StringUtils::WideToUtf8(filename) + ": " + shaderErrors);
 	}
 
 	ThrowIfFailed(hr);

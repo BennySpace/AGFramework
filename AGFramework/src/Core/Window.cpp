@@ -1,5 +1,5 @@
 #include "Window.h"
-#include "../Graphics/Assets/AssetPathUtils.h"
+#include "../Utils/StringUtils.h"
 #include "../../resource.h"
 #if defined(_DEBUG)
 #include "../../external/imgui/backends/imgui_impl_win32.h"
@@ -37,7 +37,7 @@ bool Window::Create(const std::string &title, int width, int height)
 	RECT rect = {0, 0, width, height};
 	AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
 
-	const std::wstring wideTitle = AssetPathUtils::Utf8ToWide(title);
+	const std::wstring wideTitle = StringUtils::Utf8ToWide(title);
 	m_handle = CreateWindowEx(0, kWindowClassName, wideTitle.c_str(), WS_OVERLAPPEDWINDOW, CW_USEDEFAULT,
 	                          CW_USEDEFAULT, rect.right - rect.left, rect.bottom - rect.top, nullptr, nullptr, m_instance, this);
 

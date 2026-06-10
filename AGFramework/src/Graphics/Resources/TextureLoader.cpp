@@ -1,5 +1,6 @@
 #include "TextureLoader.h"
 #include "../Assets/AssetPathUtils.h"
+#include "../../Utils/StringUtils.h"
 
 #include <array>
 #include <fstream>
@@ -62,7 +63,7 @@ TextureLoader::ImageData TextureLoader::LoadImage(const std::wstring &filename)
 {
 	if (!AssetPathUtils::FileExists(filename))
 	{
-		throw std::runtime_error("Required texture asset not found: " + AssetPathUtils::WideToUtf8(filename));
+		throw std::runtime_error("Required texture asset not found: " + StringUtils::WideToUtf8(filename));
 	}
 
 	if (HasExtension(filename, L".tga"))
@@ -110,7 +111,7 @@ TextureLoader::ImageData TextureLoader::LoadUncompressedTga(const std::wstring &
 	std::ifstream input(filename, std::ios::binary);
 	if (!input)
 	{
-		throw std::runtime_error("Failed to open TGA texture file: " + AssetPathUtils::WideToUtf8(filename));
+		throw std::runtime_error("Failed to open TGA texture file: " + StringUtils::WideToUtf8(filename));
 	}
 
 	std::array<std::uint8_t, 18> header{};
@@ -181,7 +182,7 @@ TextureLoader::SceneTextureSource TextureLoader::LoadSceneTexture(const std::wst
 {
 	if (!AssetPathUtils::FileExists(filename))
 	{
-		throw std::runtime_error("Required texture asset not found: " + AssetPathUtils::WideToUtf8(filename));
+		throw std::runtime_error("Required texture asset not found: " + StringUtils::WideToUtf8(filename));
 	}
 
 	SceneTextureSource result;

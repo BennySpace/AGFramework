@@ -8,8 +8,8 @@
 
 #include "../GeometryGenerator.h"
 #include "../../Math/MathHelper.h"
-#include "../Assets/AssetPathUtils.h"
 #include "../common/d3dx12.h"
+#include "../../Utils/StringUtils.h"
 #include "DDSTextureLoader.h"
 #include <algorithm>
 #include <array>
@@ -294,7 +294,7 @@ struct Texture
 #define ThrowIfFailed(x)                                                                                                                   \
 	{                                                                                                                                      \
 		HRESULT hr__ = (x);                                                                                                                \
-		std::wstring wfn = AssetPathUtils::AnsiToWide(__FILE__);                                                                          \
+		std::wstring wfn = StringUtils::AnsiToWide(__FILE__);                                                                            \
 		if (FAILED(hr__))                                                                                                                  \
 		{                                                                                                                                  \
 			throw DxException(hr__, L#x, wfn, __LINE__);                                                                                   \
