@@ -134,6 +134,11 @@ LRESULT CALLBACK Window::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 			return 0;
 
 		case WM_SIZE:
+			if (wParam == SIZE_MINIMIZED)
+			{
+				return 0;
+			}
+
 			window->m_width = LOWORD(lParam);
 			window->m_height = HIWORD(lParam);
 			if (window->OnResize.GetSize() > 0)
