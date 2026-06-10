@@ -112,6 +112,23 @@ std::wstring JoinPath(const std::wstring &basePath, const std::wstring &relative
 	return basePath + L"\\" + relativePath;
 }
 
+std::wstring Utf8ToWide(const std::string &value)
+{
+	if (value.empty())
+	{
+		return std::wstring();
+	}
+
+	const int sizeRequired = MultiByteToWideChar(CP_UTF8, 0, value.c_str(), -1, nullptr, 0);
+	std::wstring result(sizeRequired > 0 ? sizeRequired - 1 : 0, L'\0');
+	if (sizeRequired > 1)
+	{
+		MultiByteToWideChar(CP_UTF8, 0, value.c_str(), -1, &result[0], sizeRequired - 1);
+	}
+
+	return result;
+}
+
 std::wstring AnsiToWide(const std::string &value)
 {
 	if (value.empty())
