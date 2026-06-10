@@ -3,12 +3,12 @@
 # =============================================
 .vs
 *.vcxproj.user
-.suo
-.sdf
-.opensdf
-.VC.opendb
-.VC.db
-.VC.VC.opendb
+*.suo
+*.sdf
+*.opensdf
+*.VC.opendb
+*.VC.db
+*.VC.VC.opendb
 
 # Build directories
 Debug
@@ -19,54 +19,54 @@ ARM64
 Win32
 
 # Intermediate files
-.obj
-.pdb
-.ilk
-.tlog
-.log
-.ipdb
-.iobj
-.lastbuildstate
-.exp
-.lib
-.dll
+*.obj
+*.pdb
+*.ilk
+*.tlog
+*.log
+*.ipdb
+*.iobj
+*.lastbuildstate
+*.exp
+*.lib
+*.dll
 
 # Visual Studio generated files
-.ipch
-.pch
-.idb
-.bsc
-.sbr
+*.ipch
+*.pch
+*.idb
+*.bsc
+*.sbr
 
 # =============================================
 # DirectX 12
 # =============================================
 # Compiled shaders
-.cso
-.hlsl.bin
-.dxc
-.dxil
+*.cso
+*.hlsl.bin
+*.dxc
+*.dxil
 
 # DDS  texture cache (если используете)
-.dds
+*.dds
 
 # =============================================
 # Windows  Visual C++
 # =============================================
-.exe
-.exe.config
-.manifest
+*.exe
+*.exe.config
+*.manifest
 
 # Temporary files
-.tmp
-.temp
+*.tmp
+*.temp
 
 # =============================================
 # IDE and editors
 # =============================================
 # Visual Studio Code
 .vscode
-.code-workspace
+*.code-workspace
 
 # JetBrains Rider  CLion
 .idea
@@ -77,22 +77,22 @@ cmake-build-
 # =============================================
 packages
 .nuget
-.nupkg
+*.nupkg
 
 # =============================================
 # Other
 # =============================================
 # Binary files
-.bin
-.dat
+*.bin
+*.dat
 
 # Logs
-.log
+*.log
 logs
 
 # User-specific files
 *.user
-.rsuser
+*.rsuser
 imgui.ini
 
 # Thumbnails
@@ -102,9 +102,9 @@ Desktop.ini
 
 # macOS  Linux
 .DS_Store
-._
-.swp
-.swo
+._*
+*.swp
+*.swo
 
 # Temporary files
 *.tmp
