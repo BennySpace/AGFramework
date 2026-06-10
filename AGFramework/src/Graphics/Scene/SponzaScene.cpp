@@ -234,14 +234,14 @@ void SponzaScene::BuildTextures(DirectX12Context &context)
 
 		if (useProceduralFallback)
 		{
-			texture->Filename = StringUtils::AnsiToWide(fallbackKey);
+			texture->Filename = StringUtils::Utf8ToWide(fallbackKey);
 			ResourceUploader::UploadTexture2D(context, *texture, fallbackPixel.data(), 1, 1);
 		}
 		else
 		{
 			try
 			{
-				const std::wstring wideTexturePath = StringUtils::AnsiToWide(resolvedTexturePath);
+				const std::wstring wideTexturePath = StringUtils::Utf8ToWide(resolvedTexturePath);
 				const TextureLoader::SceneTextureSource textureSource = TextureLoader::LoadSceneTexture(wideTexturePath);
 				ResourceUploader::UploadSceneTexture(context, *texture, textureSource);
 			}
@@ -249,7 +249,7 @@ void SponzaScene::BuildTextures(DirectX12Context &context)
 			{
 				if (useSharedDiffuseFallbacks && resolvedTexturePath != errorTexturePath && AssetPathUtils::FileExists(errorTexturePath))
 				{
-					const std::wstring wideErrorTexturePath = StringUtils::AnsiToWide(errorTexturePath);
+					const std::wstring wideErrorTexturePath = StringUtils::Utf8ToWide(errorTexturePath);
 					const TextureLoader::SceneTextureSource textureSource = TextureLoader::LoadSceneTexture(wideErrorTexturePath);
 					ResourceUploader::UploadSceneTexture(context, *texture, textureSource);
 				}

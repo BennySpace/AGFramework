@@ -39,7 +39,7 @@ bool FileExists(const std::string &path)
 		return false;
 	}
 
-	return FileExists(StringUtils::AnsiToWide(path));
+	return FileExists(StringUtils::Utf8ToWide(path));
 }
 
 bool FileExists(const std::wstring &path)

@@ -29,7 +29,7 @@ std::wstring Utf8ToWide(const std::string &value)
 	return MultiByteToWide(value, CP_UTF8);
 }
 
-std::wstring AnsiToWide(const std::string &value)
+std::wstring SystemToWide(const std::string &value)
 {
 	return MultiByteToWide(value, CP_ACP);
 }

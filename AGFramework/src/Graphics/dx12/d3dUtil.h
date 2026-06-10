@@ -294,7 +294,7 @@ struct Texture
 #define ThrowIfFailed(x)                                                                                                                   \
 	{                                                                                                                                      \
 		HRESULT hr__ = (x);                                                                                                                \
-		std::wstring wfn = StringUtils::AnsiToWide(__FILE__);                                                                            \
+		std::wstring wfn = StringUtils::SystemToWide(__FILE__);                                                                          \
 		if (FAILED(hr__))                                                                                                                  \
 		{                                                                                                                                  \
 			throw DxException(hr__, L#x, wfn, __LINE__);                                                                                   \
