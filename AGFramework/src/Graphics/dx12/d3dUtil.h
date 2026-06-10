@@ -8,6 +8,7 @@
 
 #include "../GeometryGenerator.h"
 #include "../../Math/MathHelper.h"
+#include "../Assets/AssetPathUtils.h"
 #include "../common/d3dx12.h"
 #include "DDSTextureLoader.h"
 #include <algorithm>
@@ -52,13 +53,6 @@ inline void d3dSetDebugName(ID3D12DeviceChild *obj, const char *name)
 	{
 		obj->SetPrivateData(WKPDID_D3DDebugObjectName, lstrlenA(name), name);
 	}
-}
-
-inline std::wstring AnsiToWString(const std::string &str)
-{
-	WCHAR buffer[512];
-	MultiByteToWideChar(CP_ACP, 0, str.c_str(), -1, buffer, 512);
-	return std::wstring(buffer);
 }
 
 /*
@@ -300,7 +294,7 @@ struct Texture
 #define ThrowIfFailed(x)                                                                                                                   \
 	{                                                                                                                                      \
 		HRESULT hr__ = (x);                                                                                                                \
-		std::wstring wfn = AnsiToWString(__FILE__);                                                                                        \
+		std::wstring wfn = AssetPathUtils::AnsiToWide(__FILE__);                                                                          \
 		if (FAILED(hr__))                                                                                                                  \
 		{                                                                                                                                  \
 			throw DxException(hr__, L#x, wfn, __LINE__);                                                                                   \
