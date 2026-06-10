@@ -1,4 +1,5 @@
 #include "TextureLoader.h"
+#include "../Assets/AssetPathUtils.h"
 
 #include <array>
 #include <fstream>
@@ -10,34 +11,6 @@ using Microsoft::WRL::ComPtr;
 
 namespace
 {
-std::string WStringToUtf8(const std::wstring &value)
-{
-	if (value.empty())
-	{
-		return std::string();
-	}
-
-	const int sizeRequired = WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, nullptr, 0, nullptr, nullptr);
-	std::string result(sizeRequired > 0 ? sizeRequired - 1 : 0, '\0');
-	if (sizeRequired > 1)
-	{
-		WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, &result[0], sizeRequired - 1, nullptr, nullptr);
-	}
-
-	return result;
-}
-
-bool FileExists(const std::wstring &filename)
-{
-	if (filename.empty())
-	{
-		return false;
-	}
-
-	const DWORD attributes = GetFileAttributesW(filename.c_str());
-	return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
-}
-
 std::uint16_t ReadUInt16LE(const std::uint8_t *bytes)
 {
 	return static_cast<std::uint16_t>(bytes[0] | (bytes[1] << 8));
@@ -87,9 +60,9 @@ class ScopedComInitialization
 
 TextureLoader::ImageData TextureLoader::LoadImage(const std::wstring &filename)
 {
-	if (!FileExists(filename))
+	if (!AssetPathUtils::FileExists(filename))
 	{
-		throw std::runtime_error("Required texture asset not found: " + WStringToUtf8(filename));
+		throw std::runtime_error("Required texture asset not found: " + AssetPathUtils::WideToUtf8(filename));
 	}
 
 	if (HasExtension(filename, L".tga"))
@@ -137,7 +110,7 @@ TextureLoader::ImageData TextureLoader::LoadUncompressedTga(const std::wstring &
 	std::ifstream input(filename, std::ios::binary);
 	if (!input)
 	{
-		throw std::runtime_error("Failed to open TGA texture file: " + WStringToUtf8(filename));
+		throw std::runtime_error("Failed to open TGA texture file: " + AssetPathUtils::WideToUtf8(filename));
 	}
 
 	std::array<std::uint8_t, 18> header{};
@@ -206,9 +179,9 @@ TextureLoader::ImageData TextureLoader::LoadUncompressedTga(const std::wstring &
 
 TextureLoader::SceneTextureSource TextureLoader::LoadSceneTexture(const std::wstring &filename)
 {
-	if (!FileExists(filename))
+	if (!AssetPathUtils::FileExists(filename))
 	{
-		throw std::runtime_error("Required texture asset not found: " + WStringToUtf8(filename));
+		throw std::runtime_error("Required texture asset not found: " + AssetPathUtils::WideToUtf8(filename));
 	}
 
 	SceneTextureSource result;

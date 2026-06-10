@@ -2,6 +2,7 @@
 
 #include "MaterialAssetContract.h"
 #include "MaterialTextureResolver.h"
+#include "../Assets/AssetPathUtils.h"
 #include "../Demo/DemoSceneComposer.h"
 #include "../ObjModelLoader.h"
 #include "../Resources/ResourceUploader.h"
@@ -21,70 +22,6 @@ namespace
 {
 constexpr wchar_t kSharedWhiteTexturePath[] = L"Assets\\shared\\textures\\white1x1.dds";
 constexpr wchar_t kSharedErrorTexturePath[] = L"Assets\\shared\\textures\\texture_error.dds";
-std::string WStringToString(const std::wstring &wideString);
-
-std::wstring ResolveAssetPath(const std::wstring &assetRelativePath)
-{
-	const std::wstring candidates[] = {assetRelativePath, L"..\\" + assetRelativePath, L"..\\..\\" + assetRelativePath,
-	                                   L"AGFramework\\" + assetRelativePath};
-
-	for (const std::wstring &candidate : candidates)
-	{
-		const DWORD attributes = GetFileAttributesW(candidate.c_str());
-		if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
-		{
-			return candidate;
-		}
-	}
-
-	return assetRelativePath;
-}
-
-std::wstring ResolveRequiredAssetPath(const std::wstring &assetRelativePath)
-{
-	const std::wstring resolvedPath = ResolveAssetPath(assetRelativePath);
-	const DWORD attributes = GetFileAttributesW(resolvedPath.c_str());
-	if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
-	{
-		throw std::runtime_error("Required runtime asset not found: " + WStringToString(assetRelativePath));
-	}
-
-	return resolvedPath;
-}
-
-std::string WStringToString(const std::wstring &wideString)
-{
-	if (wideString.empty())
-	{
-		return std::string();
-	}
-
-	const int sizeRequired = WideCharToMultiByte(CP_UTF8, 0, wideString.c_str(), -1, nullptr, 0, nullptr, nullptr);
-	std::string result(sizeRequired > 0 ? sizeRequired - 1 : 0, '\0');
-
-	if (sizeRequired > 1)
-	{
-		WideCharToMultiByte(CP_UTF8, 0, wideString.c_str(), -1, &result[0], sizeRequired - 1, nullptr, nullptr);
-	}
-
-	return result;
-}
-
-std::string ResolveAssetPathUtf8(const std::wstring &assetRelativePath)
-{
-	return WStringToString(ResolveAssetPath(assetRelativePath));
-}
-
-bool FileExists(const std::string &path)
-{
-	if (path.empty())
-	{
-		return false;
-	}
-
-	const DWORD attributes = GetFileAttributesW(AnsiToWString(path).c_str());
-	return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
-}
 
 void UpdateBounds(const GeometryGenerator::Vertex &vertex, XMFLOAT3 &minPoint, XMFLOAT3 &maxPoint)
 {
@@ -112,15 +49,15 @@ void SponzaScene::DisposeUploaders()
 
 void SponzaScene::BuildGeometry(DirectX12Context &context, const RenderSettings::DemoSettings &demoSettings)
 {
-	const std::wstring modelPath = ResolveRequiredAssetPath(L"Assets\\sponza\\sponza.obj");
-	std::vector<ObjModelLoader::MeshData> meshes = ObjModelLoader().Load(WStringToString(modelPath));
+	const std::wstring modelPath = AssetPathUtils::ResolveRequiredPath(L"Assets\\sponza\\sponza.obj");
+	std::vector<ObjModelLoader::MeshData> meshes = ObjModelLoader().Load(AssetPathUtils::WideToUtf8(modelPath));
 	if (meshes.empty())
 	{
 		throw std::runtime_error("No meshes were loaded from the OBJ model.");
 	}
 
 	MaterialAssetContract materialContract;
-	const std::string materialContractPath = WStringToString(ResolveRequiredAssetPath(L"Assets\\sponza\\sponza.materials.cfg"));
+	const std::string materialContractPath = AssetPathUtils::WideToUtf8(AssetPathUtils::ResolveRequiredPath(L"Assets\\sponza\\sponza.materials.cfg"));
 	materialContract.Load(materialContractPath);
 
 	XMFLOAT3 sponzaMinPoint((std::numeric_limits<float>::max)(), (std::numeric_limits<float>::max)(), (std::numeric_limits<float>::max)());
@@ -255,8 +192,8 @@ void SponzaScene::BuildTextures(DirectX12Context &context)
 	m_resources.Textures.clear();
 	m_resources.OrderedTextures.clear();
 
-	const std::string defaultWhiteTexturePath = WStringToString(ResolveRequiredAssetPath(kSharedWhiteTexturePath));
-	const std::string errorTexturePath = WStringToString(ResolveRequiredAssetPath(kSharedErrorTexturePath));
+	const std::string defaultWhiteTexturePath = AssetPathUtils::WideToUtf8(AssetPathUtils::ResolveRequiredPath(kSharedWhiteTexturePath));
+	const std::string errorTexturePath = AssetPathUtils::WideToUtf8(AssetPathUtils::ResolveRequiredPath(kSharedErrorTexturePath));
 	const std::array<std::uint8_t, 4> whitePixel = {255, 255, 255, 255};
 	const std::array<std::uint8_t, 4> defaultNormalPixel = {128, 128, 255, 255};
 	const std::array<std::uint8_t, 4> defaultOrmPixel = {255, 128, 0, 255};
@@ -269,7 +206,7 @@ void SponzaScene::BuildTextures(DirectX12Context &context)
 		std::string resolvedTexturePath = texturePath;
 		if (resolvedTexturePath.empty())
 		{
-			if (useSharedDiffuseFallbacks && FileExists(defaultWhiteTexturePath))
+			if (useSharedDiffuseFallbacks && AssetPathUtils::FileExists(defaultWhiteTexturePath))
 			{
 				resolvedTexturePath = defaultWhiteTexturePath;
 			}
@@ -278,7 +215,8 @@ void SponzaScene::BuildTextures(DirectX12Context &context)
 				useProceduralFallback = true;
 			}
 		}
-		else if (useSharedDiffuseFallbacks && !FileExists(resolvedTexturePath) && FileExists(errorTexturePath))
+		else if (useSharedDiffuseFallbacks && !AssetPathUtils::FileExists(resolvedTexturePath) &&
+		         AssetPathUtils::FileExists(errorTexturePath))
 		{
 			resolvedTexturePath = errorTexturePath;
 		}
@@ -295,22 +233,22 @@ void SponzaScene::BuildTextures(DirectX12Context &context)
 
 		if (useProceduralFallback)
 		{
-			texture->Filename = AnsiToWString(fallbackKey);
+			texture->Filename = AssetPathUtils::AnsiToWide(fallbackKey);
 			ResourceUploader::UploadTexture2D(context, *texture, fallbackPixel.data(), 1, 1);
 		}
 		else
 		{
 			try
 			{
-				const std::wstring wideTexturePath = AnsiToWString(resolvedTexturePath);
+				const std::wstring wideTexturePath = AssetPathUtils::AnsiToWide(resolvedTexturePath);
 				const TextureLoader::SceneTextureSource textureSource = TextureLoader::LoadSceneTexture(wideTexturePath);
 				ResourceUploader::UploadSceneTexture(context, *texture, textureSource);
 			}
 			catch (const std::exception &)
 			{
-				if (useSharedDiffuseFallbacks && resolvedTexturePath != errorTexturePath && FileExists(errorTexturePath))
+				if (useSharedDiffuseFallbacks && resolvedTexturePath != errorTexturePath && AssetPathUtils::FileExists(errorTexturePath))
 				{
-					const std::wstring wideErrorTexturePath = AnsiToWString(errorTexturePath);
+					const std::wstring wideErrorTexturePath = AssetPathUtils::AnsiToWide(errorTexturePath);
 					const TextureLoader::SceneTextureSource textureSource = TextureLoader::LoadSceneTexture(wideErrorTexturePath);
 					ResourceUploader::UploadSceneTexture(context, *texture, textureSource);
 				}

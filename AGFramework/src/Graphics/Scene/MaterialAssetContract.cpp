@@ -1,4 +1,5 @@
 #include "MaterialAssetContract.h"
+#include "../Assets/AssetPathUtils.h"
 
 #include <algorithm>
 #include <cctype>
@@ -55,40 +56,10 @@ std::string GetBasePath(const std::string &filename)
 	return lastSlash == std::string::npos ? std::string() : filename.substr(0, lastSlash);
 }
 
-std::string JoinPath(const std::string &basePath, const std::string &relativePath)
-{
-	if (relativePath.empty())
-	{
-		return std::string();
-	}
-
-	if (relativePath.size() > 1 && relativePath[1] == ':')
-	{
-		return relativePath;
-	}
-
-	if (relativePath[0] == '\\' || relativePath[0] == '/')
-	{
-		return relativePath;
-	}
-
-	if (basePath.empty())
-	{
-		return relativePath;
-	}
-
-	if (basePath.back() == '\\' || basePath.back() == '/')
-	{
-		return basePath + relativePath;
-	}
-
-	return basePath + "\\" + relativePath;
-}
-
 void ApplyTextureProperty(const std::string &value, const std::string &basePath, std::string &target, bool &hasTarget)
 {
 	hasTarget = true;
-	target = value.empty() ? std::string() : JoinPath(basePath, value);
+	target = value.empty() ? std::string() : AssetPathUtils::JoinPath(basePath, value);
 }
 } // namespace
 

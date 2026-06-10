@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\Graphics\Assets\AssetPathUtils.cpp" />
     <ClCompile Include="src\Graphics\dx12\DescriptorHeap.cpp" />
     <ClCompile Include="src\Graphics\dx12\d3dUtil.cpp" />
     <ClCompile Include="src\Graphics\dx12\DirectX12Context.cpp" />
@@ -55,6 +56,7 @@
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Graphics\Assets\AssetPathUtils.h" />
     <ClInclude Include="src\Graphics\dx12\DescriptorHeap.h" />
     <ClInclude Include="src\Graphics\dx12\d3dUtil.h" />
     <ClInclude Include="src\Graphics\common\d3dx12.h" />

@@ -1,41 +1,13 @@
 #include "MaterialTextureResolver.h"
+#include "../Assets/AssetPathUtils.h"
 
 #include <algorithm>
 #include <cctype>
 #include <initializer_list>
 #include <vector>
-#include <windows.h>
 
 namespace
 {
-std::wstring AnsiToWStringLocal(const std::string &value)
-{
-	if (value.empty())
-	{
-		return std::wstring();
-	}
-
-	const int sizeRequired = MultiByteToWideChar(CP_ACP, 0, value.c_str(), -1, nullptr, 0);
-	std::wstring result(sizeRequired > 0 ? sizeRequired - 1 : 0, L'\0');
-	if (sizeRequired > 1)
-	{
-		MultiByteToWideChar(CP_ACP, 0, value.c_str(), -1, &result[0], sizeRequired - 1);
-	}
-
-	return result;
-}
-
-bool FileExists(const std::string &path)
-{
-	if (path.empty())
-	{
-		return false;
-	}
-
-	const DWORD attributes = GetFileAttributesW(AnsiToWStringLocal(path).c_str());
-	return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
-}
-
 std::string ReplaceExtension(const std::string &path, const std::string &newExtension)
 {
 	const size_t extensionPos = path.find_last_of('.');
@@ -74,7 +46,7 @@ std::string PreferDdsVariant(const std::string &path)
 	}
 
 	const std::string ddsPath = ReplaceExtension(path, ".dds");
-	return FileExists(ddsPath) ? ddsPath : path;
+	return AssetPathUtils::FileExists(ddsPath) ? ddsPath : path;
 }
 
 std::string PreferExistingOptionalTexturePath(const std::string &path)
@@ -86,16 +58,16 @@ std::string PreferExistingOptionalTexturePath(const std::string &path)
 
 	if (HasExtension(path, ".dds"))
 	{
-		return FileExists(path) ? path : std::string();
+		return AssetPathUtils::FileExists(path) ? path : std::string();
 	}
 
 	const std::string ddsPath = ReplaceExtension(path, ".dds");
-	if (!ddsPath.empty() && FileExists(ddsPath))
+	if (!ddsPath.empty() && AssetPathUtils::FileExists(ddsPath))
 	{
 		return ddsPath;
 	}
 
-	return FileExists(path) ? path : std::string();
+	return AssetPathUtils::FileExists(path) ? path : std::string();
 }
 
 std::string ReplaceStemSuffix(const std::string &path, const std::string &stemSuffix, const std::string &replacement)
@@ -178,7 +150,7 @@ std::string FindCompanionTexturePath(const std::string &diffusePath, std::initia
 
 	for (const std::string &candidate : candidates)
 	{
-		if (FileExists(candidate))
+		if (AssetPathUtils::FileExists(candidate))
 		{
 			return candidate;
 		}

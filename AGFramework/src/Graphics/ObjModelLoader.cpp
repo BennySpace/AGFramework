@@ -1,5 +1,6 @@
 #pragma warning(disable : 4244)
 #include "ObjModelLoader.h"
+#include "Assets/AssetPathUtils.h"
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
@@ -7,77 +8,17 @@
 
 #include <DirectXMath.h>
 #include <stdexcept>
-#include <windows.h>
 
 using namespace DirectX;
 
 namespace
 {
-std::wstring AnsiToWStringLocal(const std::string &value)
-{
-	if (value.empty())
-	{
-		return std::wstring();
-	}
-
-	const int sizeRequired = MultiByteToWideChar(CP_ACP, 0, value.c_str(), -1, nullptr, 0);
-	std::wstring result(sizeRequired > 0 ? sizeRequired - 1 : 0, L'\0');
-	if (sizeRequired > 1)
-	{
-		MultiByteToWideChar(CP_ACP, 0, value.c_str(), -1, &result[0], sizeRequired - 1);
-	}
-
-	return result;
-}
-
-bool FileExists(const std::string &path)
-{
-	if (path.empty())
-	{
-		return false;
-	}
-
-	const std::wstring widePath = AnsiToWStringLocal(path);
-	const DWORD attributes = GetFileAttributesW(widePath.c_str());
-	return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
-}
-
-std::string JoinPath(const std::string &basePath, const std::string &relativePath)
-{
-	if (relativePath.empty())
-	{
-		return relativePath;
-	}
-
-	if (relativePath.size() > 1 && relativePath[1] == ':')
-	{
-		return relativePath;
-	}
-
-	if (relativePath[0] == '\\' || relativePath[0] == '/')
-	{
-		return relativePath;
-	}
-
-	if (basePath.empty())
-	{
-		return relativePath;
-	}
-
-	if (basePath.back() == '\\' || basePath.back() == '/')
-	{
-		return basePath + relativePath;
-	}
-
-	return basePath + "\\" + relativePath;
-}
-
 std::string GetTexturePath(const aiMaterial *material, aiTextureType textureType, const std::string &basePath)
 {
 	aiString texturePath;
 	if (material->GetTexture(textureType, 0, &texturePath) == aiReturn_SUCCESS)
 	{
-		return JoinPath(basePath, texturePath.C_Str());
+		return AssetPathUtils::JoinPath(basePath, texturePath.C_Str());
 	}
 
 	return std::string();
@@ -86,7 +27,7 @@ std::string GetTexturePath(const aiMaterial *material, aiTextureType textureType
 
 std::vector<ObjModelLoader::MeshData> ObjModelLoader::Load(const std::string &filename) const
 {
-	if (!FileExists(filename))
+	if (!AssetPathUtils::FileExists(filename))
 	{
 		throw std::runtime_error("Required model asset not found: " + filename);
 	}

@@ -1,5 +1,6 @@
 #include "DeferredRenderer.h"
 
+#include "Assets/AssetPathUtils.h"
 #include "Resources/ResourceUploader.h"
 #include "dx12/DirectX12Context.h"
 #include "dx12/FrameResource.h"
@@ -10,100 +11,6 @@ using namespace DirectX;
 
 namespace
 {
-std::string WStringToUtf8(const std::wstring &value)
-{
-	if (value.empty())
-	{
-		return std::string();
-	}
-
-	const int sizeRequired = WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, nullptr, 0, nullptr, nullptr);
-	std::string result(sizeRequired > 0 ? sizeRequired - 1 : 0, '\0');
-	if (sizeRequired > 1)
-	{
-		WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, &result[0], sizeRequired - 1, nullptr, nullptr);
-	}
-
-	return result;
-}
-
-std::wstring ResolveShaderPath(const std::wstring &shaderRelativePath)
-{
-	const std::wstring candidates[] = {shaderRelativePath, L"..\\" + shaderRelativePath, L"..\\..\\" + shaderRelativePath,
-	                                   L"AGFramework\\" + shaderRelativePath};
-
-	for (const std::wstring &candidate : candidates)
-	{
-		const DWORD attributes = GetFileAttributesW(candidate.c_str());
-		if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
-		{
-			return candidate;
-		}
-	}
-
-	return shaderRelativePath;
-}
-
-std::wstring ResolveAssetPath(const std::wstring &assetRelativePath)
-{
-	const std::wstring candidates[] = {assetRelativePath, L"..\\" + assetRelativePath, L"..\\..\\" + assetRelativePath,
-	                                   L"AGFramework\\" + assetRelativePath};
-
-	for (const std::wstring &candidate : candidates)
-	{
-		const DWORD attributes = GetFileAttributesW(candidate.c_str());
-		if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
-		{
-			return candidate;
-		}
-	}
-
-	return L"";
-}
-
-std::wstring ResolveRequiredAssetPath(const char *assetLabel, std::initializer_list<std::wstring> candidatePaths)
-{
-	for (const std::wstring &candidatePath : candidatePaths)
-	{
-		const std::wstring resolvedPath = ResolveAssetPath(candidatePath);
-		if (!resolvedPath.empty())
-		{
-			return resolvedPath;
-		}
-	}
-
-	std::string errorMessage = "Required runtime asset is missing: ";
-	errorMessage += assetLabel;
-	errorMessage += ". Expected one of: ";
-
-	bool isFirstPath = true;
-	for (const std::wstring &candidatePath : candidatePaths)
-	{
-		if (!isFirstPath)
-		{
-			errorMessage += ", ";
-		}
-
-		errorMessage += WStringToUtf8(candidatePath);
-		isFirstPath = false;
-	}
-
-	throw std::runtime_error(errorMessage);
-}
-
-std::wstring ResolveFirstExistingAssetPath(std::initializer_list<std::wstring> candidatePaths)
-{
-	for (const std::wstring &candidatePath : candidatePaths)
-	{
-		const std::wstring resolvedPath = ResolveAssetPath(candidatePath);
-		if (!resolvedPath.empty())
-		{
-			return resolvedPath;
-		}
-	}
-
-	return L"";
-}
 void LoadRequiredDdsTexture(DirectX12Context &context, Texture &texture, const std::wstring &path)
 {
 	texture.Filename = path;
@@ -277,14 +184,14 @@ void DeferredRenderer::BuildImageBasedLightingTextures(DirectX12Context &context
 	m_brdfLutTexture = std::make_unique<Texture>();
 	m_brdfLutTexture->Name = "ibl_brdf_lut";
 
-	const std::wstring irradiancePath = ResolveRequiredAssetPath("IBL irradiance map", {L"Assets\\ibl\\irradiance.dds"});
-	const std::wstring prefilterPath = ResolveRequiredAssetPath(
+	const std::wstring irradiancePath = AssetPathUtils::ResolveRequiredPath("IBL irradiance map", {L"Assets\\ibl\\irradiance.dds"});
+	const std::wstring prefilterPath = AssetPathUtils::ResolveRequiredPath(
 	    "IBL prefiltered environment map",
 	    {L"Assets\\ibl\\prefilter.dds", L"Assets\\ibl\\prefiltered_environment.dds", L"Assets\\ibl\\prefilteredEnv.dds"});
-	const std::wstring environmentPath = ResolveRequiredAssetPath(
+	const std::wstring environmentPath = AssetPathUtils::ResolveRequiredPath(
 	    "IBL environment map",
 	    {L"Assets\\ibl\\environment.dds", L"Assets\\ibl\\skybox.dds", L"Assets\\ibl\\env.dds", L"Assets\\ibl\\environmentMap.dds"});
-	const std::wstring brdfLutPath = ResolveRequiredAssetPath(
+	const std::wstring brdfLutPath = AssetPathUtils::ResolveRequiredPath(
 	    "IBL BRDF integration map", {L"Assets\\ibl\\brdfLUT.dds", L"Assets\\ibl\\brdf_lut.dds", L"Assets\\ibl\\brdf_integration.dds"});
 	m_hasEnvironmentMapTexture = true;
 
@@ -590,15 +497,18 @@ void DeferredRenderer::TransitionGbuffer(DirectX12Context &context, D3D12_RESOUR
 
 void DeferredRenderer::BuildShadersAndInputLayout()
 {
-	m_shaders["standardVS"] = d3dUtil::CompileShader(ResolveShaderPath(L"shaders\\GeometryPass.hlsl"), nullptr, "GeometryVS", "vs_5_1");
-	m_shaders["gbufferPS"] = d3dUtil::CompileShader(ResolveShaderPath(L"shaders\\GeometryPass.hlsl"), nullptr, "GeometryPS", "ps_5_1");
+	m_shaders["standardVS"] =
+	    d3dUtil::CompileShader(AssetPathUtils::ResolveRequiredPath(L"shaders\\GeometryPass.hlsl"), nullptr, "GeometryVS", "vs_5_1");
+	m_shaders["gbufferPS"] =
+	    d3dUtil::CompileShader(AssetPathUtils::ResolveRequiredPath(L"shaders\\GeometryPass.hlsl"), nullptr, "GeometryPS", "ps_5_1");
 	m_shaders["fullscreenVS"] =
-	    d3dUtil::CompileShader(ResolveShaderPath(L"shaders\\DeferredLighting.hlsl"), nullptr, "FullscreenVS", "vs_5_1");
+	    d3dUtil::CompileShader(AssetPathUtils::ResolveRequiredPath(L"shaders\\DeferredLighting.hlsl"), nullptr, "FullscreenVS", "vs_5_1");
 	m_shaders["deferredLightingPS"] =
-	    d3dUtil::CompileShader(ResolveShaderPath(L"shaders\\DeferredLighting.hlsl"), nullptr, "DeferredLightingPS", "ps_5_1");
-	m_shaders["shadowVS"] = d3dUtil::CompileShader(ResolveShaderPath(L"shaders\\ShadowMap.hlsl"), nullptr, "ShadowVS", "vs_5_1");
+	    d3dUtil::CompileShader(AssetPathUtils::ResolveRequiredPath(L"shaders\\DeferredLighting.hlsl"), nullptr, "DeferredLightingPS", "ps_5_1");
+	m_shaders["shadowVS"] =
+	    d3dUtil::CompileShader(AssetPathUtils::ResolveRequiredPath(L"shaders\\ShadowMap.hlsl"), nullptr, "ShadowVS", "vs_5_1");
 	m_shaders["shadowAlphaCutoutPS"] =
-	    d3dUtil::CompileShader(ResolveShaderPath(L"shaders\\ShadowMap.hlsl"), nullptr, "ShadowAlphaCutoutPS", "ps_5_1");
+	    d3dUtil::CompileShader(AssetPathUtils::ResolveRequiredPath(L"shaders\\ShadowMap.hlsl"), nullptr, "ShadowAlphaCutoutPS", "ps_5_1");
 
 	m_inputLayout = {{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(GeometryGenerator::Vertex, Position),
 	                  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
