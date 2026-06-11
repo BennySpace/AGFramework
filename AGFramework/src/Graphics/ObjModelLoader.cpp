@@ -1,10 +1,12 @@
-#pragma warning(disable : 4244)
 #include "ObjModelLoader.h"
 #include "Assets/AssetPathUtils.h"
 
+#pragma warning(push)
+#pragma warning(disable : 4244)
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
+#pragma warning(pop)
 
 #include <DirectXMath.h>
 #include <stdexcept>
