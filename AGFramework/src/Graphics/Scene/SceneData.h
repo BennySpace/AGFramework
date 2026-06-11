@@ -1,6 +1,8 @@
 #pragma once
 
-#include "../DeferredRenderer.h"
+#include "ModelDrawItem.h"
+
+#include <vector>
 
 struct SceneData
 {
@@ -12,7 +14,7 @@ struct SceneData
 		float Pitch = 0.0f;
 	};
 
-	std::vector<DeferredRenderer::ModelDrawItem> DrawItems;
+	std::vector<ModelDrawItem> DrawItems;
 	DirectX::XMFLOAT3 SceneCenter = {0.0f, 0.0f, 0.0f};
 	float SceneScale = 1.0f;
 	CameraStart InitialCamera;

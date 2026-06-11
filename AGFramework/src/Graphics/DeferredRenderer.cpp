@@ -5,6 +5,7 @@
 #include "dx12/DirectX12Context.h"
 #include "dx12/FrameResource.h"
 #include <algorithm>
+#include <stdexcept>
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;

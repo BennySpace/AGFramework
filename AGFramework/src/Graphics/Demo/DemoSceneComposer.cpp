@@ -16,7 +16,7 @@ void DemoSceneComposer::AppendDemoMeshes(std::vector<ObjModelLoader::MeshData> &
 	}
 }
 
-void DemoSceneComposer::ApplyDemoMaterialDefaults(const ObjModelLoader::MeshData &mesh, DeferredRenderer::ModelDrawItem &drawItem)
+void DemoSceneComposer::ApplyDemoMaterialDefaults(const ObjModelLoader::MeshData &mesh, ModelDrawItem &drawItem)
 {
 	drawItem.IsDemoPbrGrid = PbrGridBuilder::IsGridMesh(mesh);
 
@@ -29,7 +29,7 @@ void DemoSceneComposer::ApplyDemoMaterialDefaults(const ObjModelLoader::MeshData
 	drawItem.PbrParams = XMFLOAT4(0.0f, 0.58f, 1.0f, 0.95f);
 }
 
-void DemoSceneComposer::RebuildTrackedPbrGridDrawItems(const std::vector<DeferredRenderer::ModelDrawItem> &drawItems)
+void DemoSceneComposer::RebuildTrackedPbrGridDrawItems(const std::vector<ModelDrawItem> &drawItems)
 {
 	m_pbrGridDrawItemIndices.clear();
 

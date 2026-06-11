@@ -94,7 +94,7 @@ void SponzaScene::BuildGeometry(DirectX12Context &context, const RenderSettings:
 			UpdateBounds(vertex, minPoint, maxPoint);
 		}
 
-		DeferredRenderer::ModelDrawItem drawItem;
+		ModelDrawItem drawItem;
 		drawItem.DrawName = "mesh_" + std::to_string(meshIndex);
 		drawItem.MaterialName = mesh.MaterialName;
 		const MaterialAssetContract::Entry resolvedMaterialContract = materialContract.ResolveMaterial(mesh.MaterialName);
@@ -267,7 +267,7 @@ void SponzaScene::BuildTextures(DirectX12Context &context)
 		return textureIndex;
 	};
 
-	for (DeferredRenderer::ModelDrawItem &drawItem : m_data.DrawItems)
+	for (ModelDrawItem &drawItem : m_data.DrawItems)
 	{
 		drawItem.DiffuseSrvHeapIndex = loadTexture(drawItem.DiffuseTexturePath, "__default_white__", whitePixel, true);
 		drawItem.NormalSrvHeapIndex = loadTexture(drawItem.NormalTexturePath, "__default_normal__", defaultNormalPixel);

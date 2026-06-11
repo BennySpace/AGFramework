@@ -20,7 +20,7 @@ class SponzaScene
 	{
 		return m_resources.SrvDescriptorHeap.Get();
 	}
-	const std::vector<DeferredRenderer::ModelDrawItem> &GetDrawItems() const
+	const std::vector<ModelDrawItem> &GetDrawItems() const
 	{
 		return m_data.DrawItems;
 	}

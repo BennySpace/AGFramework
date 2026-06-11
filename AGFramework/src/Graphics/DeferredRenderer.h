@@ -8,6 +8,7 @@
 #include "MaterialSystem.h"
 #include "Overlay/DebugOverlay.h"
 #include "RenderSettings.h"
+#include "Scene/ModelDrawItem.h"
 #include "dx12/DescriptorHeap.h"
 
 class DirectX12Context;
@@ -16,26 +17,6 @@ class FrameResource;
 class DeferredRenderer
 {
   public:
-	struct ModelDrawItem
-	{
-		std::string DrawName;
-		std::string MaterialName;
-		std::string DiffuseTexturePath;
-		std::string NormalTexturePath;
-		std::string OrmTexturePath;
-		std::string OpacityTexturePath;
-		DirectX::XMFLOAT4 PositionOffset = {0.0f, 0.0f, 0.0f, 0.0f};
-		DirectX::XMFLOAT4 PbrParams = {0.0f, 0.58f, 1.0f, 0.95f};
-		UINT DiffuseSrvHeapIndex = 0;
-		UINT NormalSrvHeapIndex = 0;
-		UINT OrmSrvHeapIndex = 0;
-		UINT OpacitySrvHeapIndex = 0;
-		DirectX::XMFLOAT4 TextureFlags = {0.0f, 0.0f, 0.0f, 0.0f};
-		bool HasAlphaCutout = false;
-		bool CastShadows = true;
-		bool IsDemoPbrGrid = false;
-	};
-
 	struct FrameData
 	{
 		DirectX::XMFLOAT3 EyePos = {0.0f, 0.0f, 0.0f};
