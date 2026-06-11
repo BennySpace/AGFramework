@@ -1,4 +1,5 @@
 #include "MaterialAssetContract.h"
+#include "../../Utils/StringUtils.h"
 #include "../Assets/AssetPathUtils.h"
 
 #include <algorithm>
@@ -68,7 +69,7 @@ void MaterialAssetContract::Load(const std::string &filename)
 	m_defaultEntry = Entry();
 	m_entries.clear();
 
-	std::ifstream input(filename);
+	std::ifstream input(StringUtils::Utf8ToWide(filename));
 	if (!input)
 	{
 		throw std::runtime_error(FormatConfigError(filename, 0, "file not found or cannot be opened"));
