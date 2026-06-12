@@ -97,7 +97,7 @@ GBufferOutput GeometryPS(GeometryVertexOut pin)
 		materialParams.y = clamp(orm.g, 0.04f, 1.0f);
 		materialParams.z = saturate(orm.r);
 	}
-	materialParams.x = saturate(materialParams.x + metallicOverride);
+	materialParams.x = max(materialParams.x, metallicOverride);
 	materialParams.y = clamp(materialParams.y * roughnessScale, 0.04f, 1.0f);
 	materialParams.z = saturate(materialParams.z * ambientOcclusionScale);
 	materialParams.w = max(materialParams.w * iblIntensityScale, 0.0f);
