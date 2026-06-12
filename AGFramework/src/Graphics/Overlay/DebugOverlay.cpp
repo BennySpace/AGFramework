@@ -588,7 +588,7 @@ void DebugOverlay::Draw(ID3D12GraphicsCommandList *commandList, const GameTimer 
 				{
 					renderSettings.SetShadowSettings(shadowSettings);
 				}
-				if (ImGui::SliderFloat("PCF radius", &shadowSettings.PcfRadius, 0.0f, 4.0f, "%.2f"))
+				if (ImGui::SliderFloat("PCF kernel radius", &shadowSettings.PcfRadius, 0.0f, 4.0f, "%.2f"))
 				{
 					renderSettings.SetShadowSettings(shadowSettings);
 				}
