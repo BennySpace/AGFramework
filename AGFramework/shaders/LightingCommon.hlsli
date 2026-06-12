@@ -190,7 +190,7 @@ float ComputeDirectionalShadowFactor(float3 posW, float3 normalW, float viewDept
 
 	if (cascadeIndex + 1u < cascadeCount)
 	{
-		const float cascadeNear = cascadeIndex == 0u ? 1.0f : gShadowCascadeSplits[cascadeIndex - 1u];
+		const float cascadeNear = cascadeIndex == 0u ? max(gShadowSettings2.w, 0.001f) : gShadowCascadeSplits[cascadeIndex - 1u];
 		const float cascadeFar = gShadowCascadeSplits[cascadeIndex];
 		const float cascadeRange = max(cascadeFar - cascadeNear, 0.001f);
 		const float blendBand = max(0.5f, cascadeRange * 0.1f);

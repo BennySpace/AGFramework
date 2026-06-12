@@ -131,7 +131,7 @@ void DeferredRenderer::UpdateMainPassCB(FrameResource &frameResource, const Fram
 	objectConstants.ShadowSettings1 = XMFLOAT4(frameData.ShadowSettings.DepthBias, frameData.ShadowSettings.SlopeScaledDepthBias,
 	                                           frameData.ShadowSettings.DepthBiasClamp, frameData.ShadowSettings.CascadeSplitLambda);
 	objectConstants.ShadowSettings2 = XMFLOAT4(frameData.ShadowSettings.ReceiverBiasMin, frameData.ShadowSettings.ReceiverBiasSlopeScale,
-	                                           frameData.ShadowSettings.ReceiverBiasTexelFactor, 0.0f);
+	                                           frameData.ShadowSettings.ReceiverBiasTexelFactor, frameData.CameraNearPlane);
 
 	memcpy(frameResource.MappedObjectConstantBuffer(), &objectConstants, sizeof(objectConstants));
 }

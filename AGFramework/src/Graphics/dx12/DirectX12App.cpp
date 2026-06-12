@@ -615,6 +615,7 @@ void DirectX12App::UpdateMainPassCB(FrameResource &frameResource, const GameTime
 	frameData.LookDirection = m_lookDirection;
 	frameData.SceneCenter = m_scene.GetSceneCenter();
 	frameData.SceneScale = m_scene.GetSceneScale();
+	frameData.CameraNearPlane = m_cameraNearPlane;
 	frameData.Projection = m_proj;
 	frameData.LightingSettings = m_renderSettings.GetLightingSettings();
 	frameData.ImageBasedLightingSettings = m_renderSettings.GetImageBasedLightingSettings();

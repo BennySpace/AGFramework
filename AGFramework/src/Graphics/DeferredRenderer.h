@@ -23,6 +23,7 @@ class DeferredRenderer
 		DirectX::XMFLOAT3 LookDirection = {0.0f, 0.0f, 1.0f};
 		DirectX::XMFLOAT3 SceneCenter = {0.0f, 0.0f, 0.0f};
 		float SceneScale = 1.0f;
+		float CameraNearPlane = 1.0f;
 		DirectX::XMFLOAT4X4 Projection = MathHelper::Identity4x4();
 		RenderSettings::LightingSettings LightingSettings;
 		RenderSettings::ImageBasedLightingSettings ImageBasedLightingSettings;
