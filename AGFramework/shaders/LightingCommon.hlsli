@@ -270,7 +270,7 @@ float3 ComputeMaterialF0(float3 albedo, float metallic)
 
 float3 ComputeDiffuseColor(float3 albedo, float metallic)
 {
-	return albedo;
+	return albedo * (1.0f - metallic);
 }
 
 float3 FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
