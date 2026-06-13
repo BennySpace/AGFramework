@@ -1,7 +1,9 @@
 #pragma once
 
 #include "TextureLoader.h"
-#include "../dx12/d3dUtil.h"
+#include "TextureResource.h"
+
+#include <d3d12.h>
 
 class DirectX12Context;
 

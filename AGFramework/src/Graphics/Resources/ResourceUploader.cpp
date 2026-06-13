@@ -1,6 +1,7 @@
 #include "ResourceUploader.h"
 
 #include "../Assets/AssetPathUtils.h"
+#include "../dx12/DDSTextureLoader.h"
 #include "../../Utils/StringUtils.h"
 #include "../dx12/DirectX12Context.h"
 

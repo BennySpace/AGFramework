@@ -2,9 +2,11 @@
 
 #include "Assets/AssetPathUtils.h"
 #include "Resources/ResourceUploader.h"
+#include "dx12/DDSTextureLoader.h"
 #include "dx12/DirectX12Context.h"
 #include "dx12/FrameResource.h"
 #include <algorithm>
+#include <memory>
 #include <stdexcept>
 
 using Microsoft::WRL::ComPtr;

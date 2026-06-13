@@ -11,6 +11,10 @@
 #include "Scene/ModelDrawItem.h"
 #include "dx12/DescriptorHeap.h"
 
+#include <memory>
+#include <unordered_map>
+#include <vector>
+
 class DirectX12Context;
 class FrameResource;
 

@@ -1,6 +1,12 @@
 #pragma once
 
+#include "MeshGeometry.h"
+#include "../Resources/TextureResource.h"
 #include "../dx12/DescriptorHeap.h"
+
+#include <memory>
+#include <unordered_map>
+#include <vector>
 
 struct SceneResources
 {
