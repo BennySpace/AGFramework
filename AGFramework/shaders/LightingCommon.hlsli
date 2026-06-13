@@ -117,7 +117,7 @@ float SampleDirectionalShadowVisibility(float3 posW, float3 normalW, uint cascad
 	const float3 lightVector = normalize(-gDirectionalLights[0].Direction.xyz);
 	const float normalAlignment = saturate(dot(normalW, lightVector));
 	const float2 shadowTexelSize = gShadowMapMetrics.zw;
-	const float pcfRadius = clamp(gShadowSettings0.y, 0.0f, 4.0f);
+	const float pcfRadius = clamp(gShadowSettings0.y, 0.0f, 3.0f);
 	const int maxKernelOffset = (int)ceil(pcfRadius);
 	const float receiverBias = max(gShadowSettings2.x, gShadowSettings2.y * (1.0f - normalAlignment)) +
 	                           max(shadowTexelSize.x, shadowTexelSize.y) * gShadowSettings2.z;
@@ -126,14 +126,14 @@ float SampleDirectionalShadowVisibility(float3 posW, float3 normalW, uint cascad
 	float visibility = 0.0f;
 	float sampleCount = 0.0f;
 
-	[unroll] for (int offsetY = -4; offsetY <= 4; ++offsetY)
+	[unroll] for (int offsetY = -3; offsetY <= 3; ++offsetY)
 	{
 		if (abs(offsetY) > maxKernelOffset)
 		{
 			continue;
 		}
 
-		[unroll] for (int offsetX = -4; offsetX <= 4; ++offsetX)
+		[unroll] for (int offsetX = -3; offsetX <= 3; ++offsetX)
 		{
 			if (abs(offsetX) > maxKernelOffset)
 			{

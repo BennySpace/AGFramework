@@ -79,7 +79,7 @@ RenderSettings::ShadowSettings DemoLightingController::BuildRecommendedShadowSet
 	shadowSettings.DepthBias = 96.0f;
 	shadowSettings.SlopeScaledDepthBias = 1.85f;
 	shadowSettings.DepthBiasClamp = 0.0f;
-	shadowSettings.PcfRadius = 1.75f;
+	shadowSettings.PcfRadius = 1.5f;
 	shadowSettings.ShadowStrength = 0.92f;
 	shadowSettings.ReceiverBiasMin = 0.00008f;
 	shadowSettings.ReceiverBiasSlopeScale = 0.00045f;
