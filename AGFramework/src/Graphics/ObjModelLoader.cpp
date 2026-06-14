@@ -1,20 +1,175 @@
 #include "ObjModelLoader.h"
 #include "Assets/AssetPathUtils.h"
+#include "../Utils/StringUtils.h"
 
 #pragma warning(push)
 #pragma warning(disable : 4244)
 #include <assimp/Importer.hpp>
+#include <assimp/IOStream.hpp>
+#include <assimp/IOSystem.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #pragma warning(pop)
 
 #include <DirectXMath.h>
+#include <cstdio>
 #include <stdexcept>
 
 using namespace DirectX;
 
 namespace
 {
+std::wstring GetBasePathWide(const std::wstring &filename)
+{
+	const size_t lastSlash = filename.find_last_of(L"\\/");
+	return lastSlash == std::wstring::npos ? std::wstring() : filename.substr(0, lastSlash);
+}
+
+std::wstring ResolveAssimpPath(const std::wstring &baseDirectory, const char *path)
+{
+	if (path == nullptr || path[0] == '\0')
+	{
+		return std::wstring();
+	}
+
+	const std::wstring widePath = StringUtils::Utf8ToWide(path);
+	if (AssetPathUtils::FileExists(widePath))
+	{
+		return widePath;
+	}
+
+	return AssetPathUtils::JoinPath(baseDirectory, widePath);
+}
+
+std::wstring OpenModeToWide(const char *mode)
+{
+	if (mode == nullptr || mode[0] == '\0')
+	{
+		return L"rb";
+	}
+
+	std::wstring wideMode;
+	while (*mode != '\0')
+	{
+		wideMode.push_back(static_cast<wchar_t>(*mode));
+		++mode;
+	}
+
+	return wideMode;
+}
+
+class WideFileIOStream final : public Assimp::IOStream
+{
+  public:
+	explicit WideFileIOStream(FILE *file) : m_file(file)
+	{
+		std::fseek(m_file, 0, SEEK_END);
+		m_fileSize = static_cast<size_t>(std::ftell(m_file));
+		std::fseek(m_file, 0, SEEK_SET);
+	}
+
+	~WideFileIOStream() override
+	{
+		if (m_file != nullptr)
+		{
+			std::fclose(m_file);
+		}
+	}
+
+	size_t Read(void *buffer, size_t size, size_t count) override
+	{
+		return std::fread(buffer, size, count, m_file);
+	}
+
+	size_t Write(const void *buffer, size_t size, size_t count) override
+	{
+		return std::fwrite(buffer, size, count, m_file);
+	}
+
+	aiReturn Seek(size_t offset, aiOrigin origin) override
+	{
+		int whence = SEEK_SET;
+		switch (origin)
+		{
+			case aiOrigin_SET:
+				whence = SEEK_SET;
+				break;
+			case aiOrigin_CUR:
+				whence = SEEK_CUR;
+				break;
+			case aiOrigin_END:
+				whence = SEEK_END;
+				break;
+			default:
+				return aiReturn_FAILURE;
+		}
+
+		return std::fseek(m_file, static_cast<long>(offset), whence) == 0 ? aiReturn_SUCCESS : aiReturn_FAILURE;
+	}
+
+	size_t Tell() const override
+	{
+		return static_cast<size_t>(std::ftell(m_file));
+	}
+
+	size_t FileSize() const override
+	{
+		return m_fileSize;
+	}
+
+	void Flush() override
+	{
+		std::fflush(m_file);
+	}
+
+  private:
+	FILE *m_file = nullptr;
+	size_t m_fileSize = 0;
+};
+
+class Utf8AwareIOSystem final : public Assimp::IOSystem
+{
+  public:
+	explicit Utf8AwareIOSystem(const std::wstring &baseDirectory) : m_baseDirectory(baseDirectory) {}
+
+	bool Exists(const char *path) const override
+	{
+		const std::wstring resolvedPath = ResolveAssimpPath(m_baseDirectory, path);
+		return AssetPathUtils::FileExists(resolvedPath);
+	}
+
+	char getOsSeparator() const override
+	{
+		return '\\';
+	}
+
+	Assimp::IOStream *Open(const char *path, const char *mode) override
+	{
+		const std::wstring resolvedPath = ResolveAssimpPath(m_baseDirectory, path);
+		if (resolvedPath.empty())
+		{
+			return nullptr;
+		}
+
+		FILE *file = nullptr;
+		const std::wstring wideMode = OpenModeToWide(mode);
+		if (_wfopen_s(&file, resolvedPath.c_str(), wideMode.c_str()) != 0 || file == nullptr)
+		{
+			return nullptr;
+		}
+
+		return new WideFileIOStream(file);
+	}
+
+	void Close(Assimp::IOStream *file) override
+	{
+		delete file;
+	}
+
+  private:
+	std::wstring m_baseDirectory;
+};
+
 std::string GetTexturePath(const aiMaterial *material, aiTextureType textureType, const std::string &basePath)
 {
 	aiString texturePath;
@@ -35,6 +190,8 @@ std::vector<ObjModelLoader::MeshData> ObjModelLoader::Load(const std::string &fi
 	}
 
 	Assimp::Importer importer;
+	const std::wstring wideFilename = StringUtils::Utf8ToWide(filename);
+	importer.SetIOHandler(new Utf8AwareIOSystem(GetBasePathWide(wideFilename)));
 	const aiScene *scene =
 	    importer.ReadFile(filename, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_ConvertToLeftHanded |
 	                                    aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace);
