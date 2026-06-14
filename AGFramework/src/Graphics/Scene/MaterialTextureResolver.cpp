@@ -8,6 +8,9 @@
 
 namespace
 {
+using TextureSlot = MaterialAssetContract::TextureSlot;
+using ResolvedTextureSlot = MaterialTextureResolver::ResolvedTextureSlot;
+
 std::string ReplaceExtension(const std::string &path, const std::string &newExtension)
 {
 	const size_t extensionPos = path.find_last_of('.');
@@ -158,32 +161,59 @@ std::string FindCompanionTexturePath(const std::string &diffusePath, std::initia
 
 	return std::string();
 }
+
+ResolvedTextureSlot ResolveTextureSlot(const TextureSlot &contractSlot, const std::string &meshPath, bool allowLegacyFallback,
+                                       const std::string &legacyFallbackPath, bool preferDds)
+{
+	ResolvedTextureSlot resolved;
+
+	if (contractSlot.IsExplicit())
+	{
+		resolved.Path = preferDds ? PreferDdsVariant(contractSlot.Path) : PreferExistingOptionalTexturePath(contractSlot.Path);
+		resolved.SourceValue = ResolvedTextureSlot::Source::Contract;
+		resolved.Exists = !resolved.Path.empty();
+		return resolved;
+	}
+
+	if (!meshPath.empty())
+	{
+		resolved.Path = preferDds ? PreferDdsVariant(meshPath) : PreferExistingOptionalTexturePath(meshPath);
+		resolved.SourceValue = ResolvedTextureSlot::Source::Mesh;
+		resolved.Exists = !resolved.Path.empty();
+		if (resolved.Exists || !allowLegacyFallback)
+		{
+			return resolved;
+		}
+	}
+
+	if (allowLegacyFallback)
+	{
+		resolved.Path = legacyFallbackPath;
+		resolved.SourceValue = resolved.Path.empty() ? ResolvedTextureSlot::Source::Missing : ResolvedTextureSlot::Source::LegacyFallback;
+		resolved.Exists = !resolved.Path.empty();
+	}
+
+	return resolved;
+}
 } // namespace
 
 MaterialTextureResolver::ResolvedMaterialTextures MaterialTextureResolver::Resolve(const ObjModelLoader::MeshData &mesh,
                                                                                   const MaterialAssetContract::Entry &materialContract)
 {
 	ResolvedMaterialTextures resolved;
-	const std::string diffuseTexturePath =
-	    materialContract.HasDiffuseTexturePath ? materialContract.DiffuseTexturePath : mesh.DiffuseTexturePath;
-	const std::string normalTexturePath =
-	    materialContract.HasNormalTexturePath ? materialContract.NormalTexturePath : mesh.NormalTexturePath;
-	const std::string ormTexturePath = materialContract.HasOrmTexturePath ? materialContract.OrmTexturePath : mesh.OrmTexturePath;
-	const std::string opacityTexturePath =
-	    materialContract.HasOpacityTexturePath ? materialContract.OpacityTexturePath : mesh.OpacityTexturePath;
 
-	resolved.DiffuseTexturePath = PreferDdsVariant(diffuseTexturePath);
-	resolved.NormalTexturePath = normalTexturePath.empty()
-	                                 ? FindCompanionTexturePath(resolved.DiffuseTexturePath, {"_norm", "_ddn", "_normal", "_nmap"})
-	                                 : PreferExistingOptionalTexturePath(normalTexturePath);
-	resolved.OrmTexturePath = PreferExistingOptionalTexturePath(ormTexturePath);
-	resolved.OpacityTexturePath = opacityTexturePath.empty()
-	                                  ? FindCompanionTexturePath(resolved.DiffuseTexturePath, {"_mask", "_alpha", "_opacity"})
-	                                  : PreferExistingOptionalTexturePath(opacityTexturePath);
+	resolved.Diffuse = ResolveTextureSlot(materialContract.Diffuse, mesh.DiffuseTexturePath, false, std::string(), true);
 
-	resolved.HasNormalMap = !resolved.NormalTexturePath.empty();
-	resolved.HasOrmMap = !resolved.OrmTexturePath.empty();
-	resolved.HasOpacityMap = !resolved.OpacityTexturePath.empty();
+	const std::string diffuseReferencePath = resolved.Diffuse.Path;
+	resolved.Normal = ResolveTextureSlot(materialContract.Normal, mesh.NormalTexturePath, true,
+	                                     FindCompanionTexturePath(diffuseReferencePath, {"_norm", "_normal"}), false);
+	resolved.Orm = ResolveTextureSlot(materialContract.Orm, mesh.OrmTexturePath, false, std::string(), false);
+	resolved.Opacity = ResolveTextureSlot(materialContract.Opacity, mesh.OpacityTexturePath, true,
+	                                      FindCompanionTexturePath(diffuseReferencePath, {"_alpha", "_opacity"}), false);
+
+	resolved.HasNormalMap = resolved.Normal.Exists;
+	resolved.HasOrmMap = resolved.Orm.Exists;
+	resolved.HasOpacityMap = resolved.Opacity.Exists;
 	resolved.HasAlphaCutout = materialContract.HasAlphaCutoutOverride ? materialContract.AlphaCutout
 	                                                                 : (mesh.HasAlphaCutout || resolved.HasOpacityMap);
 	return resolved;

@@ -57,10 +57,15 @@ std::string GetBasePath(const std::string &filename)
 	return lastSlash == std::string::npos ? std::string() : filename.substr(0, lastSlash);
 }
 
-void ApplyTextureProperty(const std::string &value, const std::string &basePath, std::string &target, bool &hasTarget)
+void ApplyTextureProperty(const std::string &value, const std::string &basePath, MaterialAssetContract::TextureSlot &target)
 {
-	hasTarget = true;
-	target = value.empty() ? std::string() : AssetPathUtils::JoinPath(basePath, value);
+	target.StateValue = MaterialAssetContract::TextureSlot::State::ExplicitPath;
+	target.Path = value.empty() ? std::string() : AssetPathUtils::JoinPath(basePath, value);
+
+	if (!target.Path.empty() && !AssetPathUtils::FileExists(target.Path))
+	{
+		throw std::runtime_error("explicit texture path not found: " + target.Path);
+	}
 }
 } // namespace
 
@@ -116,19 +121,23 @@ void MaterialAssetContract::Load(const std::string &filename)
 		{
 			if (key == "diffuse")
 			{
-				ApplyTextureProperty(value, basePath, currentEntry->DiffuseTexturePath, currentEntry->HasDiffuseTexturePath);
+				ApplyTextureProperty(value, basePath, currentEntry->Diffuse);
+			}
+			else if (key == "basecolor")
+			{
+				ApplyTextureProperty(value, basePath, currentEntry->Diffuse);
 			}
 			else if (key == "normal")
 			{
-				ApplyTextureProperty(value, basePath, currentEntry->NormalTexturePath, currentEntry->HasNormalTexturePath);
+				ApplyTextureProperty(value, basePath, currentEntry->Normal);
 			}
 			else if (key == "orm")
 			{
-				ApplyTextureProperty(value, basePath, currentEntry->OrmTexturePath, currentEntry->HasOrmTexturePath);
+				ApplyTextureProperty(value, basePath, currentEntry->Orm);
 			}
 			else if (key == "opacity")
 			{
-				ApplyTextureProperty(value, basePath, currentEntry->OpacityTexturePath, currentEntry->HasOpacityTexturePath);
+				ApplyTextureProperty(value, basePath, currentEntry->Opacity);
 			}
 			else if (key == "metallic")
 			{
@@ -183,25 +192,21 @@ MaterialAssetContract::Entry MaterialAssetContract::Merge(const Entry &baseEntry
 {
 	Entry merged = baseEntry;
 
-	if (overrideEntry.HasDiffuseTexturePath)
+	if (overrideEntry.Diffuse.IsExplicit())
 	{
-		merged.DiffuseTexturePath = overrideEntry.DiffuseTexturePath;
-		merged.HasDiffuseTexturePath = true;
+		merged.Diffuse = overrideEntry.Diffuse;
 	}
-	if (overrideEntry.HasNormalTexturePath)
+	if (overrideEntry.Normal.IsExplicit())
 	{
-		merged.NormalTexturePath = overrideEntry.NormalTexturePath;
-		merged.HasNormalTexturePath = true;
+		merged.Normal = overrideEntry.Normal;
 	}
-	if (overrideEntry.HasOrmTexturePath)
+	if (overrideEntry.Orm.IsExplicit())
 	{
-		merged.OrmTexturePath = overrideEntry.OrmTexturePath;
-		merged.HasOrmTexturePath = true;
+		merged.Orm = overrideEntry.Orm;
 	}
-	if (overrideEntry.HasOpacityTexturePath)
+	if (overrideEntry.Opacity.IsExplicit())
 	{
-		merged.OpacityTexturePath = overrideEntry.OpacityTexturePath;
-		merged.HasOpacityTexturePath = true;
+		merged.Opacity = overrideEntry.Opacity;
 	}
 	if (overrideEntry.HasPbrParams)
 	{

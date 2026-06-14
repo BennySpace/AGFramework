@@ -100,10 +100,10 @@ void SponzaScene::BuildGeometry(DirectX12Context &context, const RenderSettings:
 		const MaterialAssetContract::Entry resolvedMaterialContract = materialContract.ResolveMaterial(mesh.MaterialName);
 		const MaterialTextureResolver::ResolvedMaterialTextures resolvedTextures =
 		    MaterialTextureResolver::Resolve(mesh, resolvedMaterialContract);
-		drawItem.DiffuseTexturePath = resolvedTextures.DiffuseTexturePath;
-		drawItem.NormalTexturePath = resolvedTextures.NormalTexturePath;
-		drawItem.OrmTexturePath = resolvedTextures.OrmTexturePath;
-		drawItem.OpacityTexturePath = resolvedTextures.OpacityTexturePath;
+		drawItem.DiffuseTexturePath = resolvedTextures.Diffuse.Path;
+		drawItem.NormalTexturePath = resolvedTextures.Normal.Path;
+		drawItem.OrmTexturePath = resolvedTextures.Orm.Path;
+		drawItem.OpacityTexturePath = resolvedTextures.Opacity.Path;
 		Demo::DemoSceneComposer::ApplyDemoMaterialDefaults(mesh, drawItem);
 		if (!drawItem.IsDemoPbrGrid && resolvedMaterialContract.HasPbrParams)
 		{

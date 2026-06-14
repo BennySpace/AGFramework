@@ -8,12 +8,27 @@
 class MaterialTextureResolver
 {
   public:
+	struct ResolvedTextureSlot
+	{
+		enum class Source
+		{
+			Missing,
+			Contract,
+			Mesh,
+			LegacyFallback
+		};
+
+		std::string Path;
+		Source SourceValue = Source::Missing;
+		bool Exists = false;
+	};
+
 	struct ResolvedMaterialTextures
 	{
-		std::string DiffuseTexturePath;
-		std::string NormalTexturePath;
-		std::string OrmTexturePath;
-		std::string OpacityTexturePath;
+		ResolvedTextureSlot Diffuse;
+		ResolvedTextureSlot Normal;
+		ResolvedTextureSlot Orm;
+		ResolvedTextureSlot Opacity;
 		bool HasNormalMap = false;
 		bool HasOrmMap = false;
 		bool HasOpacityMap = false;

@@ -8,17 +8,30 @@
 class MaterialAssetContract
 {
   public:
+	struct TextureSlot
+	{
+		enum class State
+		{
+			Unset,
+			ExplicitPath
+		};
+
+		State StateValue = State::Unset;
+		std::string Path;
+
+		bool IsExplicit() const
+		{
+			return StateValue == State::ExplicitPath;
+		}
+	};
+
 	struct Entry
 	{
-		std::string DiffuseTexturePath;
-		std::string NormalTexturePath;
-		std::string OrmTexturePath;
-		std::string OpacityTexturePath;
+		TextureSlot Diffuse;
+		TextureSlot Normal;
+		TextureSlot Orm;
+		TextureSlot Opacity;
 		DirectX::XMFLOAT4 PbrParams = {0.0f, 0.58f, 1.0f, 0.95f};
-		bool HasDiffuseTexturePath = false;
-		bool HasNormalTexturePath = false;
-		bool HasOrmTexturePath = false;
-		bool HasOpacityTexturePath = false;
 		bool HasPbrParams = false;
 		bool HasAlphaCutoutOverride = false;
 		bool AlphaCutout = false;
