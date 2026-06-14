@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Graphics\Assets\AssetPathUtils.cpp" />
+    <ClCompile Include="src\Graphics\CameraController.cpp" />
     <ClCompile Include="src\Utils\StringUtils.cpp" />
     <ClCompile Include="src\Graphics\dx12\DescriptorHeap.cpp" />
     <ClCompile Include="src\Graphics\dx12\d3dUtil.cpp" />
@@ -58,6 +59,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Graphics\Assets\AssetPathUtils.h" />
+    <ClInclude Include="src\Graphics\CameraController.h" />
     <ClInclude Include="src\Utils\StringUtils.h" />
     <ClInclude Include="src\Graphics\dx12\DescriptorHeap.h" />
     <ClInclude Include="src\Graphics\dx12\d3dUtil.h" />

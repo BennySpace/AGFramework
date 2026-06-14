@@ -46,30 +46,6 @@ XMVECTOR GetSafeNormalizedDirection(const XMFLOAT3 &direction, const XMVECTOR &f
 	return XMVector3Normalize(directionVector);
 }
 
-bool IsCursorInsideClientArea(HWND windowHandle)
-{
-	POINT cursorPosition{};
-	if (!GetCursorPos(&cursorPosition))
-	{
-		return false;
-	}
-
-	POINT clientPosition = cursorPosition;
-	if (!ScreenToClient(windowHandle, &clientPosition))
-	{
-		return false;
-	}
-
-	RECT clientRect{};
-	if (!GetClientRect(windowHandle, &clientRect))
-	{
-		return false;
-	}
-
-	return clientPosition.x >= clientRect.left && clientPosition.x < clientRect.right && clientPosition.y >= clientRect.top &&
-	       clientPosition.y < clientRect.bottom;
-}
-
 RenderSettings::CascadedShadowData BuildCascadedShadowData(const RenderSettings::ShadowSettings &shadowSettings,
                                                            const XMFLOAT3 &eyePosition, const XMFLOAT3 &lookDirection,
                                                            float cameraNearPlane, float cameraFarPlane, const XMFLOAT4X4 &projection,
@@ -251,7 +227,7 @@ RenderSettings::CascadedShadowData BuildCascadedShadowData(const RenderSettings:
 } // namespace
 
 DirectX12App::DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd, InputDevice *inputDevice)
-    : m_hAppInst(mhAppInst), m_hMainWnd(mhMainWnd), m_inputDevice(inputDevice)
+    : m_hAppInst(mhAppInst), m_hMainWnd(mhMainWnd), m_cameraController(mhMainWnd, inputDevice)
 {
 }
 
@@ -285,10 +261,7 @@ bool DirectX12App::Initialize()
 	m_activeShadowSettings = m_renderSettings.GetShadowSettings();
 	m_scene.Initialize(m_context, m_activeDemoSettings);
 	m_demoSceneComposer.RebuildTrackedPbrGridDrawItems(m_scene.GetDrawItems());
-	m_eyePos = m_scene.GetInitialCamera().EyePos;
-	m_lookDirection = m_scene.GetInitialCamera().LookDirection;
-	m_yaw = m_scene.GetInitialCamera().Yaw;
-	m_pitch = m_scene.GetInitialCamera().Pitch;
+	m_cameraController.ApplyCameraStart(m_scene.GetInitialCamera());
 	m_deferredRenderer.SetShadowSettings(m_activeShadowSettings);
 	m_deferredRenderer.Initialize(m_context, m4xMsaaState, m4xMsaaQuality);
 	BuildFrameResources();
@@ -317,9 +290,7 @@ void DirectX12App::Update(const GameTimer &gt)
 	{
 		m_demoSceneComposer.ApplyPbrGridOffset(m_scene, m_demoShowcaseSession.GetPbrGridOffset());
 	}
-	UpdateMouseCaptureState();
-	UpdateMouseLook();
-	UpdateCamera(gt);
+	m_cameraController.Update(gt);
 }
 
 void DirectX12App::Draw(const GameTimer &gt)
@@ -371,9 +342,10 @@ void DirectX12App::Draw(const GameTimer &gt)
 	m_deferredRenderer.RenderLightingStage(m_context, frameResource, debugViewMode);
 	if (IsDebugOverlayEnabled())
 	{
-		m_debugOverlay.Draw(m_context.GetCommandList(), gt, m_eyePos, m_lookDirection, m_yaw, m_pitch, m_cameraMoveSpeed,
-		                    m_cameraMouseSensitivity, m_materialSystem, m_renderSettings, m_lightSystem, m_demoShowcaseSession,
-		                    m_demoLightEditSession);
+		m_debugOverlay.Draw(m_context.GetCommandList(), gt, m_cameraController.GetEyePosition(), m_cameraController.GetLookDirection(),
+		                    m_cameraController.GetYaw(), m_cameraController.GetPitch(), m_cameraController.GetMoveSpeed(),
+		                    m_cameraController.GetMouseSensitivity(), m_materialSystem, m_renderSettings, m_lightSystem,
+		                    m_demoShowcaseSession, m_demoLightEditSession);
 	}
 
 	auto transitionToPresent = CD3DX12_RESOURCE_BARRIER::Transition(m_context.CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -503,116 +475,14 @@ float DirectX12App::AspectRatio() const
 	return static_cast<float>(m_context.GetClientWidth()) / m_context.GetClientHeight();
 }
 
-void DirectX12App::UpdateCamera(const GameTimer &gt)
-{
-	const float sprintMultiplier = 3.0f;
-	const bool isShiftPressed =
-	    m_inputDevice != nullptr && (m_inputDevice->IsKeyDown(Keys::LeftShift) || m_inputDevice->IsKeyDown(Keys::RightShift));
-	const float moveSpeed = m_cameraMoveSpeed * (isShiftPressed ? sprintMultiplier : 1.0f) * gt.DeltaTime();
-
-	XMVECTOR eyePosition = XMLoadFloat3(&m_eyePos);
-	XMVECTOR lookDirection = GetSafeNormalizedDirection(m_lookDirection);
-	const XMVECTOR worldUp = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-	XMVECTOR rightDirection = XMVector3Normalize(XMVector3Cross(worldUp, lookDirection));
-
-	if (m_inputDevice != nullptr && m_inputDevice->IsKeyDown(Keys::W))
-	{
-		eyePosition += lookDirection * moveSpeed;
-	}
-	if (m_inputDevice != nullptr && m_inputDevice->IsKeyDown(Keys::S))
-	{
-		eyePosition -= lookDirection * moveSpeed;
-	}
-	if (m_inputDevice != nullptr && m_inputDevice->IsKeyDown(Keys::A))
-	{
-		eyePosition -= rightDirection * moveSpeed;
-	}
-	if (m_inputDevice != nullptr && m_inputDevice->IsKeyDown(Keys::D))
-	{
-		eyePosition += rightDirection * moveSpeed;
-	}
-
-	XMStoreFloat3(&m_eyePos, eyePosition);
-}
-
-void DirectX12App::UpdateMouseCaptureState()
-{
-	const bool isWindowFocused = GetForegroundWindow() == m_hMainWnd;
-	const bool isRightMouseDown = m_inputDevice != nullptr && m_inputDevice->IsKeyDown(Keys::RightButton);
-	const bool isCursorInsideClientArea = IsCursorInsideClientArea(m_hMainWnd);
-	const bool shouldCaptureMouse = isWindowFocused && isRightMouseDown && isCursorInsideClientArea;
-
-	if (shouldCaptureMouse && !m_isMouseCaptured)
-	{
-		RECT clientRect{};
-		GetClientRect(m_hMainWnd, &clientRect);
-
-		POINT topLeft{clientRect.left, clientRect.top};
-		POINT bottomRight{clientRect.right, clientRect.bottom};
-		ClientToScreen(m_hMainWnd, &topLeft);
-		ClientToScreen(m_hMainWnd, &bottomRight);
-
-		RECT clipRect{topLeft.x, topLeft.y, bottomRight.x, bottomRight.y};
-		ClipCursor(&clipRect);
-		ShowCursor(FALSE);
-
-		const int centerX = (clipRect.left + clipRect.right) / 2;
-		const int centerY = (clipRect.top + clipRect.bottom) / 2;
-		SetCursorPos(centerX, centerY);
-
-		m_isMouseCaptured = true;
-	}
-	else if (!shouldCaptureMouse && m_isMouseCaptured)
-	{
-		ClipCursor(nullptr);
-		ShowCursor(TRUE);
-		m_isMouseCaptured = false;
-	}
-}
-
-void DirectX12App::UpdateMouseLook()
-{
-	if (!m_isMouseCaptured)
-	{
-		return;
-	}
-
-	RECT clientRect{};
-	GetClientRect(m_hMainWnd, &clientRect);
-
-	POINT centerPoint{(clientRect.left + clientRect.right) / 2, (clientRect.top + clientRect.bottom) / 2};
-	ClientToScreen(m_hMainWnd, &centerPoint);
-
-	POINT currentMousePosition{};
-	if (!GetCursorPos(&currentMousePosition))
-	{
-		return;
-	}
-
-	const float deltaX = static_cast<float>(currentMousePosition.x - centerPoint.x);
-	const float deltaY = static_cast<float>(currentMousePosition.y - centerPoint.y);
-
-	m_yaw += deltaX * m_cameraMouseSensitivity;
-	m_pitch += deltaY * m_cameraMouseSensitivity;
-	m_pitch = (std::max)(-1.45f, (std::min)(1.45f, m_pitch));
-
-	const float cosPitch = cosf(m_pitch);
-	m_lookDirection.x = sinf(m_yaw) * cosPitch;
-	m_lookDirection.y = -sinf(m_pitch);
-	m_lookDirection.z = cosf(m_yaw) * cosPitch;
-
-	SetCursorPos(centerPoint.x, centerPoint.y);
-}
-
 void DirectX12App::UpdateMainPassCB(FrameResource &frameResource, const GameTimer &gt)
 {
-	const XMVECTOR safeLookDirection = GetSafeNormalizedDirection(m_lookDirection);
-	XMStoreFloat3(&m_lookDirection, safeLookDirection);
-	m_lightSystem.Update(m_eyePos, m_lookDirection, m_demoLightEditSession.GetState());
+	m_cameraController.NormalizeLookDirection();
+	m_lightSystem.Update(m_cameraController.GetEyePosition(), m_cameraController.GetLookDirection(), m_demoLightEditSession.GetState());
 
 	DeferredRenderer::FrameData frameData;
-	frameData.EyePos = m_eyePos;
-	frameData.LookDirection = m_lookDirection;
+	frameData.EyePos = m_cameraController.GetEyePosition();
+	frameData.LookDirection = m_cameraController.GetLookDirection();
 	frameData.SceneCenter = m_scene.GetSceneCenter();
 	frameData.SceneScale = m_scene.GetSceneScale();
 	frameData.CameraNearPlane = m_cameraNearPlane;

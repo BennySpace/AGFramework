@@ -12,6 +12,7 @@
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "dxguid.lib")
 
+#include "../CameraController.h"
 #include "DirectX12Context.h"
 #include "FrameResource.h"
 #include "../../Core/InputDevice.h"
@@ -42,10 +43,6 @@ class DirectX12App
 	void OnWindowResize(int width, int height);
 
 	float AspectRatio() const;
-
-	void UpdateCamera(const GameTimer &gt);
-	void UpdateMouseCaptureState();
-	void UpdateMouseLook();
 	void UpdateMainPassCB(FrameResource &frameResource, const GameTimer &gt);
 
   private:
@@ -58,7 +55,6 @@ class DirectX12App
   protected:
 	HINSTANCE m_hAppInst = nullptr;
 	HWND m_hMainWnd = nullptr;
-	InputDevice *m_inputDevice = nullptr;
 
 	bool m4xMsaaState = false;
 	UINT m4xMsaaQuality = 0;
@@ -73,16 +69,9 @@ class DirectX12App
 	RenderSettings m_renderSettings;
 
 	DirectX::XMFLOAT4X4 m_proj = MathHelper::Identity4x4();
-	DirectX::XMFLOAT3 m_eyePos = {0.0f, 8.0f, -30.0f};
-	DirectX::XMFLOAT3 m_lookDirection = {0.0f, 0.0f, 1.0f};
 	float m_cameraFieldOfViewY = 0.25f * DirectX::XM_PI;
 	float m_cameraNearPlane = 1.0f;
 	float m_cameraFarPlane = 1000.0f;
-	float m_yaw = 0.0f;
-	float m_pitch = 0.0f;
-	float m_cameraMoveSpeed = 10.0f;
-	float m_cameraMouseSensitivity = 0.0035f;
-	bool m_isMouseCaptured = false;
 	bool m_deferredRendererInitialized = false;
 	RenderSettings::DemoSettings m_activeDemoSettings;
 	RenderSettings::ShadowSettings m_activeShadowSettings;
@@ -93,4 +82,5 @@ class DirectX12App
 	FrameResource *m_currentFrameResource = nullptr;
 	int m_currentFrameResourceIndex = SwapChainBufferCount - 1;
 	DebugOverlay m_debugOverlay;
+	CameraController m_cameraController;
 };
