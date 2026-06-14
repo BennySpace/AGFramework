@@ -93,3 +93,10 @@ bool InputDevice::IsKeyDown(Keys key)
 {
 	return m_keys.count(key) != 0;
 }
+
+void InputDevice::ResetState()
+{
+	m_keys.clear();
+	MouseOffset = Vector2::Zero;
+	MouseWheelDelta = 0;
+}

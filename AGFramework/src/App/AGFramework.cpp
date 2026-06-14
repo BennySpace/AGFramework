@@ -27,6 +27,10 @@ void AGFramework::Initialize(bool showWindow)
 	    [this](bool isPaused)
 	    {
 		    m_isPaused = isPaused;
+		    if (m_isPaused && m_inputDevice)
+		    {
+			    m_inputDevice->ResetState();
+		    }
 		    if (m_renderer)
 		    {
 			    m_renderer->OnPauseChanged(isPaused);

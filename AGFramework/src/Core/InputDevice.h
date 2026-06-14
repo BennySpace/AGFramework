@@ -32,6 +32,7 @@ class InputDevice
 	void AddPressedKey(Keys key);
 	void RemovePressedKey(Keys key);
 	bool IsKeyDown(Keys key);
+	void ResetState();
 
   protected:
 	struct KeyboardInputEventArgs
