@@ -7,7 +7,7 @@ AGFramework::AGFramework() : m_isPaused(false)
 	m_window = std::make_shared<Window>();
 }
 
-void AGFramework::Initialize()
+void AGFramework::Initialize(bool showWindow)
 {
 	if (!m_window->Create(m_title, 1920, 1080))
 		throw std::runtime_error("Failed to create window");
@@ -37,7 +37,10 @@ void AGFramework::Initialize()
 
 	m_window->OnClose.AddLambda([](bool &canClose) { canClose = true; });
 
-	m_window->Show();
+	if (showWindow)
+	{
+		m_window->Show();
+	}
 
 	m_renderer = std::make_unique<DirectX12App>(m_hInstance, m_hWnd, m_inputDevice.get());
 	if (!m_renderer->Initialize())
@@ -69,6 +72,12 @@ void AGFramework::Run()
 		Draw();
 	}
 
+	Shutdown();
+}
+
+void AGFramework::RunSmokeTest()
+{
+	Initialize(false);
 	Shutdown();
 }
 

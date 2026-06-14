@@ -2,13 +2,31 @@
 #include "Graphics/dx12/d3dUtil.h"
 #include "Utils/StringUtils.h"
 
+#include <string_view>
+
+namespace
+{
+bool HasSmokeTestFlag()
+{
+	const std::wstring_view commandLine = GetCommandLineW();
+	return commandLine.find(L"--smoke-test") != std::wstring_view::npos;
+}
+} // namespace
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pCmdLine, int nShowCmd)
 {
 	try
 	{
 		AGFramework application;
-		application.Initialize();
-		application.Run();
+		if (HasSmokeTestFlag())
+		{
+			application.RunSmokeTest();
+		}
+		else
+		{
+			application.Initialize();
+			application.Run();
+		}
 	}
 	catch (const DxException &e)
 	{

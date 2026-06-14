@@ -11,8 +11,9 @@ class AGFramework
   public:
 	AGFramework();
 
-	void Initialize();
+	void Initialize(bool showWindow = true);
 	void Run();
+	void RunSmokeTest();
 
   private:
 	void Shutdown();

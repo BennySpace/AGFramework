@@ -51,6 +51,12 @@ jobs:
           /p:Platform=x64
           /verbosity:minimal
 
+      - name: Smoke test Debug x64 scene bootstrap
+        shell: pwsh
+        run: >
+          & ./AGFramework/out/x64/Debug/AGFramework.exe --smoke-test;
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Build Release x64
         shell: pwsh
         run: >
