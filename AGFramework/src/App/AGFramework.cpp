@@ -1,4 +1,5 @@
 #include "AGFramework.h"
+#include "../Utils/StringUtils.h"
 
 #include <stdexcept>
 
@@ -112,7 +113,8 @@ void AGFramework::CalculateFrameStats()
 		float fps = (float)frameCnt;
 		float mspf = 1000.0f / fps;
 
-		std::wstring windowText = L"Another Graphics Framework | FPS: " + std::to_wstring(fps) + L" | mspf: " + std::to_wstring(mspf);
+		std::wstring windowText =
+		    StringUtils::Utf8ToWide(m_title) + L" | FPS: " + std::to_wstring(fps) + L" | mspf: " + std::to_wstring(mspf);
 
 		SetWindowText(m_hWnd, windowText.c_str());
 
