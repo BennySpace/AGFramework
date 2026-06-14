@@ -13,12 +13,10 @@
 #pragma comment(lib, "dxguid.lib")
 
 #include "../CameraController.h"
+#include "../Demo/DemoSceneRuntime.h"
 #include "DirectX12Context.h"
 #include "FrameResource.h"
 #include "../../Core/InputDevice.h"
-#include "../Demo/DemoLightEditSession.h"
-#include "../Demo/DemoShowcaseSession.h"
-#include "../Demo/DemoSceneComposer.h"
 #include "../DeferredRenderer.h"
 #include "../Overlay/DebugOverlay.h"
 #include "../LightSystem.h"
@@ -66,9 +64,7 @@ class DirectX12App
 	static const int SwapChainBufferCount = 2;
 
 	LightSystem m_lightSystem;
-	Demo::DemoSceneComposer m_demoSceneComposer;
-	Demo::DemoShowcaseSession m_demoShowcaseSession;
-	Demo::DemoLightEditSession m_demoLightEditSession;
+	Demo::DemoSceneRuntime m_demoSceneRuntime;
 	MaterialSystem m_materialSystem;
 	RenderSettings m_renderSettings;
 
@@ -77,10 +73,8 @@ class DirectX12App
 	float m_cameraNearPlane = 1.0f;
 	float m_cameraFarPlane = 1000.0f;
 	bool m_deferredRendererInitialized = false;
-	RenderSettings::DemoSettings m_activeDemoSettings;
 	RenderSettings::ShadowSettings m_activeShadowSettings;
 	DirectX12Context m_context;
-	SponzaScene m_scene;
 	DeferredRenderer m_deferredRenderer;
 	std::array<std::unique_ptr<FrameResource>, SwapChainBufferCount> m_frameResources;
 	FrameResource *m_currentFrameResource = nullptr;

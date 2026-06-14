@@ -30,11 +30,6 @@ bool RequiresShadowResourceReload(const RenderSettings::ShadowSettings &currentS
 	       !NearlyEqualFloat(currentSettings.DepthBiasClamp, requestedSettings.DepthBiasClamp);
 }
 
-bool RequiresSceneReload(const RenderSettings::DemoSettings &currentSettings, const RenderSettings::DemoSettings &requestedSettings)
-{
-	return currentSettings.EnablePbrGrid != requestedSettings.EnablePbrGrid;
-}
-
 XMVECTOR GetSafeNormalizedDirection(const XMFLOAT3 &direction, const XMVECTOR &fallbackDirection = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f))
 {
 	const XMVECTOR directionVector = XMLoadFloat3(&direction);
@@ -247,7 +242,7 @@ bool DirectX12App::Initialize()
 	const int clientHeight = clientRect.bottom - clientRect.top;
 
 	// Start in the curated demo look so the scene reads well before any overlay tweaks.
-	Demo::DemoLightingController::ApplyRecommendedLook(m_materialSystem, m_renderSettings, m_demoLightEditSession);
+	Demo::DemoLightingController::ApplyRecommendedLook(m_materialSystem, m_renderSettings, m_demoSceneRuntime.GetLightEditSession());
 
 	m_context.Initialize(m_hMainWnd, clientWidth, clientHeight, m4xMsaaState, m4xMsaaQuality, SwapChainBufferCount,
 	                     DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
@@ -256,11 +251,10 @@ bool DirectX12App::Initialize()
 
 	BeginContextRecording();
 
-	m_activeDemoSettings = m_renderSettings.GetDemoSettings();
+	const RenderSettings::DemoSettings demoSettings = m_renderSettings.GetDemoSettings();
 	m_activeShadowSettings = m_renderSettings.GetShadowSettings();
-	m_scene.Initialize(m_context, m_activeDemoSettings);
-	m_demoSceneComposer.RebuildTrackedPbrGridDrawItems(m_scene.GetDrawItems());
-	m_cameraController.ApplyCameraStart(m_scene.GetInitialCamera());
+	m_demoSceneRuntime.Initialize(m_context, demoSettings);
+	m_cameraController.ApplyCameraStart(m_demoSceneRuntime.GetScene().GetInitialCamera());
 	m_deferredRenderer.SetShadowSettings(m_activeShadowSettings);
 	m_deferredRenderer.Initialize(m_context, m4xMsaaState, m4xMsaaQuality);
 	BuildFrameResources();
@@ -273,7 +267,7 @@ bool DirectX12App::Initialize()
 
 	ExecuteAndFlushContextRecording();
 
-	m_scene.DisposeUploaders();
+	m_demoSceneRuntime.DisposeUploaders();
 
 	return true;
 }
@@ -294,10 +288,7 @@ void DirectX12App::Update(const GameTimer &gt)
 {
 	ReloadSceneIfNeeded();
 	ReloadShadowSettingsIfNeeded();
-	if (m_renderSettings.GetDemoSettings().EnablePbrGrid)
-	{
-		m_demoSceneComposer.ApplyPbrGridOffset(m_scene, m_demoShowcaseSession.GetPbrGridOffset());
-	}
+	m_demoSceneRuntime.ApplyFrameState(m_renderSettings.GetDemoSettings());
 	m_cameraController.Update(gt);
 }
 
@@ -322,16 +313,18 @@ void DirectX12App::Draw(const GameTimer &gt)
 		                                               D3D12_RESOURCE_STATE_DEPTH_WRITE);
 		m_deferredRenderer.SetCascadedShadowMapState(D3D12_RESOURCE_STATE_DEPTH_WRITE);
 	}
-	m_deferredRenderer.RenderShadowMapPass(m_context, frameResource, m_scene.GetSrvDescriptorHeap(),
-	                                       m_context.GetCbvSrvUavDescriptorSize(), m_scene.GetGeometry(), m_scene.GetDrawItems());
+	m_deferredRenderer.RenderShadowMapPass(m_context, frameResource, m_demoSceneRuntime.GetScene().GetSrvDescriptorHeap(),
+	                                       m_context.GetCbvSrvUavDescriptorSize(), m_demoSceneRuntime.GetScene().GetGeometry(),
+	                                       m_demoSceneRuntime.GetScene().GetDrawItems());
 
 	if (m_deferredRenderer.GetGbufferState() != D3D12_RESOURCE_STATE_RENDER_TARGET)
 	{
 		m_deferredRenderer.TransitionGbuffer(m_context, m_deferredRenderer.GetGbufferState(), D3D12_RESOURCE_STATE_RENDER_TARGET);
 		m_deferredRenderer.SetGbufferState(D3D12_RESOURCE_STATE_RENDER_TARGET);
 	}
-	m_deferredRenderer.RenderOpaqueGeometryStage(m_context, frameResource, m_scene.GetSrvDescriptorHeap(),
-	                                             m_context.GetCbvSrvUavDescriptorSize(), m_scene.GetGeometry(), m_scene.GetDrawItems());
+	m_deferredRenderer.RenderOpaqueGeometryStage(m_context, frameResource, m_demoSceneRuntime.GetScene().GetSrvDescriptorHeap(),
+	                                             m_context.GetCbvSrvUavDescriptorSize(), m_demoSceneRuntime.GetScene().GetGeometry(),
+	                                             m_demoSceneRuntime.GetScene().GetDrawItems());
 	m_deferredRenderer.TransitionGbuffer(m_context, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	m_deferredRenderer.SetGbufferState(D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	if (m_deferredRenderer.GetCascadedShadowMapState() != D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
@@ -353,7 +346,7 @@ void DirectX12App::Draw(const GameTimer &gt)
 		m_debugOverlay.Draw(m_context.GetCommandList(), gt, m_cameraController.GetEyePosition(), m_cameraController.GetLookDirection(),
 		                    m_cameraController.GetYaw(), m_cameraController.GetPitch(), m_cameraController.GetMoveSpeed(),
 		                    m_cameraController.GetMouseSensitivity(), m_materialSystem, m_renderSettings, m_lightSystem,
-		                    m_demoShowcaseSession, m_demoLightEditSession);
+		                    m_demoSceneRuntime.GetShowcaseSession(), m_demoSceneRuntime.GetLightEditSession());
 	}
 
 	auto transitionToPresent = CD3DX12_RESOURCE_BARRIER::Transition(m_context.CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -409,19 +402,17 @@ FrameResource &DirectX12App::AdvanceFrameResource()
 void DirectX12App::ReloadSceneIfNeeded()
 {
 	const RenderSettings::DemoSettings requestedDemoSettings = m_renderSettings.GetDemoSettings();
-	if (!RequiresSceneReload(m_activeDemoSettings, requestedDemoSettings))
+	if (!m_demoSceneRuntime.RequiresReload(requestedDemoSettings))
 	{
 		return;
 	}
 
 	BeginImmediateContextRecording();
 
-	m_scene.Initialize(m_context, requestedDemoSettings);
-	m_demoSceneComposer.RebuildTrackedPbrGridDrawItems(m_scene.GetDrawItems());
+	m_demoSceneRuntime.Reload(m_context, requestedDemoSettings);
 
 	ExecuteAndFlushContextRecording();
-	m_scene.DisposeUploaders();
-	m_activeDemoSettings = requestedDemoSettings;
+	m_demoSceneRuntime.DisposeUploaders();
 }
 
 void DirectX12App::ReloadShadowSettingsIfNeeded()
@@ -485,13 +476,14 @@ float DirectX12App::AspectRatio() const
 void DirectX12App::UpdateMainPassCB(FrameResource &frameResource, const GameTimer &gt)
 {
 	m_cameraController.NormalizeLookDirection();
-	m_lightSystem.Update(m_cameraController.GetEyePosition(), m_cameraController.GetLookDirection(), m_demoLightEditSession.GetState());
+	m_lightSystem.Update(m_cameraController.GetEyePosition(), m_cameraController.GetLookDirection(),
+	                     m_demoSceneRuntime.GetLightEditSession().GetState());
 
 	DeferredRenderer::FrameData frameData;
 	frameData.EyePos = m_cameraController.GetEyePosition();
 	frameData.LookDirection = m_cameraController.GetLookDirection();
-	frameData.SceneCenter = m_scene.GetSceneCenter();
-	frameData.SceneScale = m_scene.GetSceneScale();
+	frameData.SceneCenter = m_demoSceneRuntime.GetScene().GetSceneCenter();
+	frameData.SceneScale = m_demoSceneRuntime.GetScene().GetSceneScale();
 	frameData.CameraNearPlane = m_cameraNearPlane;
 	frameData.Projection = m_proj;
 	frameData.LightingSettings = m_renderSettings.GetLightingSettings();

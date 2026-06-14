@@ -28,6 +28,7 @@
     <ClCompile Include="src\Graphics\dx12\DDSTextureLoader.cpp" />
     <ClCompile Include="src\Graphics\dx12\FrameResource.cpp" />
     <ClCompile Include="src\Graphics\Demo\DemoSceneComposer.cpp" />
+    <ClCompile Include="src\Graphics\Demo\DemoSceneRuntime.cpp" />
     <ClCompile Include="src\Graphics\Demo\DemoLightingController.cpp" />
     <ClCompile Include="src\Graphics\Demo\PbrGridBuilder.cpp" />
     <ClCompile Include="src\Graphics\Overlay\DebugOverlay.cpp" />
@@ -68,6 +69,7 @@
     <ClInclude Include="src\Graphics\dx12\DDSTextureLoader.h" />
     <ClInclude Include="src\Graphics\dx12\FrameResource.h" />
     <ClInclude Include="src\Graphics\Demo\DemoSceneComposer.h" />
+    <ClInclude Include="src\Graphics\Demo\DemoSceneRuntime.h" />
     <ClInclude Include="src\Graphics\Demo\DemoLightingController.h" />
     <ClInclude Include="src\Graphics\Demo\DemoShowcaseSession.h" />
     <ClInclude Include="src\Graphics\Demo\PbrGridBuilder.h" />
