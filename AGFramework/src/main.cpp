@@ -1,5 +1,6 @@
 #include "App/AGFramework.h"
 #include "Graphics/dx12/d3dUtil.h"
+#include "Utils/StringUtils.h"
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pCmdLine, int nShowCmd)
 {
@@ -16,12 +17,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR pCmdLine, 
 	}
 	catch (const std::exception &e)
 	{
-		MessageBoxA(nullptr, e.what(), "Engine Error", MB_ICONERROR);
+		const std::wstring errorMessage = StringUtils::Utf8ToWide(e.what());
+		MessageBoxW(nullptr, errorMessage.c_str(), L"Engine Error", MB_ICONERROR);
 		return 1;
 	}
 	catch (...)
 	{
-		MessageBoxA(nullptr, "Unknown fatal error.", "Engine Error", MB_ICONERROR);
+		MessageBoxW(nullptr, L"Unknown fatal error.", L"Engine Error", MB_ICONERROR);
 		return 1;
 	}
 
