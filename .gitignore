@@ -17,6 +17,7 @@ x64
 ARM
 ARM64
 Win32
+out/
 
 # Intermediate files
 *.obj
@@ -47,11 +48,11 @@ Win32
 *.dxc
 *.dxil
 
-# DDS  texture cache (если используете)
+# DDS texture cache
 *.dds
 
 # =============================================
-# Windows  Visual C++
+# Windows Visual C++
 # =============================================
 *.exe
 *.exe.config
@@ -60,6 +61,7 @@ Win32
 # Temporary files
 *.tmp
 *.temp
+tmp_*
 
 # =============================================
 # IDE and editors
@@ -68,7 +70,7 @@ Win32
 .vscode
 *.code-workspace
 
-# JetBrains Rider  CLion
+# JetBrains Rider / CLion
 .idea
 cmake-build-
 
@@ -87,7 +89,6 @@ packages
 *.dat
 
 # Logs
-*.log
 logs
 
 # User-specific files
@@ -100,12 +101,8 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
-# macOS  Linux
+# macOS / Linux
 .DS_Store
 ._*
 *.swp
 *.swo
-
-# Temporary files
-*.tmp
-tmp_*
