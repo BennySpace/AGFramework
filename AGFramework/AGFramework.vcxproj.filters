@@ -26,6 +26,7 @@
     <ClCompile Include="src\Graphics\FrameDataBuilder.cpp" />
     <ClCompile Include="src\Graphics\Demo\DemoLightingController.cpp" />
     <ClCompile Include="src\Graphics\Demo\PbrGridBuilder.cpp" />
+    <ClCompile Include="src\Graphics\RuntimeSettingsCoordinator.cpp" />
     <ClCompile Include="src\Utils\Delegates.cpp" />
     <ClCompile Include="src\Graphics\CascadedShadowMap.cpp" />
     <ClCompile Include="src\Graphics\DeferredRenderer.cpp" />
@@ -75,6 +76,7 @@
     <ClInclude Include="src\Graphics\Demo\DemoLightingController.h" />
     <ClInclude Include="src\Graphics\Demo\DemoShowcaseSession.h" />
     <ClInclude Include="src\Graphics\Demo\PbrGridBuilder.h" />
+    <ClInclude Include="src\Graphics\RuntimeSettingsCoordinator.h" />
     <ClInclude Include="src\Utils\Delegates.h" />
     <ClInclude Include="src\Graphics\CascadedShadowMap.h" />
     <ClInclude Include="src\Graphics\DeferredRenderer.h" />

@@ -2,6 +2,7 @@
 #include "../../Core/GameTimer.h"
 #include "../Demo/DemoLightingController.h"
 #include "../FrameDataBuilder.h"
+#include "../RuntimeSettingsCoordinator.h"
 using namespace DirectX;
 
 namespace
@@ -14,22 +15,6 @@ bool IsDebugOverlayEnabled()
 	return false;
 #endif
 }
-
-bool NearlyEqualFloat(float a, float b, float epsilon = 0.0001f)
-{
-	return fabsf(a - b) <= epsilon;
-}
-
-bool RequiresShadowResourceReload(const RenderSettings::ShadowSettings &currentSettings,
-                                  const RenderSettings::ShadowSettings &requestedSettings)
-{
-	return currentSettings.CascadeCount != requestedSettings.CascadeCount ||
-	       currentSettings.ShadowMapSize != requestedSettings.ShadowMapSize ||
-	       !NearlyEqualFloat(currentSettings.DepthBias, requestedSettings.DepthBias) ||
-	       !NearlyEqualFloat(currentSettings.SlopeScaledDepthBias, requestedSettings.SlopeScaledDepthBias) ||
-	       !NearlyEqualFloat(currentSettings.DepthBiasClamp, requestedSettings.DepthBiasClamp);
-}
-
 } // namespace
 
 DirectX12App::DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd, InputDevice *inputDevice)
@@ -63,10 +48,9 @@ bool DirectX12App::Initialize()
 	BeginContextRecording();
 
 	const RenderSettings::DemoSettings demoSettings = m_renderSettings.GetDemoSettings();
-	m_activeShadowSettings = m_renderSettings.GetShadowSettings();
+	m_activeShadowSettings = RuntimeSettingsCoordinator::InitializeShadowSettings(m_deferredRenderer, m_renderSettings);
 	m_demoSceneRuntime.Initialize(m_context, demoSettings);
 	m_cameraController.ApplyCameraStart(m_demoSceneRuntime.GetScene().GetInitialCamera());
-	m_deferredRenderer.SetShadowSettings(m_activeShadowSettings);
 	m_deferredRenderer.Initialize(m_context, m4xMsaaState, m4xMsaaQuality);
 	BuildFrameResources();
 	m_deferredRendererInitialized = true;
@@ -99,7 +83,7 @@ void DirectX12App::Update(const GameTimer &gt)
 {
 	ReloadSceneIfNeeded();
 	ReloadShadowSettingsIfNeeded();
-	m_demoSceneRuntime.ApplyFrameState(m_renderSettings.GetDemoSettings());
+	RuntimeSettingsCoordinator::ApplyFrameState(m_demoSceneRuntime, m_renderSettings);
 	m_cameraController.Update(gt);
 }
 
@@ -234,36 +218,18 @@ FrameResource &DirectX12App::AdvanceFrameResource()
 
 void DirectX12App::ReloadSceneIfNeeded()
 {
-	const RenderSettings::DemoSettings requestedDemoSettings = m_renderSettings.GetDemoSettings();
-	if (!m_demoSceneRuntime.RequiresReload(requestedDemoSettings))
-	{
-		return;
-	}
-
-	BeginImmediateContextRecording();
-
-	m_demoSceneRuntime.Reload(m_context, requestedDemoSettings);
-
-	ExecuteAndFlushContextRecording();
-	m_demoSceneRuntime.DisposeUploaders();
+	RuntimeSettingsCoordinator::ReloadSceneIfNeeded(
+	    m_context, m_demoSceneRuntime, m_renderSettings,
+	    {.BeginReload = [this]() { BeginImmediateContextRecording(); },
+	     .EndReload = [this]() { ExecuteAndFlushContextRecording(); }});
 }
 
 void DirectX12App::ReloadShadowSettingsIfNeeded()
 {
-	const RenderSettings::ShadowSettings requestedShadowSettings = m_renderSettings.GetShadowSettings();
-	if (!RequiresShadowResourceReload(m_activeShadowSettings, requestedShadowSettings))
-	{
-		return;
-	}
-
-	BeginImmediateContextRecording();
-
-	m_deferredRenderer.SetShadowSettings(requestedShadowSettings);
-	m_deferredRenderer.ReloadShadowDependentResources(m_context);
-
-	ExecuteAndFlushContextRecording();
-
-	m_activeShadowSettings = requestedShadowSettings;
+	RuntimeSettingsCoordinator::ReloadShadowSettingsIfNeeded(
+	    m_context, m_deferredRenderer, m_renderSettings, m_activeShadowSettings,
+	    {.BeginReload = [this]() { BeginImmediateContextRecording(); },
+	     .EndReload = [this]() { ExecuteAndFlushContextRecording(); }});
 }
 
 void DirectX12App::ApplyResize(int width, int height)

@@ -33,6 +33,7 @@
     <ClCompile Include="src\Graphics\Demo\DemoLightingController.cpp" />
     <ClCompile Include="src\Graphics\Demo\PbrGridBuilder.cpp" />
     <ClCompile Include="src\Graphics\Overlay\DebugOverlay.cpp" />
+    <ClCompile Include="src\Graphics\RuntimeSettingsCoordinator.cpp" />
     <ClCompile Include="src\Graphics\Resources\ResourceUploader.cpp" />
     <ClCompile Include="src\Graphics\Resources\TextureLoader.cpp" />
     <ClCompile Include="src\Graphics\Scene\MaterialAssetContract.cpp" />
@@ -76,6 +77,7 @@
     <ClInclude Include="src\Graphics\Demo\DemoShowcaseSession.h" />
     <ClInclude Include="src\Graphics\Demo\PbrGridBuilder.h" />
     <ClInclude Include="src\Graphics\Overlay\DebugOverlay.h" />
+    <ClInclude Include="src\Graphics\RuntimeSettingsCoordinator.h" />
     <ClInclude Include="src\Graphics\Resources\ResourceUploader.h" />
     <ClInclude Include="src\Graphics\Resources\TextureResource.h" />
     <ClInclude Include="src\Graphics\Resources\TextureLoader.h" />
