@@ -1,15 +1,17 @@
 #pragma once
 
 #include "../dx12/d3dUtil.h"
+#include "../RenderSettings.h"
 
 class GameTimer;
+struct ImDrawList;
+struct ImVec2;
 namespace Demo
 {
 class DemoLightEditSession;
 class DemoShowcaseSession;
 }
 class MaterialSystem;
-class RenderSettings;
 class LightSystem;
 
 class DebugOverlay
@@ -63,6 +65,20 @@ class DebugOverlay
 	}
 
   private:
+	void UpdateSidebarLayout(float displayWidth, float mouseX, bool isMouseDown);
+	void DrawSidebarWindow(const FrameContext &frameContext, RenderSettings::DemoSettings &demoSettings);
+	void DrawDemoSection(RenderSettings &renderSettings, RenderSettings::DemoSettings &demoSettings,
+	                     Demo::DemoShowcaseSession &showcaseSession);
+	void DrawViewSection();
+	void DrawAdvancedSection(const CameraState &cameraState, MaterialSystem &materialSystem,
+	                         const RenderSettings::DemoSettings &demoSettings);
+	void DrawLightingSection(MaterialSystem &materialSystem, RenderSettings &renderSettings,
+	                         const RenderSettings::DemoSettings &demoSettings, Demo::DemoLightEditSession &lightEditSession);
+	void DrawSidebarSplitter(float displayHeight, ImDrawList *overlayDrawList);
+	void DrawLightGizmos(const CameraState &cameraState, const LightSystem &lightSystem,
+	                    const RenderSettings::DemoSettings &demoSettings, Demo::DemoLightEditSession &lightEditSession,
+	                    const ImVec2 &displaySize, ImDrawList *overlayDrawList);
+
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_srvHeap;
 	bool m_isInitialized = false;
 	bool m_isResizingSidebar = false;
