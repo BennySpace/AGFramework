@@ -254,8 +254,7 @@ bool DirectX12App::Initialize()
 
 	ApplyResize(clientWidth, clientHeight);
 
-	ThrowIfFailed(m_context.GetCommandAllocator()->Reset());
-	ThrowIfFailed(m_context.GetCommandList()->Reset(m_context.GetCommandAllocator(), nullptr));
+	BeginContextRecording();
 
 	m_activeDemoSettings = m_renderSettings.GetDemoSettings();
 	m_activeShadowSettings = m_renderSettings.GetShadowSettings();
@@ -272,14 +271,23 @@ bool DirectX12App::Initialize()
 		                          SwapChainBufferCount);
 	}
 
-	ThrowIfFailed(m_context.GetCommandList()->Close());
-	ID3D12CommandList *initCmdsLists[] = {m_context.GetCommandList()};
-	m_context.ExecuteCommandLists(_countof(initCmdsLists), initCmdsLists);
-	m_context.FlushCommandQueue();
+	ExecuteAndFlushContextRecording();
 
 	m_scene.DisposeUploaders();
 
 	return true;
+}
+
+void DirectX12App::BeginContextRecording()
+{
+	ThrowIfFailed(m_context.GetCommandAllocator()->Reset());
+	ThrowIfFailed(m_context.GetCommandList()->Reset(m_context.GetCommandAllocator(), nullptr));
+}
+
+void DirectX12App::BeginImmediateContextRecording()
+{
+	m_context.FlushCommandQueue();
+	BeginContextRecording();
 }
 
 void DirectX12App::Update(const GameTimer &gt)
@@ -361,6 +369,19 @@ void DirectX12App::Draw(const GameTimer &gt)
 	frameResource.FenceValue = m_context.SignalCommandQueue();
 }
 
+void DirectX12App::ExecuteContextRecording()
+{
+	ThrowIfFailed(m_context.GetCommandList()->Close());
+	ID3D12CommandList *commandLists[] = {m_context.GetCommandList()};
+	m_context.ExecuteCommandLists(_countof(commandLists), commandLists);
+}
+
+void DirectX12App::ExecuteAndFlushContextRecording()
+{
+	ExecuteContextRecording();
+	m_context.FlushCommandQueue();
+}
+
 void DirectX12App::BuildFrameResources()
 {
 	for (auto &frameResource : m_frameResources)
@@ -393,17 +414,12 @@ void DirectX12App::ReloadSceneIfNeeded()
 		return;
 	}
 
-	m_context.FlushCommandQueue();
-	ThrowIfFailed(m_context.GetCommandAllocator()->Reset());
-	ThrowIfFailed(m_context.GetCommandList()->Reset(m_context.GetCommandAllocator(), nullptr));
+	BeginImmediateContextRecording();
 
 	m_scene.Initialize(m_context, requestedDemoSettings);
 	m_demoSceneComposer.RebuildTrackedPbrGridDrawItems(m_scene.GetDrawItems());
 
-	ThrowIfFailed(m_context.GetCommandList()->Close());
-	ID3D12CommandList *reloadCmdLists[] = {m_context.GetCommandList()};
-	m_context.ExecuteCommandLists(_countof(reloadCmdLists), reloadCmdLists);
-	m_context.FlushCommandQueue();
+	ExecuteAndFlushContextRecording();
 	m_scene.DisposeUploaders();
 	m_activeDemoSettings = requestedDemoSettings;
 }
@@ -416,17 +432,12 @@ void DirectX12App::ReloadShadowSettingsIfNeeded()
 		return;
 	}
 
-	m_context.FlushCommandQueue();
-	ThrowIfFailed(m_context.GetCommandAllocator()->Reset());
-	ThrowIfFailed(m_context.GetCommandList()->Reset(m_context.GetCommandAllocator(), nullptr));
+	BeginImmediateContextRecording();
 
 	m_deferredRenderer.SetShadowSettings(requestedShadowSettings);
 	m_deferredRenderer.ReloadShadowDependentResources(m_context);
 
-	ThrowIfFailed(m_context.GetCommandList()->Close());
-	ID3D12CommandList *reloadCmdLists[] = {m_context.GetCommandList()};
-	m_context.ExecuteCommandLists(_countof(reloadCmdLists), reloadCmdLists);
-	m_context.FlushCommandQueue();
+	ExecuteAndFlushContextRecording();
 
 	m_activeShadowSettings = requestedShadowSettings;
 }
@@ -441,13 +452,9 @@ void DirectX12App::ApplyResize(int width, int height)
 	m_context.Resize(width, height);
 	if (m_deferredRendererInitialized)
 	{
-		ThrowIfFailed(m_context.GetCommandAllocator()->Reset());
-		ThrowIfFailed(m_context.GetCommandList()->Reset(m_context.GetCommandAllocator(), nullptr));
+		BeginContextRecording();
 		m_deferredRenderer.Resize(m_context);
-		ThrowIfFailed(m_context.GetCommandList()->Close());
-		ID3D12CommandList *resizeCmds[] = {m_context.GetCommandList()};
-		m_context.ExecuteCommandLists(_countof(resizeCmds), resizeCmds);
-		m_context.FlushCommandQueue();
+		ExecuteAndFlushContextRecording();
 	}
 
 	XMMATRIX P = XMMatrixPerspectiveFovLH(m_cameraFieldOfViewY, AspectRatio(), m_cameraNearPlane, m_cameraFarPlane);

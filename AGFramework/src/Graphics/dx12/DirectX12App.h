@@ -47,7 +47,11 @@ class DirectX12App
 
   private:
 	void ApplyResize(int width, int height);
+	void BeginContextRecording();
+	void BeginImmediateContextRecording();
 	void BuildFrameResources();
+	void ExecuteContextRecording();
+	void ExecuteAndFlushContextRecording();
 	FrameResource &AdvanceFrameResource();
 	void ReloadSceneIfNeeded();
 	void ReloadShadowSettingsIfNeeded();
