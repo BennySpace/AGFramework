@@ -143,6 +143,16 @@ class DeferredRenderer
 		float Padding[3] = {0.0f, 0.0f, 0.0f};
 	};
 
+	ObjectConstants BuildObjectConstants(const FrameData &frameData) const;
+	void WriteShadowPassConstants(FrameResource &frameResource, std::uint32_t cascadeIndex, const DirectX::XMMATRIX &world,
+	                              const DirectX::XMMATRIX &texTransform) const;
+	void BindGeometryTextures(ID3D12GraphicsCommandList *commandList, ID3D12DescriptorHeap *srvDescriptorHeap,
+	                          UINT cbvSrvUavDescriptorSize, const ModelDrawItem &drawItem) const;
+	void BindGeometryDrawSettings(ID3D12GraphicsCommandList *commandList, const ModelDrawItem &drawItem) const;
+	void BindShadowAlphaCutoutState(ID3D12GraphicsCommandList *commandList, ID3D12DescriptorHeap *srvDescriptorHeap,
+	                                UINT cbvSrvUavDescriptorSize, const ModelDrawItem &drawItem) const;
+	void BindShadowDrawSettings(ID3D12GraphicsCommandList *commandList, const ModelDrawItem &drawItem) const;
+
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_geometryRootSignature;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_lightingRootSignature;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_shadowRootSignature;

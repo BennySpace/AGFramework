@@ -61,11 +61,17 @@ void DeferredRenderer::UpdateMainPassCB(FrameResource &frameResource, const Fram
 	m_cascadedShadowData = frameData.CascadedShadowData;
 	m_sceneCenter = frameData.SceneCenter;
 	m_sceneScale = frameData.SceneScale;
+	XMStoreFloat4x4(&m_texTransform, XMMatrixIdentity());
 
+	const ObjectConstants objectConstants = BuildObjectConstants(frameData);
+	memcpy(frameResource.MappedObjectConstantBuffer(), &objectConstants, sizeof(objectConstants));
+}
+
+DeferredRenderer::ObjectConstants DeferredRenderer::BuildObjectConstants(const FrameData &frameData) const
+{
 	XMMATRIX world = XMMatrixTranslation(-frameData.SceneCenter.x, -frameData.SceneCenter.y, -frameData.SceneCenter.z) *
 	                 XMMatrixScaling(frameData.SceneScale, frameData.SceneScale, frameData.SceneScale);
 	XMMATRIX texTransform = XMMatrixIdentity();
-	XMStoreFloat4x4(&m_texTransform, texTransform);
 
 	const XMVECTOR eyePos = XMLoadFloat3(&frameData.EyePos);
 	const XMVECTOR lookDirection = XMLoadFloat3(&frameData.LookDirection);
@@ -135,7 +141,78 @@ void DeferredRenderer::UpdateMainPassCB(FrameResource &frameResource, const Fram
 	objectConstants.ShadowSettings2 = XMFLOAT4(frameData.ShadowSettings.ReceiverBiasMin, frameData.ShadowSettings.ReceiverBiasSlopeScale,
 	                                           frameData.ShadowSettings.ReceiverBiasTexelFactor, frameData.CameraNearPlane);
 
-	memcpy(frameResource.MappedObjectConstantBuffer(), &objectConstants, sizeof(objectConstants));
+	return objectConstants;
+}
+
+void DeferredRenderer::WriteShadowPassConstants(FrameResource &frameResource, std::uint32_t cascadeIndex, const XMMATRIX &world,
+                                                const XMMATRIX &texTransform) const
+{
+	const XMMATRIX lightViewProj = XMLoadFloat4x4(&m_cascadedShadowData.LightViewProjMatrices[cascadeIndex]);
+	const XMMATRIX worldLightViewProj = world * lightViewProj;
+	ShadowPassConstants shadowConstants;
+	XMStoreFloat4x4(&shadowConstants.WorldLightViewProj, XMMatrixTranspose(worldLightViewProj));
+	XMStoreFloat4x4(&shadowConstants.TexTransform, XMMatrixTranspose(texTransform));
+
+	const UINT cascadeCbOffset = cascadeIndex * m_shadowPassCBStride;
+	memcpy(frameResource.MappedShadowPassConstantBuffer() + cascadeCbOffset, &shadowConstants, sizeof(shadowConstants));
+}
+
+void DeferredRenderer::BindGeometryTextures(ID3D12GraphicsCommandList *commandList, ID3D12DescriptorHeap *srvDescriptorHeap,
+                                            UINT cbvSrvUavDescriptorSize, const ModelDrawItem &drawItem) const
+{
+	CD3DX12_GPU_DESCRIPTOR_HANDLE textureHandle(srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+	textureHandle.Offset(static_cast<INT>(drawItem.DiffuseSrvHeapIndex), cbvSrvUavDescriptorSize);
+	commandList->SetGraphicsRootDescriptorTable(1, textureHandle);
+
+	CD3DX12_GPU_DESCRIPTOR_HANDLE normalTextureHandle(srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+	normalTextureHandle.Offset(static_cast<INT>(drawItem.NormalSrvHeapIndex), cbvSrvUavDescriptorSize);
+	commandList->SetGraphicsRootDescriptorTable(6, normalTextureHandle);
+
+	CD3DX12_GPU_DESCRIPTOR_HANDLE ormTextureHandle(srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+	ormTextureHandle.Offset(static_cast<INT>(drawItem.OrmSrvHeapIndex), cbvSrvUavDescriptorSize);
+	commandList->SetGraphicsRootDescriptorTable(7, ormTextureHandle);
+
+	CD3DX12_GPU_DESCRIPTOR_HANDLE opacityTextureHandle(srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+	opacityTextureHandle.Offset(static_cast<INT>(drawItem.OpacitySrvHeapIndex), cbvSrvUavDescriptorSize);
+	commandList->SetGraphicsRootDescriptorTable(8, opacityTextureHandle);
+}
+
+void DeferredRenderer::BindGeometryDrawSettings(ID3D12GraphicsCommandList *commandList, const ModelDrawItem &drawItem) const
+{
+	DrawSettings drawSettings;
+	drawSettings.AlphaCutoff = drawItem.HasAlphaCutout ? 0.5f : -1.0f;
+	GeometryTextureSettings textureSettings;
+	textureSettings.HasNormalMap = drawItem.TextureFlags.x;
+	textureSettings.HasOrmMap = drawItem.TextureFlags.y;
+	textureSettings.HasOpacityMap = drawItem.TextureFlags.z;
+	commandList->SetGraphicsRoot32BitConstants(2, 4, &drawSettings, 0);
+	commandList->SetGraphicsRoot32BitConstants(3, 4, &drawItem.PositionOffset, 0);
+	commandList->SetGraphicsRoot32BitConstants(4, 4, &drawItem.PbrParams, 0);
+	commandList->SetGraphicsRoot32BitConstants(5, 4, &textureSettings, 0);
+}
+
+void DeferredRenderer::BindShadowAlphaCutoutState(ID3D12GraphicsCommandList *commandList, ID3D12DescriptorHeap *srvDescriptorHeap,
+                                                  UINT cbvSrvUavDescriptorSize, const ModelDrawItem &drawItem) const
+{
+	CD3DX12_GPU_DESCRIPTOR_HANDLE textureHandle(srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+	textureHandle.Offset(static_cast<INT>(drawItem.DiffuseSrvHeapIndex), cbvSrvUavDescriptorSize);
+	CD3DX12_GPU_DESCRIPTOR_HANDLE opacityTextureHandle(srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+	opacityTextureHandle.Offset(static_cast<INT>(drawItem.OpacitySrvHeapIndex), cbvSrvUavDescriptorSize);
+	commandList->SetPipelineState(m_directionalShadowAlphaCutoutPSO.Get());
+	commandList->SetGraphicsRootDescriptorTable(1, textureHandle);
+	commandList->SetGraphicsRootDescriptorTable(4, opacityTextureHandle);
+}
+
+void DeferredRenderer::BindShadowDrawSettings(ID3D12GraphicsCommandList *commandList, const ModelDrawItem &drawItem) const
+{
+	DrawSettings drawSettings;
+	drawSettings.AlphaCutoff = drawItem.HasAlphaCutout ? 0.5f : -1.0f;
+	commandList->SetGraphicsRoot32BitConstants(2, 4, &drawSettings, 0);
+	commandList->SetGraphicsRoot32BitConstants(3, 4, &drawItem.PositionOffset, 0);
+
+	GeometryTextureSettings textureSettings;
+	textureSettings.HasOpacityMap = drawItem.TextureFlags.z;
+	commandList->SetGraphicsRoot32BitConstants(5, 4, &textureSettings, 0);
 }
 
 void DeferredRenderer::BuildCascadedShadowMap(DirectX12Context &context)
@@ -339,14 +416,8 @@ void DeferredRenderer::RenderShadowMapPass(DirectX12Context &context, FrameResou
 		commandList->OMSetRenderTargets(0, nullptr, FALSE, &cascadeDsv);
 		m_cascadedShadowMap->ClearCascade(commandList, cascadeIndex);
 
-		const XMMATRIX lightViewProj = XMLoadFloat4x4(&m_cascadedShadowData.LightViewProjMatrices[cascadeIndex]);
-		const XMMATRIX worldLightViewProj = world * lightViewProj;
-		ShadowPassConstants shadowConstants;
-		XMStoreFloat4x4(&shadowConstants.WorldLightViewProj, XMMatrixTranspose(worldLightViewProj));
-		XMStoreFloat4x4(&shadowConstants.TexTransform, XMMatrixTranspose(texTransform));
-
+		WriteShadowPassConstants(frameResource, cascadeIndex, world, texTransform);
 		const UINT cascadeCbOffset = cascadeIndex * m_shadowPassCBStride;
-		memcpy(frameResource.MappedShadowPassConstantBuffer() + cascadeCbOffset, &shadowConstants, sizeof(shadowConstants));
 		commandList->SetGraphicsRootConstantBufferView(
 		    0, frameResource.ShadowPassConstantBuffer()->GetGPUVirtualAddress() + cascadeCbOffset);
 
@@ -357,23 +428,11 @@ void DeferredRenderer::RenderShadowMapPass(DirectX12Context &context, FrameResou
 				continue;
 			}
 
-			DrawSettings drawSettings;
-			drawSettings.AlphaCutoff = drawItem.HasAlphaCutout ? 0.5f : -1.0f;
-			commandList->SetGraphicsRoot32BitConstants(2, 4, &drawSettings, 0);
-			commandList->SetGraphicsRoot32BitConstants(3, 4, &drawItem.PositionOffset, 0);
-			GeometryTextureSettings textureSettings;
-			textureSettings.HasOpacityMap = drawItem.TextureFlags.z;
-			commandList->SetGraphicsRoot32BitConstants(5, 4, &textureSettings, 0);
+			BindShadowDrawSettings(commandList, drawItem);
 
 			if (drawItem.HasAlphaCutout)
 			{
-				CD3DX12_GPU_DESCRIPTOR_HANDLE textureHandle(srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-				textureHandle.Offset(static_cast<INT>(drawItem.DiffuseSrvHeapIndex), cbvSrvUavDescriptorSize);
-				CD3DX12_GPU_DESCRIPTOR_HANDLE opacityTextureHandle(srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-				opacityTextureHandle.Offset(static_cast<INT>(drawItem.OpacitySrvHeapIndex), cbvSrvUavDescriptorSize);
-				commandList->SetPipelineState(m_directionalShadowAlphaCutoutPSO.Get());
-				commandList->SetGraphicsRootDescriptorTable(1, textureHandle);
-				commandList->SetGraphicsRootDescriptorTable(4, opacityTextureHandle);
+				BindShadowAlphaCutoutState(commandList, srvDescriptorHeap, cbvSrvUavDescriptorSize, drawItem);
 			}
 			else
 			{
@@ -416,28 +475,8 @@ void DeferredRenderer::RenderOpaqueGeometryStage(DirectX12Context &context, Fram
 
 	for (const ModelDrawItem &drawItem : drawItems)
 	{
-		CD3DX12_GPU_DESCRIPTOR_HANDLE textureHandle(srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-		textureHandle.Offset(static_cast<INT>(drawItem.DiffuseSrvHeapIndex), cbvSrvUavDescriptorSize);
-		context.GetCommandList()->SetGraphicsRootDescriptorTable(1, textureHandle);
-		CD3DX12_GPU_DESCRIPTOR_HANDLE normalTextureHandle(srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-		normalTextureHandle.Offset(static_cast<INT>(drawItem.NormalSrvHeapIndex), cbvSrvUavDescriptorSize);
-		context.GetCommandList()->SetGraphicsRootDescriptorTable(6, normalTextureHandle);
-		CD3DX12_GPU_DESCRIPTOR_HANDLE ormTextureHandle(srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-		ormTextureHandle.Offset(static_cast<INT>(drawItem.OrmSrvHeapIndex), cbvSrvUavDescriptorSize);
-		context.GetCommandList()->SetGraphicsRootDescriptorTable(7, ormTextureHandle);
-		CD3DX12_GPU_DESCRIPTOR_HANDLE opacityTextureHandle(srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-		opacityTextureHandle.Offset(static_cast<INT>(drawItem.OpacitySrvHeapIndex), cbvSrvUavDescriptorSize);
-		context.GetCommandList()->SetGraphicsRootDescriptorTable(8, opacityTextureHandle);
-		DrawSettings drawSettings;
-		drawSettings.AlphaCutoff = drawItem.HasAlphaCutout ? 0.5f : -1.0f;
-		GeometryTextureSettings textureSettings;
-		textureSettings.HasNormalMap = drawItem.TextureFlags.x;
-		textureSettings.HasOrmMap = drawItem.TextureFlags.y;
-		textureSettings.HasOpacityMap = drawItem.TextureFlags.z;
-		context.GetCommandList()->SetGraphicsRoot32BitConstants(2, 4, &drawSettings, 0);
-		context.GetCommandList()->SetGraphicsRoot32BitConstants(3, 4, &drawItem.PositionOffset, 0);
-		context.GetCommandList()->SetGraphicsRoot32BitConstants(4, 4, &drawItem.PbrParams, 0);
-		context.GetCommandList()->SetGraphicsRoot32BitConstants(5, 4, &textureSettings, 0);
+		BindGeometryTextures(context.GetCommandList(), srvDescriptorHeap, cbvSrvUavDescriptorSize, drawItem);
+		BindGeometryDrawSettings(context.GetCommandList(), drawItem);
 
 		const auto &submesh = sceneGeometry.DrawArgs.at(drawItem.DrawName);
 		context.GetCommandList()->DrawIndexedInstanced(submesh.IndexCount, 1, submesh.StartIndexLocation, submesh.BaseVertexLocation, 0);
