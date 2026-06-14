@@ -107,17 +107,29 @@ void DirectX12App::Draw(const GameTimer &gt)
 {
 	FrameResource &frameResource = AdvanceFrameResource();
 	UpdateMainPassCB(frameResource, gt);
+	BeginFrameRendering(frameResource);
+	RenderShadowStage(frameResource);
+	RenderDeferredGeometryStage(frameResource);
+	RenderLightingAndOverlay(frameResource, gt);
+	EndFrameRendering(frameResource);
+}
 
+void DirectX12App::BeginFrameRendering(FrameResource &frameResource)
+{
 	ThrowIfFailed(frameResource.CommandAllocator()->Reset());
 	ThrowIfFailed(m_context.GetCommandList()->Reset(frameResource.CommandAllocator(), nullptr));
 
-	auto transitionToRT = CD3DX12_RESOURCE_BARRIER::Transition(m_context.CurrentBackBuffer(), D3D12_RESOURCE_STATE_PRESENT,
+	auto transitionToRT = CD3DX12_RESOURCE_BARRIER::Transition(m_context.CurrentBackBuffer(),
+	                                                           D3D12_RESOURCE_STATE_PRESENT,
 	                                                           D3D12_RESOURCE_STATE_RENDER_TARGET);
 	m_context.GetCommandList()->ResourceBarrier(1, &transitionToRT);
 
 	m_context.GetCommandList()->RSSetViewports(1, &m_context.GetViewport());
 	m_context.GetCommandList()->RSSetScissorRects(1, &m_context.GetScissorRect());
+}
 
+void DirectX12App::RenderShadowStage(FrameResource &frameResource)
+{
 	if (m_deferredRenderer.GetCascadedShadowMapState() != D3D12_RESOURCE_STATE_DEPTH_WRITE)
 	{
 		m_deferredRenderer.TransitionCascadedShadowMap(m_context, m_deferredRenderer.GetCascadedShadowMapState(),
@@ -127,7 +139,10 @@ void DirectX12App::Draw(const GameTimer &gt)
 	m_deferredRenderer.RenderShadowMapPass(m_context, frameResource, m_demoSceneRuntime.GetScene().GetSrvDescriptorHeap(),
 	                                       m_context.GetCbvSrvUavDescriptorSize(), m_demoSceneRuntime.GetScene().GetGeometry(),
 	                                       m_demoSceneRuntime.GetScene().GetDrawItems());
+}
 
+void DirectX12App::RenderDeferredGeometryStage(FrameResource &frameResource)
+{
 	if (m_deferredRenderer.GetGbufferState() != D3D12_RESOURCE_STATE_RENDER_TARGET)
 	{
 		m_deferredRenderer.TransitionGbuffer(m_context, m_deferredRenderer.GetGbufferState(), D3D12_RESOURCE_STATE_RENDER_TARGET);
@@ -144,6 +159,10 @@ void DirectX12App::Draw(const GameTimer &gt)
 		                                               D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 		m_deferredRenderer.SetCascadedShadowMapState(D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	}
+}
+
+void DirectX12App::RenderLightingAndOverlay(FrameResource &frameResource, const GameTimer &gt)
+{
 	const float clearColor[] = {0.03f, 0.05f, 0.08f, 1.0f};
 	m_context.GetCommandList()->ClearRenderTargetView(m_context.CurrentBackBufferView(), clearColor, 0, nullptr);
 	DebugOverlay::DebugViewMode debugViewMode = DebugOverlay::DebugViewMode::Final;
@@ -159,7 +178,10 @@ void DirectX12App::Draw(const GameTimer &gt)
 		                    m_cameraController.GetMouseSensitivity(), m_materialSystem, m_renderSettings, m_lightSystem,
 		                    m_demoSceneRuntime.GetShowcaseSession(), m_demoSceneRuntime.GetLightEditSession());
 	}
+}
 
+void DirectX12App::EndFrameRendering(FrameResource &frameResource)
+{
 	auto transitionToPresent = CD3DX12_RESOURCE_BARRIER::Transition(m_context.CurrentBackBuffer(), D3D12_RESOURCE_STATE_RENDER_TARGET,
 	                                                                D3D12_RESOURCE_STATE_PRESENT);
 	m_context.GetCommandList()->ResourceBarrier(1, &transitionToPresent);

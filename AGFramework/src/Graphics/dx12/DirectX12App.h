@@ -51,6 +51,11 @@ class DirectX12App
 	void ExecuteContextRecording();
 	void ExecuteAndFlushContextRecording();
 	FrameResource &AdvanceFrameResource();
+	void BeginFrameRendering(FrameResource &frameResource);
+	void RenderShadowStage(FrameResource &frameResource);
+	void RenderDeferredGeometryStage(FrameResource &frameResource);
+	void RenderLightingAndOverlay(FrameResource &frameResource, const GameTimer &gt);
+	void EndFrameRendering(FrameResource &frameResource);
 	void ReloadSceneIfNeeded();
 	void ReloadShadowSettingsIfNeeded();
 
