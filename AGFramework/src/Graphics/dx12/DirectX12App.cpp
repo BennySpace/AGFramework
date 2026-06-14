@@ -282,6 +282,14 @@ void DirectX12App::OnWindowResize(int width, int height)
 	}
 }
 
+void DirectX12App::OnPauseChanged(bool isPaused)
+{
+	if (isPaused)
+	{
+		m_cameraController.ReleaseMouseCapture();
+	}
+}
+
 float DirectX12App::AspectRatio() const
 {
 	return static_cast<float>(m_context.GetClientWidth()) / m_context.GetClientHeight();

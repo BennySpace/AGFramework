@@ -39,6 +39,7 @@ class DirectX12App
 	virtual void Draw(const GameTimer &gt);
 
 	void OnWindowResize(int width, int height);
+	void OnPauseChanged(bool isPaused);
 
 	float AspectRatio() const;
 	void UpdateMainPassCB(FrameResource &frameResource, const GameTimer &gt);

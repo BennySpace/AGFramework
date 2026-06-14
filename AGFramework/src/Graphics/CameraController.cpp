@@ -66,6 +66,18 @@ void CameraController::NormalizeLookDirection()
 	XMStoreFloat3(&m_lookDirection, safeLookDirection);
 }
 
+void CameraController::ReleaseMouseCapture()
+{
+	if (!m_isMouseCaptured)
+	{
+		return;
+	}
+
+	ClipCursor(nullptr);
+	ShowCursor(TRUE);
+	m_isMouseCaptured = false;
+}
+
 void CameraController::UpdateMouseCaptureState()
 {
 	const bool isWindowFocused = GetForegroundWindow() == m_windowHandle;
@@ -95,9 +107,7 @@ void CameraController::UpdateMouseCaptureState()
 	}
 	else if (!shouldCaptureMouse && m_isMouseCaptured)
 	{
-		ClipCursor(nullptr);
-		ShowCursor(TRUE);
-		m_isMouseCaptured = false;
+		ReleaseMouseCapture();
 	}
 }
 
