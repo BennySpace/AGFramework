@@ -314,11 +314,21 @@ void DebugOverlay::Shutdown()
 	m_isInitialized = false;
 }
 
-void DebugOverlay::Draw(ID3D12GraphicsCommandList *commandList, const GameTimer &gameTimer, XMFLOAT3 &eyePosition, XMFLOAT3 &lookDirection,
-                        float &yaw, float &pitch, float &cameraMoveSpeed, float &cameraMouseSensitivity, MaterialSystem &materialSystem,
-                        RenderSettings &renderSettings, LightSystem &lightSystem, Demo::DemoShowcaseSession &showcaseSession,
-                        Demo::DemoLightEditSession &lightEditSession)
+void DebugOverlay::Draw(ID3D12GraphicsCommandList *commandList, const FrameContext &frameContext)
 {
+	const GameTimer &gameTimer = *frameContext.Timer;
+	XMFLOAT3 &eyePosition = *frameContext.Camera.EyePosition;
+	XMFLOAT3 &lookDirection = *frameContext.Camera.LookDirection;
+	float &yaw = *frameContext.Camera.Yaw;
+	float &pitch = *frameContext.Camera.Pitch;
+	float &cameraMoveSpeed = *frameContext.Camera.MoveSpeed;
+	float &cameraMouseSensitivity = *frameContext.Camera.MouseSensitivity;
+	MaterialSystem &materialSystem = *frameContext.Material;
+	RenderSettings &renderSettings = *frameContext.Render;
+	LightSystem &lightSystem = *frameContext.Light;
+	Demo::DemoShowcaseSession &showcaseSession = *frameContext.Showcase;
+	Demo::DemoLightEditSession &lightEditSession = *frameContext.LightEdit;
+
 	ImGui_ImplDX12_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();

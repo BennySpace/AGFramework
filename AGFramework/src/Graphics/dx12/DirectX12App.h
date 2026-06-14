@@ -51,6 +51,7 @@ class DirectX12App
 	void ExecuteContextRecording();
 	void ExecuteAndFlushContextRecording();
 	FrameResource &AdvanceFrameResource();
+	DebugOverlay::FrameContext BuildDebugOverlayFrameContext(const GameTimer &gt);
 	void BeginFrameRendering(FrameResource &frameResource);
 	void RenderShadowStage(FrameResource &frameResource);
 	void RenderDeferredGeometryStage(FrameResource &frameResource);

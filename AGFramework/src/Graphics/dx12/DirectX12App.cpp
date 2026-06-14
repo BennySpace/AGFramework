@@ -152,16 +152,31 @@ void DirectX12App::RenderLightingAndOverlay(FrameResource &frameResource, const 
 	DebugOverlay::DebugViewMode debugViewMode = DebugOverlay::DebugViewMode::Final;
 	if (IsDebugOverlayEnabled())
 	{
-		debugViewMode = m_debugOverlay.GetDebugViewMode();
+		debugViewMode = m_debugOverlay.ResolveDebugViewMode();
 	}
 	m_deferredRenderer.RenderLightingStage(m_context, frameResource, debugViewMode);
 	if (IsDebugOverlayEnabled())
 	{
-		m_debugOverlay.Draw(m_context.GetCommandList(), gt, m_cameraController.GetEyePosition(), m_cameraController.GetLookDirection(),
-		                    m_cameraController.GetYaw(), m_cameraController.GetPitch(), m_cameraController.GetMoveSpeed(),
-		                    m_cameraController.GetMouseSensitivity(), m_materialSystem, m_renderSettings, m_lightSystem,
-		                    m_demoSceneRuntime.GetShowcaseSession(), m_demoSceneRuntime.GetLightEditSession());
+		m_debugOverlay.Draw(m_context.GetCommandList(), BuildDebugOverlayFrameContext(gt));
 	}
+}
+
+DebugOverlay::FrameContext DirectX12App::BuildDebugOverlayFrameContext(const GameTimer &gt)
+{
+	DebugOverlay::FrameContext frameContext;
+	frameContext.Timer = &gt;
+	frameContext.Camera.EyePosition = &m_cameraController.GetEyePosition();
+	frameContext.Camera.LookDirection = &m_cameraController.GetLookDirection();
+	frameContext.Camera.Yaw = &m_cameraController.GetYaw();
+	frameContext.Camera.Pitch = &m_cameraController.GetPitch();
+	frameContext.Camera.MoveSpeed = &m_cameraController.GetMoveSpeed();
+	frameContext.Camera.MouseSensitivity = &m_cameraController.GetMouseSensitivity();
+	frameContext.Material = &m_materialSystem;
+	frameContext.Render = &m_renderSettings;
+	frameContext.Light = &m_lightSystem;
+	frameContext.Showcase = &m_demoSceneRuntime.GetShowcaseSession();
+	frameContext.LightEdit = &m_demoSceneRuntime.GetLightEditSession();
+	return frameContext;
 }
 
 void DirectX12App::EndFrameRendering(FrameResource &frameResource)

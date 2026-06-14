@@ -15,6 +15,27 @@ class LightSystem;
 class DebugOverlay
 {
   public:
+	struct CameraState
+	{
+		DirectX::XMFLOAT3 *EyePosition = nullptr;
+		DirectX::XMFLOAT3 *LookDirection = nullptr;
+		float *Yaw = nullptr;
+		float *Pitch = nullptr;
+		float *MoveSpeed = nullptr;
+		float *MouseSensitivity = nullptr;
+	};
+
+	struct FrameContext
+	{
+		const GameTimer *Timer = nullptr;
+		CameraState Camera;
+		MaterialSystem *Material = nullptr;
+		RenderSettings *Render = nullptr;
+		LightSystem *Light = nullptr;
+		Demo::DemoShowcaseSession *Showcase = nullptr;
+		Demo::DemoLightEditSession *LightEdit = nullptr;
+	};
+
 	enum class DebugViewMode
 	{
 		Final = 0,
@@ -34,12 +55,9 @@ class DebugOverlay
 	void Initialize(HWND windowHandle, ID3D12Device *device, ID3D12CommandQueue *commandQueue, DXGI_FORMAT backBufferFormat,
 	                UINT framesInFlight);
 	void Shutdown();
-	void Draw(ID3D12GraphicsCommandList *commandList, const GameTimer &gameTimer, DirectX::XMFLOAT3 &eyePosition,
-	          DirectX::XMFLOAT3 &lookDirection, float &yaw, float &pitch, float &cameraMoveSpeed, float &cameraMouseSensitivity,
-	          MaterialSystem &materialSystem, RenderSettings &renderSettings, LightSystem &lightSystem, Demo::DemoShowcaseSession &showcaseSession,
-	          Demo::DemoLightEditSession &lightEditSession);
+	void Draw(ID3D12GraphicsCommandList *commandList, const FrameContext &frameContext);
 
-	DebugViewMode GetDebugViewMode() const
+	DebugViewMode ResolveDebugViewMode() const
 	{
 		return m_debugViewMode;
 	}
