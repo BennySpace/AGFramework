@@ -36,7 +36,17 @@ std::string ToLower(std::string value)
 bool ParseBool(const std::string &value)
 {
 	const std::string normalized = ToLower(Trim(value));
-	return normalized == "1" || normalized == "true" || normalized == "yes" || normalized == "on";
+	if (normalized == "1" || normalized == "true" || normalized == "yes" || normalized == "on")
+	{
+		return true;
+	}
+
+	if (normalized == "0" || normalized == "false" || normalized == "no" || normalized == "off")
+	{
+		return false;
+	}
+
+	throw std::runtime_error("expected boolean value (true/false, yes/no, on/off, 1/0)");
 }
 
 std::string FormatConfigError(const std::string &filename, std::size_t lineNumber, const std::string &message)

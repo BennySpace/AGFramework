@@ -159,13 +159,15 @@ TextureLoader::ImageData TextureLoader::LoadUncompressedTga(const std::wstring &
 	textureData.Pixels.resize(static_cast<size_t>(width) * height * 4);
 
 	const bool topLeftOrigin = (imageDescriptor & 0x20) != 0;
+	const bool rightToLeftOrigin = (imageDescriptor & 0x10) != 0;
 
 	for (UINT y = 0; y < height; ++y)
 	{
 		const UINT srcY = topLeftOrigin ? y : (height - 1 - y);
 		for (UINT x = 0; x < width; ++x)
 		{
-			const size_t srcIndex = (static_cast<size_t>(srcY) * width + x) * srcPixelSize;
+			const UINT srcX = rightToLeftOrigin ? (width - 1 - x) : x;
+			const size_t srcIndex = (static_cast<size_t>(srcY) * width + srcX) * srcPixelSize;
 			const size_t dstIndex = (static_cast<size_t>(y) * width + x) * 4;
 
 			textureData.Pixels[dstIndex + 0] = srcPixels[srcIndex + 2];
