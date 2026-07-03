@@ -1,109 +1,330 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="src\Graphics\Assets\AssetPathUtils.cpp" />
-    <ClCompile Include="src\Graphics\CameraController.cpp" />
-    <ClCompile Include="src\Utils\StringUtils.cpp" />
-    <ClCompile Include="src\Graphics\dx12\DescriptorHeap.cpp" />
-    <ClCompile Include="src\Graphics\Overlay\DebugOverlay.cpp" />
-    <ClCompile Include="src\Graphics\Resources\ResourceUploader.cpp" />
-    <ClCompile Include="src\Graphics\Resources\TextureLoader.cpp" />
-    <ClCompile Include="src\Graphics\Scene\MaterialAssetContract.cpp" />
-    <ClCompile Include="src\Graphics\Scene\MaterialTextureResolver.cpp" />
-    <ClCompile Include="src\Graphics\Scene\SponzaScene.cpp" />
-    <ClCompile Include="external\imgui\backends\imgui_impl_dx12.cpp" />
-    <ClCompile Include="external\imgui\backends\imgui_impl_win32.cpp" />
-    <ClCompile Include="external\imgui\imgui.cpp" />
-    <ClCompile Include="external\imgui\imgui_draw.cpp" />
-    <ClCompile Include="external\imgui\imgui_tables.cpp" />
-    <ClCompile Include="external\imgui\imgui_widgets.cpp" />
-    <ClCompile Include="src\Graphics\dx12\d3dUtil.cpp" />
-    <ClCompile Include="src\Graphics\dx12\DirectX12Context.cpp" />
-    <ClCompile Include="src\Graphics\dx12\DDSTextureLoader.cpp" />
-    <ClCompile Include="src\Graphics\dx12\FrameResource.cpp" />
-    <ClCompile Include="src\Graphics\Demo\DemoSceneComposer.cpp" />
-    <ClCompile Include="src\Graphics\Demo\DemoSceneRuntime.cpp" />
-    <ClCompile Include="src\Graphics\FrameDataBuilder.cpp" />
-    <ClCompile Include="src\Graphics\Demo\DemoLightingController.cpp" />
-    <ClCompile Include="src\Graphics\Demo\PbrGridBuilder.cpp" />
-    <ClCompile Include="src\Graphics\RuntimeSettingsCoordinator.cpp" />
-    <ClCompile Include="src\Utils\Delegates.cpp" />
-    <ClCompile Include="src\Graphics\CascadedShadowMap.cpp" />
-    <ClCompile Include="src\Graphics\DeferredRenderer.cpp" />
-    <ClCompile Include="src\Graphics\dx12\DirectX12App.cpp" />
-    <ClCompile Include="src\Core\GameTimer.cpp" />
-    <ClCompile Include="src\Graphics\Gbuffer.cpp" />
-    <ClCompile Include="src\Core\InputDevice.cpp" />
-    <ClCompile Include="src\Graphics\LightSystem.cpp" />
-    <ClCompile Include="src\Math\MathHelper.cpp" />
-    <ClCompile Include="src\App\AGFramework.cpp" />
-    <ClCompile Include="src\Core\Window.cpp" />
-    <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\Graphics\GeometryGenerator.cpp" />
+    <Filter Include="Assets" />
+    <Filter Include="Assets\icons" />
+    <Filter Include="external" />
+    <Filter Include="external\imgui" />
+    <Filter Include="external\imgui\backends" />
+    <Filter Include="shaders" />
+    <Filter Include="src" />
+    <Filter Include="src\App" />
+    <Filter Include="src\Core" />
+    <Filter Include="src\Graphics" />
+    <Filter Include="src\Graphics\Assets" />
+    <Filter Include="src\Graphics\common" />
+    <Filter Include="src\Graphics\Demo" />
+    <Filter Include="src\Graphics\dx12" />
+    <Filter Include="src\Graphics\Overlay" />
+    <Filter Include="src\Graphics\Resources" />
+    <Filter Include="src\Graphics\Scene" />
+    <Filter Include="src\Math" />
+    <Filter Include="src\Utils" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\Graphics\Assets\AssetPathUtils.h" />
-    <ClInclude Include="src\Graphics\CameraController.h" />
-    <ClInclude Include="src\Utils\StringUtils.h" />
-    <ClInclude Include="src\Graphics\dx12\DescriptorHeap.h" />
-    <ClInclude Include="src\Graphics\Overlay\DebugOverlay.h" />
-    <ClInclude Include="src\Graphics\Resources\ResourceUploader.h" />
-    <ClInclude Include="src\Graphics\Resources\TextureResource.h" />
-    <ClInclude Include="src\Graphics\Resources\TextureLoader.h" />
-    <ClInclude Include="src\Graphics\Scene\MaterialAssetContract.h" />
-    <ClInclude Include="src\Graphics\Scene\ModelDrawItem.h" />
-    <ClInclude Include="src\Graphics\Scene\MaterialTextureResolver.h" />
-    <ClInclude Include="src\Graphics\Scene\SceneData.h" />
-    <ClInclude Include="src\Graphics\Scene\MeshGeometry.h" />
-    <ClInclude Include="src\Graphics\Scene\SceneResources.h" />
-    <ClInclude Include="src\Graphics\Scene\SponzaScene.h" />
-    <ClInclude Include="external\imgui\backends\imgui_impl_dx12.h" />
-    <ClInclude Include="external\imgui\backends\imgui_impl_win32.h" />
-    <ClInclude Include="external\imgui\imconfig.h" />
-    <ClInclude Include="external\imgui\imgui.h" />
-    <ClInclude Include="external\imgui\imgui_internal.h" />
-    <ClInclude Include="external\imgui\imstb_rectpack.h" />
-    <ClInclude Include="external\imgui\imstb_textedit.h" />
-    <ClInclude Include="external\imgui\imstb_truetype.h" />
-    <ClInclude Include="src\Graphics\dx12\d3dUtil.h" />
-    <ClInclude Include="src\Graphics\common\d3dx12.h" />
-    <ClInclude Include="src\Graphics\dx12\DirectX12Context.h" />
-    <ClInclude Include="src\Graphics\dx12\DDSTextureLoader.h" />
-    <ClInclude Include="src\Graphics\dx12\FrameResource.h" />
-    <ClInclude Include="src\Graphics\Demo\DemoSceneComposer.h" />
-    <ClInclude Include="src\Graphics\Demo\DemoSceneRuntime.h" />
-    <ClInclude Include="src\Graphics\FrameDataBuilder.h" />
-    <ClInclude Include="src\Graphics\Demo\DemoLightingController.h" />
-    <ClInclude Include="src\Graphics\Demo\DemoShowcaseSession.h" />
-    <ClInclude Include="src\Graphics\Demo\PbrGridBuilder.h" />
-    <ClInclude Include="src\Graphics\RuntimeSettingsCoordinator.h" />
-    <ClInclude Include="src\Utils\Delegates.h" />
-    <ClInclude Include="src\Graphics\CascadedShadowMap.h" />
-    <ClInclude Include="src\Graphics\DeferredRenderer.h" />
-    <ClInclude Include="src\Graphics\dx12\DirectX12App.h" />
-    <ClInclude Include="src\Core\GameTimer.h" />
-    <ClInclude Include="src\Graphics\Gbuffer.h" />
-    <ClInclude Include="src\Core\InputDevice.h" />
-    <ClInclude Include="src\Graphics\LightSystem.h" />
-    <ClInclude Include="src\Graphics\MaterialSystem.h" />
-    <ClInclude Include="src\Core\Keys.h" />
-    <ClInclude Include="src\Math\MathHelper.h" />
-    <ClInclude Include="src\App\AGFramework.h" />
-    <ClInclude Include="src\Core\Window.h" />
-    <ClInclude Include="src\Graphics\RenderSettings.h" />
-    <ClInclude Include="src\Graphics\GeometryGenerator.h" />
-    <ClInclude Include="src\Utils\Exports.h" />
+    <ClCompile Include="src\Graphics\Assets\AssetPathUtils.cpp">
+      <Filter>src\Graphics\Assets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\CameraController.cpp">
+      <Filter>src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Utils\StringUtils.cpp">
+      <Filter>src\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\dx12\DescriptorHeap.cpp">
+      <Filter>src\Graphics\dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\dx12\d3dUtil.cpp">
+      <Filter>src\Graphics\dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\dx12\DirectX12Context.cpp">
+      <Filter>src\Graphics\dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\dx12\DDSTextureLoader.cpp">
+      <Filter>src\Graphics\dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\dx12\FrameResource.cpp">
+      <Filter>src\Graphics\dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\Demo\DemoSceneComposer.cpp">
+      <Filter>src\Graphics\Demo</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\Demo\DemoSceneRuntime.cpp">
+      <Filter>src\Graphics\Demo</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\FrameDataBuilder.cpp">
+      <Filter>src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\Demo\DemoLightingController.cpp">
+      <Filter>src\Graphics\Demo</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\Demo\PbrGridBuilder.cpp">
+      <Filter>src\Graphics\Demo</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\Overlay\DebugOverlay.cpp">
+      <Filter>src\Graphics\Overlay</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\RuntimeSettingsCoordinator.cpp">
+      <Filter>src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\Resources\ResourceUploader.cpp">
+      <Filter>src\Graphics\Resources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\Resources\TextureLoader.cpp">
+      <Filter>src\Graphics\Resources</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\Scene\MaterialAssetContract.cpp">
+      <Filter>src\Graphics\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\Scene\MaterialTextureResolver.cpp">
+      <Filter>src\Graphics\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\Scene\SponzaScene.cpp">
+      <Filter>src\Graphics\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="external\imgui\backends\imgui_impl_dx12.cpp">
+      <Filter>external\imgui\backends</Filter>
+    </ClCompile>
+    <ClCompile Include="external\imgui\backends\imgui_impl_win32.cpp">
+      <Filter>external\imgui\backends</Filter>
+    </ClCompile>
+    <ClCompile Include="external\imgui\imgui.cpp">
+      <Filter>external\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="external\imgui\imgui_draw.cpp">
+      <Filter>external\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="external\imgui\imgui_tables.cpp">
+      <Filter>external\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="external\imgui\imgui_widgets.cpp">
+      <Filter>external\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Utils\Delegates.cpp">
+      <Filter>src\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\CascadedShadowMap.cpp">
+      <Filter>src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\DeferredRenderer.cpp">
+      <Filter>src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\dx12\DirectX12App.cpp">
+      <Filter>src\Graphics\dx12</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\GameTimer.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\Gbuffer.cpp">
+      <Filter>src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\GeometryGenerator.cpp">
+      <Filter>src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\LightSystem.cpp">
+      <Filter>src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\ObjModelLoader.cpp">
+      <Filter>src\Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\InputDevice.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Math\MathHelper.cpp">
+      <Filter>src\Math</Filter>
+    </ClCompile>
+    <ClCompile Include="src\App\AGFramework.cpp">
+      <Filter>src\App</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\Window.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <Natvis Include="src\Utils\Delegates.natvis" />
+    <ClInclude Include="src\Graphics\Assets\AssetPathUtils.h">
+      <Filter>src\Graphics\Assets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\CameraController.h">
+      <Filter>src\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Utils\StringUtils.h">
+      <Filter>src\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\dx12\DescriptorHeap.h">
+      <Filter>src\Graphics\dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\dx12\d3dUtil.h">
+      <Filter>src\Graphics\dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\common\d3dx12.h">
+      <Filter>src\Graphics\common</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\dx12\DirectX12Context.h">
+      <Filter>src\Graphics\dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\dx12\DDSTextureLoader.h">
+      <Filter>src\Graphics\dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\dx12\FrameResource.h">
+      <Filter>src\Graphics\dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Demo\DemoSceneComposer.h">
+      <Filter>src\Graphics\Demo</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Demo\DemoSceneRuntime.h">
+      <Filter>src\Graphics\Demo</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\FrameDataBuilder.h">
+      <Filter>src\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Demo\DemoLightingController.h">
+      <Filter>src\Graphics\Demo</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Demo\DemoShowcaseSession.h">
+      <Filter>src\Graphics\Demo</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Demo\PbrGridBuilder.h">
+      <Filter>src\Graphics\Demo</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Overlay\DebugOverlay.h">
+      <Filter>src\Graphics\Overlay</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\RuntimeSettingsCoordinator.h">
+      <Filter>src\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Resources\ResourceUploader.h">
+      <Filter>src\Graphics\Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Resources\TextureResource.h">
+      <Filter>src\Graphics\Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Resources\TextureLoader.h">
+      <Filter>src\Graphics\Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Scene\MaterialAssetContract.h">
+      <Filter>src\Graphics\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Scene\ModelDrawItem.h">
+      <Filter>src\Graphics\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Scene\MaterialTextureResolver.h">
+      <Filter>src\Graphics\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Scene\SceneData.h">
+      <Filter>src\Graphics\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Scene\MeshGeometry.h">
+      <Filter>src\Graphics\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Scene\SceneResources.h">
+      <Filter>src\Graphics\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Scene\SponzaScene.h">
+      <Filter>src\Graphics\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="external\imgui\backends\imgui_impl_dx12.h">
+      <Filter>external\imgui\backends</Filter>
+    </ClInclude>
+    <ClInclude Include="external\imgui\backends\imgui_impl_win32.h">
+      <Filter>external\imgui\backends</Filter>
+    </ClInclude>
+    <ClInclude Include="external\imgui\imconfig.h">
+      <Filter>external\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="external\imgui\imgui.h">
+      <Filter>external\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="external\imgui\imgui_internal.h">
+      <Filter>external\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="external\imgui\imstb_rectpack.h">
+      <Filter>external\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="external\imgui\imstb_textedit.h">
+      <Filter>external\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="external\imgui\imstb_truetype.h">
+      <Filter>external\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Utils\Delegates.h">
+      <Filter>src\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\CascadedShadowMap.h">
+      <Filter>src\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\DeferredRenderer.h">
+      <Filter>src\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\dx12\DirectX12App.h">
+      <Filter>src\Graphics\dx12</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Utils\Exports.h">
+      <Filter>src\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\GameTimer.h">
+      <Filter>src\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\Gbuffer.h">
+      <Filter>src\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\GeometryGenerator.h">
+      <Filter>src\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\LightSystem.h">
+      <Filter>src\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\MaterialSystem.h">
+      <Filter>src\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\ObjModelLoader.h">
+      <Filter>src\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\RenderSettings.h">
+      <Filter>src\Graphics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\InputDevice.h">
+      <Filter>src\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\Keys.h">
+      <Filter>src\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Math\MathHelper.h">
+      <Filter>src\Math</Filter>
+    </ClInclude>
+    <ClInclude Include="src\App\AGFramework.h">
+      <Filter>src\App</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Core\Window.h">
+      <Filter>src\Core</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="src\Utils\Delegates.natvis">
+      <Filter>src\Utils</Filter>
+    </Natvis>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="AGFramework.rc" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\Assets\icons\favicon.ico" />
+    <None Include="..\Assets\icons\favicon.ico">
+      <Filter>Assets\icons</Filter>
+    </None>
     <None Include="packages.config" />
-    <None Include="shaders\Phong.hlsl" />
-    <None Include="shaders\ShadowMap.hlsl" />
+    <None Include="shaders\DeferredLighting.hlsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\GeometryPass.hlsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\LightingCommon.hlsli">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="shaders\ShadowMap.hlsl">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>
