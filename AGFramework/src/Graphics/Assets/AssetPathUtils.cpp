@@ -8,6 +8,20 @@ namespace
 {
 constexpr const wchar_t *kAssetPrefixes[] = {L"", L"..\\", L"..\\..\\", L"AGFramework\\"};
 
+std::wstring GetExecutableDirectory()
+{
+	wchar_t modulePath[MAX_PATH] = {};
+	const DWORD pathLength = GetModuleFileNameW(nullptr, modulePath, MAX_PATH);
+	if (pathLength == 0 || pathLength == MAX_PATH)
+	{
+		return std::wstring();
+	}
+
+	const std::wstring path(modulePath, pathLength);
+	const size_t lastSlash = path.find_last_of(L"\\/");
+	return lastSlash == std::wstring::npos ? std::wstring() : path.substr(0, lastSlash);
+}
+
 std::string BuildMissingAssetError(const char *assetLabel, std::initializer_list<std::wstring> candidateRelativePaths)
 {
 	std::string errorMessage = "Required runtime asset is missing: ";
@@ -126,6 +140,19 @@ std::wstring ResolveExistingPath(const std::wstring &relativePath)
 		if (FileExists(candidate))
 		{
 			return candidate;
+		}
+	}
+
+	const std::wstring executableDirectory = GetExecutableDirectory();
+	if (!executableDirectory.empty())
+	{
+		for (const wchar_t *prefix : kAssetPrefixes)
+		{
+			const std::wstring candidate = JoinPath(JoinPath(executableDirectory, std::wstring(prefix)), relativePath);
+			if (FileExists(candidate))
+			{
+				return candidate;
+			}
 		}
 	}
 
