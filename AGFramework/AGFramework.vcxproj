@@ -129,10 +129,18 @@
     <None Include="shaders\ShadowMap.hlsl" />
   </ItemGroup>
   <ItemGroup>
-    <RuntimeAssetFiles Include="..\Assets\ibl\**\*.*" />
-    <RuntimeAssetFiles Include="..\Assets\icons\**\*.*" />
-    <RuntimeAssetFiles Include="..\Assets\shared\**\*.*" />
-    <RuntimeAssetFiles Include="..\Assets\sponza\**\*.*" />
+    <RuntimeAssetFiles Include="..\Assets\ibl\**\*.*">
+      <AssetRoot>ibl\</AssetRoot>
+    </RuntimeAssetFiles>
+    <RuntimeAssetFiles Include="..\Assets\icons\**\*.*">
+      <AssetRoot>icons\</AssetRoot>
+    </RuntimeAssetFiles>
+    <RuntimeAssetFiles Include="..\Assets\shared\**\*.*">
+      <AssetRoot>shared\</AssetRoot>
+    </RuntimeAssetFiles>
+    <RuntimeAssetFiles Include="..\Assets\sponza\**\*.*">
+      <AssetRoot>sponza\</AssetRoot>
+    </RuntimeAssetFiles>
     <RuntimeAssetFiles Remove="..\Assets\sponza\**\*.md" />
     <RuntimeShaderFiles Include="shaders\**\*.*" />
   </ItemGroup>
@@ -269,7 +277,7 @@
   <Target Name="StageRuntimeContent" AfterTargets="Build">
     <RemoveDir Directories="$(OutDir)Assets\readme" Condition="Exists('$(OutDir)Assets\readme')" />
     <Copy SourceFiles="@(RuntimeAssetFiles)"
-          DestinationFiles="@(RuntimeAssetFiles->'$(OutDir)Assets\%(RecursiveDir)%(Filename)%(Extension)')"
+          DestinationFiles="@(RuntimeAssetFiles->'$(OutDir)Assets\%(AssetRoot)%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(RuntimeShaderFiles)"
           DestinationFiles="@(RuntimeShaderFiles->'$(OutDir)shaders\%(RecursiveDir)%(Filename)%(Extension)')"
