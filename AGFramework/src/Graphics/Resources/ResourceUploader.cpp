@@ -76,9 +76,11 @@ void ResourceUploader::UploadTextureCube(DirectX12Context &context, Texture &tex
 	                                                           IID_PPV_ARGS(&texture.UploadHeap)));
 
 	D3D12_SUBRESOURCE_DATA subresources[6] = {};
+	const UINT64 faceSlicePitch = static_cast<UINT64>(faceWidth) * faceHeight * 4;
+	const auto *faceBytes = static_cast<const std::uint8_t *>(facePixelData);
 	for (UINT faceIndex = 0; faceIndex < 6; ++faceIndex)
 	{
-		subresources[faceIndex].pData = facePixelData;
+		subresources[faceIndex].pData = faceBytes + faceIndex * faceSlicePitch;
 		subresources[faceIndex].RowPitch = static_cast<LONG_PTR>(faceWidth * 4);
 		subresources[faceIndex].SlicePitch = subresources[faceIndex].RowPitch * faceHeight;
 	}
