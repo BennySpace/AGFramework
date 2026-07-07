@@ -53,8 +53,9 @@ jobs:
 
       - name: Smoke test Debug x64 scene bootstrap
         shell: pwsh
+        working-directory: ./AGFramework/out/x64/Debug
         run: >
-          & ./AGFramework/out/x64/Debug/AGFramework.exe --smoke-test;
+          & ./AGFramework.exe --smoke-test;
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build Release x64
@@ -68,6 +69,7 @@ jobs:
 
       - name: Smoke test Release x64 scene bootstrap
         shell: pwsh
+        working-directory: ./AGFramework/out/x64/Release
         run: >
-          & ./AGFramework/out/x64/Release/AGFramework.exe --smoke-test;
+          & ./AGFramework.exe --smoke-test;
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
