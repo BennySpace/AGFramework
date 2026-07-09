@@ -33,6 +33,10 @@ class MaterialAssetContract
 		TextureSlot Opacity;
 		DirectX::XMFLOAT4 PbrParams = {0.0f, 0.58f, 1.0f, 0.95f};
 		bool HasPbrParams = false;
+		bool HasMetallic = false;
+		bool HasRoughness = false;
+		bool HasAmbientOcclusion = false;
+		bool HasIblIntensity = false;
 		bool HasAlphaCutoutOverride = false;
 		bool AlphaCutout = false;
 	};

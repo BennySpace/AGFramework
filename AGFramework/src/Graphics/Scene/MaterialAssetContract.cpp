@@ -153,21 +153,25 @@ void MaterialAssetContract::Load(const std::string &filename)
 			{
 				currentEntry->PbrParams.x = std::stof(value);
 				currentEntry->HasPbrParams = true;
+				currentEntry->HasMetallic = true;
 			}
 			else if (key == "roughness")
 			{
 				currentEntry->PbrParams.y = std::stof(value);
 				currentEntry->HasPbrParams = true;
+				currentEntry->HasRoughness = true;
 			}
 			else if (key == "ao")
 			{
 				currentEntry->PbrParams.z = std::stof(value);
 				currentEntry->HasPbrParams = true;
+				currentEntry->HasAmbientOcclusion = true;
 			}
 			else if (key == "ibl")
 			{
 				currentEntry->PbrParams.w = std::stof(value);
 				currentEntry->HasPbrParams = true;
+				currentEntry->HasIblIntensity = true;
 			}
 			else if (key == "alpha_cutout")
 			{
@@ -220,8 +224,27 @@ MaterialAssetContract::Entry MaterialAssetContract::Merge(const Entry &baseEntry
 	}
 	if (overrideEntry.HasPbrParams)
 	{
-		merged.PbrParams = overrideEntry.PbrParams;
+		if (overrideEntry.HasMetallic)
+		{
+			merged.PbrParams.x = overrideEntry.PbrParams.x;
+		}
+		if (overrideEntry.HasRoughness)
+		{
+			merged.PbrParams.y = overrideEntry.PbrParams.y;
+		}
+		if (overrideEntry.HasAmbientOcclusion)
+		{
+			merged.PbrParams.z = overrideEntry.PbrParams.z;
+		}
+		if (overrideEntry.HasIblIntensity)
+		{
+			merged.PbrParams.w = overrideEntry.PbrParams.w;
+		}
 		merged.HasPbrParams = true;
+		merged.HasMetallic = merged.HasMetallic || overrideEntry.HasMetallic;
+		merged.HasRoughness = merged.HasRoughness || overrideEntry.HasRoughness;
+		merged.HasAmbientOcclusion = merged.HasAmbientOcclusion || overrideEntry.HasAmbientOcclusion;
+		merged.HasIblIntensity = merged.HasIblIntensity || overrideEntry.HasIblIntensity;
 	}
 	if (overrideEntry.HasAlphaCutoutOverride)
 	{
