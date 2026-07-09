@@ -94,6 +94,13 @@ std::string ReplaceStemSuffix(const std::string &path, const std::string &stemSu
 	return stem.substr(0, stem.size() - stemSuffix.size()) + replacement + extension;
 }
 
+std::string ReplaceStemSuffixAndExtension(const std::string &path, const std::string &stemSuffix, const std::string &replacement,
+                                          const std::string &newExtension)
+{
+	const std::string replacedPath = ReplaceStemSuffix(path, stemSuffix, replacement);
+	return replacedPath.empty() ? std::string() : ReplaceExtension(replacedPath, newExtension);
+}
+
 std::string AppendStemSuffix(const std::string &path, const std::string &suffix)
 {
 	const size_t extensionPos = path.find_last_of('.');
@@ -103,6 +110,12 @@ std::string AppendStemSuffix(const std::string &path, const std::string &suffix)
 	}
 
 	return path.substr(0, extensionPos) + suffix + path.substr(extensionPos);
+}
+
+std::string AppendStemSuffixAndExtension(const std::string &path, const std::string &suffix, const std::string &newExtension)
+{
+	const std::string appendedPath = AppendStemSuffix(path, suffix);
+	return appendedPath.empty() ? std::string() : ReplaceExtension(appendedPath, newExtension);
 }
 
 std::string FindCompanionTexturePath(const std::string &diffusePath, std::initializer_list<std::string> suffixes)
@@ -119,35 +132,35 @@ std::string FindCompanionTexturePath(const std::string &diffusePath, std::initia
 		if (!fromDiff.empty())
 		{
 			candidates.push_back(fromDiff);
-			candidates.push_back(ReplaceStemSuffix(diffusePath, "_diff", suffix + ".dds"));
+			candidates.push_back(ReplaceStemSuffixAndExtension(diffusePath, "_diff", suffix, ".dds"));
 		}
 
 		const std::string fromDif = ReplaceStemSuffix(diffusePath, "_dif", suffix);
 		if (!fromDif.empty())
 		{
 			candidates.push_back(fromDif);
-			candidates.push_back(ReplaceStemSuffix(diffusePath, "_dif", suffix + ".dds"));
+			candidates.push_back(ReplaceStemSuffixAndExtension(diffusePath, "_dif", suffix, ".dds"));
 		}
 
 		const std::string fromTexture = ReplaceStemSuffix(diffusePath, "_texture", "_texture" + suffix);
 		if (!fromTexture.empty())
 		{
 			candidates.push_back(fromTexture);
-			candidates.push_back(ReplaceStemSuffix(diffusePath, "_texture", "_texture" + suffix + ".dds"));
+			candidates.push_back(ReplaceStemSuffixAndExtension(diffusePath, "_texture", "_texture" + suffix, ".dds"));
 		}
 
 		const std::string fromBaseColor = ReplaceStemSuffix(diffusePath, "_BaseColor", suffix);
 		if (!fromBaseColor.empty())
 		{
 			candidates.push_back(fromBaseColor);
-			candidates.push_back(ReplaceStemSuffix(diffusePath, "_BaseColor", suffix + ".dds"));
+			candidates.push_back(ReplaceStemSuffixAndExtension(diffusePath, "_BaseColor", suffix, ".dds"));
 		}
 
 		const std::string fromGeneric = AppendStemSuffix(diffusePath, suffix);
 		if (!fromGeneric.empty())
 		{
 			candidates.push_back(fromGeneric);
-			candidates.push_back(AppendStemSuffix(diffusePath, suffix + ".dds"));
+			candidates.push_back(AppendStemSuffixAndExtension(diffusePath, suffix, ".dds"));
 		}
 	}
 
