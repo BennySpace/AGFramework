@@ -24,6 +24,11 @@ DirectX12App::DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd, InputDevice *inp
 
 DirectX12App::~DirectX12App()
 {
+	if (m_context.IsInitialized())
+	{
+		m_context.FlushCommandQueue();
+	}
+
 	if (IsDebugOverlayEnabled())
 	{
 		m_debugOverlay.Shutdown();
