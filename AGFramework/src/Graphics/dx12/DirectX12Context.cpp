@@ -161,8 +161,27 @@ void DirectX12Context::WaitForFenceValue(UINT64 fenceValue) const
 	if (m_fence->GetCompletedValue() < fenceValue)
 	{
 		HANDLE eventHandle = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
-		ThrowIfFailed(m_fence->SetEventOnCompletion(fenceValue, eventHandle));
-		WaitForSingleObject(eventHandle, INFINITE);
+		if (eventHandle == nullptr)
+		{
+			const DWORD errorCode = GetLastError();
+			ThrowIfFailed(HRESULT_FROM_WIN32(errorCode == ERROR_SUCCESS ? ERROR_GEN_FAILURE : errorCode));
+		}
+
+		const HRESULT setEventResult = m_fence->SetEventOnCompletion(fenceValue, eventHandle);
+		if (FAILED(setEventResult))
+		{
+			CloseHandle(eventHandle);
+			ThrowIfFailed(setEventResult);
+		}
+
+		const DWORD waitResult = WaitForSingleObject(eventHandle, INFINITE);
+		if (waitResult != WAIT_OBJECT_0)
+		{
+			const DWORD errorCode = waitResult == WAIT_FAILED ? GetLastError() : ERROR_GEN_FAILURE;
+			CloseHandle(eventHandle);
+			ThrowIfFailed(HRESULT_FROM_WIN32(errorCode == ERROR_SUCCESS ? ERROR_GEN_FAILURE : errorCode));
+		}
+
 		CloseHandle(eventHandle);
 	}
 }
