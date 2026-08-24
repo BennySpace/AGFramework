@@ -24,6 +24,7 @@ DirectX12App::DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd, InputDevice *inp
 
 DirectX12App::~DirectX12App()
 {
+	m_cameraController.ReleaseMouseCapture();
 	m_context.Shutdown();
 
 	if (IsDebugOverlayEnabled())
