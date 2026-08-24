@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 
@@ -9,6 +10,9 @@ class RenderSettings
 {
   public:
 	static constexpr std::uint32_t MaxShadowCascadeCount = 4;
+	static constexpr std::uint32_t MinShadowMapSize = 512;
+	static constexpr std::uint32_t MaxShadowMapSize = 4096;
+	static constexpr std::uint32_t ShadowMapSizeAlignment = 256;
 
 	struct LightingSettings
 	{
@@ -88,7 +92,14 @@ class RenderSettings
 	}
 	void SetShadowSettings(const ShadowSettings &shadowSettings)
 	{
-		m_shadowSettings = shadowSettings;
+		ShadowSettings normalizedSettings = shadowSettings;
+		normalizedSettings.CascadeCount =
+		    (std::clamp)(normalizedSettings.CascadeCount, 1u, MaxShadowCascadeCount);
+		normalizedSettings.ShadowMapSize =
+		    (std::clamp)(normalizedSettings.ShadowMapSize, MinShadowMapSize, MaxShadowMapSize);
+		normalizedSettings.ShadowMapSize =
+		    ((normalizedSettings.ShadowMapSize + ShadowMapSizeAlignment - 1) / ShadowMapSizeAlignment) * ShadowMapSizeAlignment;
+		m_shadowSettings = normalizedSettings;
 	}
 	const DemoSettings &GetDemoSettings() const
 	{
