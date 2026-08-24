@@ -176,9 +176,12 @@ LRESULT CALLBACK Window::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 		case WM_INPUT:
 		{
 			UINT size = 0;
-			GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT, nullptr, &size, sizeof(RAWINPUTHEADER));
-			if (size == 0)
-				break;
+			const UINT sizeQueryResult =
+			    GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT, nullptr, &size, sizeof(RAWINPUTHEADER));
+			if (sizeQueryResult != 0 || size == 0)
+			{
+				return 0;
+			}
 
 			std::vector<BYTE> buffer(size);
 			if (GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT, buffer.data(), &size, sizeof(RAWINPUTHEADER)) == size)
