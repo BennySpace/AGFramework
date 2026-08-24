@@ -23,7 +23,7 @@ void LoadRequiredDdsTexture(DirectX12Context &context, Texture &texture, const s
 
 DeferredRenderer::~DeferredRenderer() = default;
 
-void DeferredRenderer::Initialize(DirectX12Context &context, bool enable4xMsaa, UINT msaaQuality)
+void DeferredRenderer::Initialize(DirectX12Context &context)
 {
 	BuildShadersAndInputLayout();
 	BuildConstantBufferMetadata();
@@ -32,7 +32,7 @@ void DeferredRenderer::Initialize(DirectX12Context &context, bool enable4xMsaa, 
 	BuildImageBasedLightingTextures(context);
 	BuildLightingSrvHeap(context);
 	BuildRootSignature(context);
-	BuildPSO(context, enable4xMsaa, msaaQuality);
+	BuildPSO(context);
 }
 
 void DeferredRenderer::Resize(DirectX12Context &context)
@@ -678,11 +678,8 @@ void DeferredRenderer::BuildRootSignature(DirectX12Context &context)
 	                                                       IID_PPV_ARGS(m_shadowRootSignature.GetAddressOf())));
 }
 
-void DeferredRenderer::BuildPSO(DirectX12Context &context, bool enable4xMsaa, UINT msaaQuality)
+void DeferredRenderer::BuildPSO(DirectX12Context &context)
 {
-	(void)enable4xMsaa;
-	(void)msaaQuality;
-
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC geometryPsoDesc = {};
 	geometryPsoDesc.InputLayout = {m_inputLayout.data(), static_cast<UINT>(m_inputLayout.size())};
 	geometryPsoDesc.pRootSignature = m_geometryRootSignature.Get();

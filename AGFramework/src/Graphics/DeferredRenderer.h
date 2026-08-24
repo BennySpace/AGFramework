@@ -41,7 +41,7 @@ class DeferredRenderer
 	DeferredRenderer() = default;
 	~DeferredRenderer();
 
-	void Initialize(DirectX12Context &context, bool enable4xMsaa, UINT msaaQuality);
+	void Initialize(DirectX12Context &context);
 	void Resize(DirectX12Context &context);
 	void SetShadowSettings(const RenderSettings::ShadowSettings &shadowSettings);
 	void ReloadShadowDependentResources(DirectX12Context &context);
@@ -89,7 +89,7 @@ class DeferredRenderer
 	void BuildImageBasedLightingTextures(DirectX12Context &context);
 	void BuildLightingSrvHeap(DirectX12Context &context);
 	void BuildRootSignature(DirectX12Context &context);
-	void BuildPSO(DirectX12Context &context, bool enable4xMsaa, UINT msaaQuality);
+	void BuildPSO(DirectX12Context &context);
 	void BuildShadowPSOs(DirectX12Context &context);
 
 	struct ObjectConstants

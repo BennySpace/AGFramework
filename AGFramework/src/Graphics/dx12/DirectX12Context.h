@@ -8,8 +8,8 @@ class DirectX12Context
 	DirectX12Context() = default;
 	~DirectX12Context();
 
-	void Initialize(HWND windowHandle, int clientWidth, int clientHeight, bool enable4xMsaa, UINT msaaQuality, UINT swapChainBufferCount,
-	                DXGI_FORMAT backBufferFormat, DXGI_FORMAT depthStencilFormat);
+	void Initialize(HWND windowHandle, int clientWidth, int clientHeight, UINT swapChainBufferCount, DXGI_FORMAT backBufferFormat,
+	                DXGI_FORMAT depthStencilFormat);
 	void Shutdown() noexcept;
 	void Resize(int clientWidth, int clientHeight);
 	void FlushCommandQueue();
@@ -95,8 +95,6 @@ class DirectX12Context
 	void CreateDevice();
 
 	HWND m_windowHandle = nullptr;
-	bool m4xMsaaState = false;
-	UINT m4xMsaaQuality = 0;
 	UINT m_swapChainBufferCount = 0;
 	int m_clientWidth = 0;
 	int m_clientHeight = 0;

@@ -65,9 +65,6 @@ class DirectX12App
 	HINSTANCE m_hAppInst = nullptr;
 	HWND m_hMainWnd = nullptr;
 
-	bool m4xMsaaState = false;
-	UINT m4xMsaaQuality = 0;
-
 	static const int SwapChainBufferCount = 2;
 
 	LightSystem m_lightSystem;

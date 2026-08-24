@@ -43,8 +43,8 @@ bool DirectX12App::Initialize()
 	// Start in the curated demo look so the scene reads well before any overlay tweaks.
 	Demo::DemoLightingController::ApplyRecommendedLook(m_materialSystem, m_renderSettings, m_demoSceneRuntime.GetLightEditSession());
 
-	m_context.Initialize(m_hMainWnd, clientWidth, clientHeight, m4xMsaaState, m4xMsaaQuality, SwapChainBufferCount,
-	                     DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D24_UNORM_S8_UINT);
+	m_context.Initialize(m_hMainWnd, clientWidth, clientHeight, SwapChainBufferCount, DXGI_FORMAT_R8G8B8A8_UNORM,
+	                     DXGI_FORMAT_D24_UNORM_S8_UINT);
 
 	ApplyResize(clientWidth, clientHeight);
 
@@ -54,7 +54,7 @@ bool DirectX12App::Initialize()
 	m_activeShadowSettings = RuntimeSettingsCoordinator::InitializeShadowSettings(m_deferredRenderer, m_renderSettings);
 	m_demoSceneRuntime.Initialize(m_context, demoSettings);
 	m_cameraController.ApplyCameraStart(m_demoSceneRuntime.GetScene().GetInitialCamera());
-	m_deferredRenderer.Initialize(m_context, m4xMsaaState, m4xMsaaQuality);
+	m_deferredRenderer.Initialize(m_context);
 	BuildFrameResources();
 	m_deferredRendererInitialized = true;
 	if (IsDebugOverlayEnabled())

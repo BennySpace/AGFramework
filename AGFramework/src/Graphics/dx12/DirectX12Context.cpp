@@ -27,15 +27,13 @@ void DirectX12Context::Shutdown() noexcept
 	}
 }
 
-void DirectX12Context::Initialize(HWND windowHandle, int clientWidth, int clientHeight, bool enable4xMsaa, UINT msaaQuality,
-                                  UINT swapChainBufferCount, DXGI_FORMAT backBufferFormat, DXGI_FORMAT depthStencilFormat)
+void DirectX12Context::Initialize(HWND windowHandle, int clientWidth, int clientHeight, UINT swapChainBufferCount,
+                                  DXGI_FORMAT backBufferFormat, DXGI_FORMAT depthStencilFormat)
 {
 	m_isShutdown = false;
 	m_windowHandle = windowHandle;
 	m_clientWidth = clientWidth;
 	m_clientHeight = clientHeight;
-	m4xMsaaState = enable4xMsaa;
-	m4xMsaaQuality = msaaQuality;
 	m_swapChainBufferCount = swapChainBufferCount;
 	m_backBufferFormat = backBufferFormat;
 	m_depthStencilFormat = depthStencilFormat;
