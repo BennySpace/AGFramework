@@ -10,6 +10,7 @@ class DirectX12Context
 
 	void Initialize(HWND windowHandle, int clientWidth, int clientHeight, bool enable4xMsaa, UINT msaaQuality, UINT swapChainBufferCount,
 	                DXGI_FORMAT backBufferFormat, DXGI_FORMAT depthStencilFormat);
+	void Shutdown() noexcept;
 	void Resize(int clientWidth, int clientHeight);
 	void FlushCommandQueue();
 	UINT64 SignalCommandQueue();
@@ -120,4 +121,5 @@ class DirectX12Context
 	int m_currBackBuffer = 0;
 	Microsoft::WRL::ComPtr<ID3D12Fence> m_fence;
 	UINT64 m_fenceValue = 0;
+	bool m_isShutdown = false;
 };

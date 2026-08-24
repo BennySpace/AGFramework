@@ -6,15 +6,31 @@ using Microsoft::WRL::ComPtr;
 
 DirectX12Context::~DirectX12Context()
 {
-	if (m_device)
+	Shutdown();
+}
+
+void DirectX12Context::Shutdown() noexcept
+{
+	if (m_isShutdown || !m_device)
+	{
+		return;
+	}
+
+	m_isShutdown = true;
+	try
 	{
 		FlushCommandQueue();
+	}
+	catch (...)
+	{
+		OutputDebugStringA("Failed to flush the DirectX 12 command queue during shutdown.\n");
 	}
 }
 
 void DirectX12Context::Initialize(HWND windowHandle, int clientWidth, int clientHeight, bool enable4xMsaa, UINT msaaQuality,
                                   UINT swapChainBufferCount, DXGI_FORMAT backBufferFormat, DXGI_FORMAT depthStencilFormat)
 {
+	m_isShutdown = false;
 	m_windowHandle = windowHandle;
 	m_clientWidth = clientWidth;
 	m_clientHeight = clientHeight;
