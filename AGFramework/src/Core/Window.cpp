@@ -4,6 +4,7 @@
 #if defined(_DEBUG)
 #include "../../external/imgui/backends/imgui_impl_win32.h"
 #endif
+#include <system_error>
 #include <windowsx.h>
 
 #if defined(_DEBUG)
@@ -32,7 +33,11 @@ bool Window::Create(const std::string &title, int width, int height)
 	m_height = height;
 	m_instance = GetModuleHandle(nullptr);
 
-	RegisterWindowClass();
+	if (!RegisterWindowClass())
+	{
+		const DWORD errorCode = GetLastError();
+		throw std::system_error(static_cast<int>(errorCode), std::system_category(), "Failed to register window class");
+	}
 
 	RECT rect = {0, 0, width, height};
 	AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
