@@ -48,7 +48,10 @@ RenderSettings::CascadedShadowData FrameDataBuilder::BuildCascadedShadowData(con
 {
 	RenderSettings::CascadedShadowData shadowData;
 
-	const float farPlane = (std::max)(inputs.CameraNearPlane + 0.001f, inputs.ShadowSettings.MaxShadowDistance);
+	const float minimumFarPlane = inputs.CameraNearPlane + 0.001f;
+	const float cameraFarPlane = (std::max)(minimumFarPlane, inputs.CameraFarPlane);
+	const float farPlane = (std::clamp)(inputs.ShadowSettings.MaxShadowDistance, minimumFarPlane, cameraFarPlane);
+	const float cameraDepthRange = cameraFarPlane - inputs.CameraNearPlane;
 	const std::uint32_t cascadeCount = (std::min)(inputs.ShadowSettings.CascadeCount, RenderSettings::MaxShadowCascadeCount);
 	const float cascadeCountF = static_cast<float>((std::max)(1u, cascadeCount));
 	const float lambda = (std::max)(0.0f, (std::min)(1.0f, inputs.ShadowSettings.CascadeSplitLambda));
@@ -95,8 +98,8 @@ RenderSettings::CascadedShadowData FrameDataBuilder::BuildCascadedShadowData(con
 	for (std::uint32_t cascadeIndex = 0; cascadeIndex < cascadeCount; ++cascadeIndex)
 	{
 		const float cascadeFarDistance = shadowData.SplitDistances[cascadeIndex];
-		const float nearT = (cascadeNearDistance - inputs.CameraNearPlane) / (inputs.CameraFarPlane - inputs.CameraNearPlane);
-		const float farT = (cascadeFarDistance - inputs.CameraNearPlane) / (inputs.CameraFarPlane - inputs.CameraNearPlane);
+		const float nearT = (cascadeNearDistance - inputs.CameraNearPlane) / cameraDepthRange;
+		const float farT = (cascadeFarDistance - inputs.CameraNearPlane) / cameraDepthRange;
 
 		for (int cornerIndex = 0; cornerIndex < 4; ++cornerIndex)
 		{

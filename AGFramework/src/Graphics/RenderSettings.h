@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 
 #include "../Math/MathHelper.h"
@@ -99,6 +100,26 @@ class RenderSettings
 		    (std::clamp)(normalizedSettings.ShadowMapSize, MinShadowMapSize, MaxShadowMapSize);
 		normalizedSettings.ShadowMapSize =
 		    ((normalizedSettings.ShadowMapSize + ShadowMapSizeAlignment - 1) / ShadowMapSizeAlignment) * ShadowMapSizeAlignment;
+		normalizedSettings.CascadeSplitLambda = NormalizeFiniteFloat(normalizedSettings.CascadeSplitLambda, 0.0f, 1.0f,
+		                                                             ShadowSettings{}.CascadeSplitLambda);
+		normalizedSettings.MaxShadowDistance = NormalizeFiniteFloat(normalizedSettings.MaxShadowDistance, 0.001f, 100000.0f,
+		                                                            ShadowSettings{}.MaxShadowDistance);
+		normalizedSettings.DepthBias =
+		    NormalizeFiniteFloat(normalizedSettings.DepthBias, 0.0f, 10000.0f, ShadowSettings{}.DepthBias);
+		normalizedSettings.SlopeScaledDepthBias =
+		    NormalizeFiniteFloat(normalizedSettings.SlopeScaledDepthBias, 0.0f, 8.0f, ShadowSettings{}.SlopeScaledDepthBias);
+		normalizedSettings.DepthBiasClamp =
+		    NormalizeFiniteFloat(normalizedSettings.DepthBiasClamp, 0.0f, 10.0f, ShadowSettings{}.DepthBiasClamp);
+		normalizedSettings.PcfRadius =
+		    NormalizeFiniteFloat(normalizedSettings.PcfRadius, 0.0f, 3.0f, ShadowSettings{}.PcfRadius);
+		normalizedSettings.ShadowStrength =
+		    NormalizeFiniteFloat(normalizedSettings.ShadowStrength, 0.0f, 1.0f, ShadowSettings{}.ShadowStrength);
+		normalizedSettings.ReceiverBiasMin =
+		    NormalizeFiniteFloat(normalizedSettings.ReceiverBiasMin, 0.00001f, 0.001f, ShadowSettings{}.ReceiverBiasMin);
+		normalizedSettings.ReceiverBiasSlopeScale = NormalizeFiniteFloat(normalizedSettings.ReceiverBiasSlopeScale, 0.0f, 0.005f,
+		                                                                   ShadowSettings{}.ReceiverBiasSlopeScale);
+		normalizedSettings.ReceiverBiasTexelFactor = NormalizeFiniteFloat(normalizedSettings.ReceiverBiasTexelFactor, 0.0f, 4.0f,
+		                                                                    ShadowSettings{}.ReceiverBiasTexelFactor);
 		m_shadowSettings = normalizedSettings;
 	}
 	const DemoSettings &GetDemoSettings() const
@@ -111,6 +132,16 @@ class RenderSettings
 	}
 
  private:
+	static float NormalizeFiniteFloat(float value, float minimum, float maximum, float fallback)
+	{
+		if (!std::isfinite(value))
+		{
+			return fallback;
+		}
+
+		return (std::clamp)(value, minimum, maximum);
+	}
+
 	LightingSettings m_lightingSettings;
 	ImageBasedLightingSettings m_imageBasedLightingSettings;
 	ShadowSettings m_shadowSettings;
