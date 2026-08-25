@@ -134,25 +134,32 @@ std::wstring ResolveExistingPath(const std::wstring &relativePath)
 		return std::wstring();
 	}
 
-	for (const wchar_t *prefix : kAssetPrefixes)
-	{
-		const std::wstring candidate = JoinPath(std::wstring(prefix), relativePath);
-		if (FileExists(candidate))
+	const auto resolveFromBaseDirectory = [&relativePath](const std::wstring &baseDirectory) -> std::wstring {
+		for (const wchar_t *prefix : kAssetPrefixes)
 		{
-			return candidate;
+			const std::wstring candidate = JoinPath(JoinPath(baseDirectory, std::wstring(prefix)), relativePath);
+			if (FileExists(candidate))
+			{
+				return candidate;
+			}
 		}
+
+		return std::wstring();
+	};
+
+	const std::wstring currentDirectoryPath = resolveFromBaseDirectory(L"");
+	if (!currentDirectoryPath.empty())
+	{
+		return currentDirectoryPath;
 	}
 
 	const std::wstring executableDirectory = GetExecutableDirectory();
 	if (!executableDirectory.empty())
 	{
-		for (const wchar_t *prefix : kAssetPrefixes)
+		const std::wstring executableDirectoryPath = resolveFromBaseDirectory(executableDirectory);
+		if (!executableDirectoryPath.empty())
 		{
-			const std::wstring candidate = JoinPath(JoinPath(executableDirectory, std::wstring(prefix)), relativePath);
-			if (FileExists(candidate))
-			{
-				return candidate;
-			}
+			return executableDirectoryPath;
 		}
 	}
 
