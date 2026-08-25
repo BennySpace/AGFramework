@@ -13,7 +13,6 @@ class CameraController
 
 	void ApplyCameraStart(const SceneData::CameraStart &cameraStart);
 	void Update(const GameTimer &gameTimer);
-	void NormalizeLookDirection();
 	void ReleaseMouseCapture();
 
 	const DirectX::XMFLOAT3 &GetEyePosition() const

@@ -60,12 +60,6 @@ void CameraController::Update(const GameTimer &gameTimer)
 	UpdateMovement(gameTimer);
 }
 
-void CameraController::NormalizeLookDirection()
-{
-	const XMVECTOR safeLookDirection = GetSafeNormalizedDirection(m_lookDirection);
-	XMStoreFloat3(&m_lookDirection, safeLookDirection);
-}
-
 void CameraController::ReleaseMouseCapture()
 {
 	if (!m_isMouseCaptured)
