@@ -76,9 +76,10 @@ struct MeshGeometry
 		return ibv;
 	}
 
-	// We can free this memory after we finish upload to the GPU.
 	void DisposeUploaders()
 	{
+		VertexBufferCPU.Reset();
+		IndexBufferCPU.Reset();
 		VertexBufferUploader = nullptr;
 		IndexBufferUploader = nullptr;
 	}
