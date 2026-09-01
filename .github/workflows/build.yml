@@ -51,7 +51,7 @@ jobs:
           /p:Platform=x64
           /verbosity:minimal
 
-      - name: Smoke test Debug x64 scene bootstrap
+      - name: Smoke test Debug x64 GPU frame
         shell: pwsh
         working-directory: ./AGFramework/out/x64/Debug
         run: >
@@ -67,7 +67,7 @@ jobs:
           /p:Platform=x64
           /verbosity:minimal
 
-      - name: Smoke test Release x64 scene bootstrap
+      - name: Smoke test Release x64 GPU frame
         shell: pwsh
         working-directory: ./AGFramework/out/x64/Release
         run: >

@@ -87,6 +87,10 @@ void AGFramework::Run()
 void AGFramework::RunSmokeTest()
 {
 	Initialize(false);
+	m_timer.Reset();
+	m_timer.Tick();
+	Update();
+	Draw();
 	Shutdown();
 }
 
