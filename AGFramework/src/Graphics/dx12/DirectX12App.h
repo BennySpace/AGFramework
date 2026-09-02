@@ -31,7 +31,7 @@ class GameTimer;
 class DirectX12App
 {
   public:
-	DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd, InputDevice *inputDevice);
+	DirectX12App(HWND mainWindow, InputDevice *inputDevice);
 	virtual ~DirectX12App();
 
 	virtual bool Initialize();
@@ -62,7 +62,6 @@ class DirectX12App
 	void ReloadShadowSettingsIfNeeded();
 
   protected:
-	HINSTANCE m_hAppInst = nullptr;
 	HWND m_hMainWnd = nullptr;
 
 	static const int SwapChainBufferCount = 2;

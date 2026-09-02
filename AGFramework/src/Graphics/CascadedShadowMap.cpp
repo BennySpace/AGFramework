@@ -28,11 +28,6 @@ D3D12_CPU_DESCRIPTOR_HANDLE CascadedShadowMap::GetSrv() const
 	return m_srvHeap.CpuHandleAt(0);
 }
 
-D3D12_GPU_DESCRIPTOR_HANDLE CascadedShadowMap::GetSrvGpuHandle() const
-{
-	return m_srvHeap.GpuHandleAt(0);
-}
-
 void CascadedShadowMap::ClearCascade(ID3D12GraphicsCommandList *commandList, std::uint32_t cascadeIndex) const
 {
 	if (commandList == nullptr || cascadeIndex >= m_desc.CascadeCount)
@@ -41,14 +36,6 @@ void CascadedShadowMap::ClearCascade(ID3D12GraphicsCommandList *commandList, std
 	}
 
 	commandList->ClearDepthStencilView(GetDsv(cascadeIndex), D3D12_CLEAR_FLAG_DEPTH, m_desc.ClearDepth, 0, 0, nullptr);
-}
-
-void CascadedShadowMap::ClearAll(ID3D12GraphicsCommandList *commandList) const
-{
-	for (std::uint32_t cascadeIndex = 0; cascadeIndex < m_desc.CascadeCount; ++cascadeIndex)
-	{
-		ClearCascade(commandList, cascadeIndex);
-	}
 }
 
 void CascadedShadowMap::CreateDescriptorHeaps()

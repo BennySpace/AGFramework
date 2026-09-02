@@ -76,11 +76,6 @@ D3D12_CPU_DESCRIPTOR_HANDLE Gbuffer::GetDsv() const
 	return m_dsvHeap.CpuHandleAt(0);
 }
 
-D3D12_GPU_DESCRIPTOR_HANDLE Gbuffer::GetSrvGpuHandle(Target target) const
-{
-	return m_srvHeap.GpuHandleAt(GetTargetIndex(target));
-}
-
 bool Gbuffer::CreateResources()
 {
 	for (auto &target : m_targets)

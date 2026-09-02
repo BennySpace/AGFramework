@@ -58,7 +58,6 @@ class Gbuffer
 	D3D12_CPU_DESCRIPTOR_HANDLE GetRtv(Target target) const;
 	D3D12_CPU_DESCRIPTOR_HANDLE GetSrv(Target target) const;
 	D3D12_CPU_DESCRIPTOR_HANDLE GetDsv() const;
-	D3D12_GPU_DESCRIPTOR_HANDLE GetSrvGpuHandle(Target target) const;
 
 	ID3D12DescriptorHeap *GetSrvHeap() const
 	{

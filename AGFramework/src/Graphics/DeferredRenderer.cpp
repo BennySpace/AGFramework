@@ -1,6 +1,7 @@
 #include "DeferredRenderer.h"
 
 #include "Assets/AssetPathUtils.h"
+#include "GeometryGenerator.h"
 #include "Resources/ResourceUploader.h"
 #include "dx12/DDSTextureLoader.h"
 #include "dx12/DirectX12Context.h"
@@ -16,7 +17,6 @@ namespace
 {
 void LoadRequiredDdsTexture(DirectX12Context &context, Texture &texture, const std::wstring &path)
 {
-	texture.Filename = path;
 	ThrowIfFailed(CreateDDSTextureFromFile12(context.GetDevice(), context.GetCommandList(), path.c_str(), texture.Resource, texture.UploadHeap));
 }
 } // namespace
@@ -256,13 +256,9 @@ void DeferredRenderer::BuildImageBasedLightingTextures(DirectX12Context &context
 	}
 
 	m_irradianceMapTexture = std::make_unique<Texture>();
-	m_irradianceMapTexture->Name = "ibl_irradiance";
 	m_prefilterMapTexture = std::make_unique<Texture>();
-	m_prefilterMapTexture->Name = "ibl_prefilter";
 	m_environmentMapTexture = std::make_unique<Texture>();
-	m_environmentMapTexture->Name = "ibl_environment";
 	m_brdfLutTexture = std::make_unique<Texture>();
-	m_brdfLutTexture->Name = "ibl_brdf_lut";
 
 	const std::wstring irradiancePath = AssetPathUtils::ResolveRequiredPath("IBL irradiance map", {L"Assets\\ibl\\irradiance.dds"});
 	const std::wstring prefilterPath = AssetPathUtils::ResolveRequiredPath(

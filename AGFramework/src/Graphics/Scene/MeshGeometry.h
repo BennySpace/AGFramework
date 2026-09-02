@@ -1,16 +1,10 @@
 #pragma once
 
-#include "../GeometryGenerator.h"
-#include "../common/d3dx12.h"
-
 #include <d3d12.h>
 #include <D3Dcompiler.h>
-#include <DirectXCollision.h>
 #include <dxgi1_6.h>
 #include <string>
 #include <unordered_map>
-#include <utility>
-#include <vector>
 #include <wrl.h>
 
 // Defines a subrange of geometry in a MeshGeometry.  This is for when multiple
@@ -23,9 +17,6 @@ struct SubmeshGeometry
 	UINT StartIndexLocation = 0;
 	INT BaseVertexLocation = 0;
 
-	// Bounding box of the geometry defined by this submesh.
-	// This is used in later chapters of the book.
-	DirectX::BoundingBox Bounds;
 };
 
 struct MeshGeometry
@@ -50,11 +41,7 @@ struct MeshGeometry
 	DXGI_FORMAT IndexFormat = DXGI_FORMAT_R16_UINT;
 	UINT IndexBufferByteSize = 0;
 
-	// A MeshGeometry may store multiple geometries in one vertex/index buffer.
-	// Use this container to define the Submesh geometries so we can draw
-	// the Submeshes individually.
 	std::unordered_map<std::string, SubmeshGeometry> DrawArgs;
-	std::unordered_map<std::string, std::vector<std::pair<GeometryGenerator::MeshData, SubmeshGeometry>>> MultiDrawArgs;
 
 	D3D12_VERTEX_BUFFER_VIEW VertexBufferView() const
 	{

@@ -26,7 +26,6 @@ class TextureLoader
 		Kind SourceKind = Kind::DecodedRgba;
 		std::wstring Filename;
 		ImageData DecodedImage;
-		bool HasMipChain = false;
 	};
 
 	static ImageData LoadImage(const std::wstring &filename);

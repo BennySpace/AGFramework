@@ -36,7 +36,6 @@ class CascadedShadowMap
 
 	D3D12_CPU_DESCRIPTOR_HANDLE GetDsv(std::uint32_t cascadeIndex) const;
 	D3D12_CPU_DESCRIPTOR_HANDLE GetSrv() const;
-	D3D12_GPU_DESCRIPTOR_HANDLE GetSrvGpuHandle() const;
 
 	const D3D12_VIEWPORT &GetViewport() const
 	{
@@ -48,7 +47,6 @@ class CascadedShadowMap
 	}
 
 	void ClearCascade(ID3D12GraphicsCommandList *commandList, std::uint32_t cascadeIndex) const;
-	void ClearAll(ID3D12GraphicsCommandList *commandList) const;
 
   private:
 	void CreateDescriptorHeaps();

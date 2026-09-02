@@ -14,7 +14,6 @@ void AGFramework::Initialize(bool showWindow)
 		throw std::runtime_error("Failed to create window");
 
 	m_hWnd = m_window->GetHandle();
-	m_hInstance = m_window->GetInstanceHandle();
 
 	m_inputDevice = std::make_unique<InputDevice>(m_hWnd);
 
@@ -51,7 +50,7 @@ void AGFramework::Initialize(bool showWindow)
 		m_window->Show();
 	}
 
-	m_renderer = std::make_unique<DirectX12App>(m_hInstance, m_hWnd, m_inputDevice.get());
+	m_renderer = std::make_unique<DirectX12App>(m_hWnd, m_inputDevice.get());
 	if (!m_renderer->Initialize())
 		throw std::runtime_error("Failed to initialize rendering system");
 }

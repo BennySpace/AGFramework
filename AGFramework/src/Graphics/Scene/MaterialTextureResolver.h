@@ -10,16 +10,7 @@ class MaterialTextureResolver
   public:
 	struct ResolvedTextureSlot
 	{
-		enum class Source
-		{
-			Missing,
-			Contract,
-			Mesh,
-			LegacyFallback
-		};
-
 		std::string Path;
-		Source SourceValue = Source::Missing;
 		bool Exists = false;
 	};
 

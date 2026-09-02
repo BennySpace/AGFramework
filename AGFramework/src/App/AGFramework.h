@@ -29,7 +29,6 @@ class AGFramework
 
 	GameTimer m_timer;
 	HWND m_hWnd;
-	HINSTANCE m_hInstance;
 
 	std::string m_title = "AGFramework";
 	bool m_isPaused;

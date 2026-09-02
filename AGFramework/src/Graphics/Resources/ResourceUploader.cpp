@@ -40,8 +40,6 @@ void ResourceUploader::UploadTexture2D(DirectX12Context &context, Texture &textu
 void ResourceUploader::UploadSceneTexture(DirectX12Context &context, Texture &texture, const TextureLoader::SceneTextureSource &source,
                                           DXGI_FORMAT format)
 {
-	texture.Filename = source.Filename;
-
 	if (source.SourceKind == TextureLoader::SceneTextureSource::Kind::DdsFile)
 	{
 		if (!AssetPathUtils::FileExists(source.Filename))

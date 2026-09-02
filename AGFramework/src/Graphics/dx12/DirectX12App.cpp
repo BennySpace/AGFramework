@@ -17,8 +17,8 @@ bool IsDebugOverlayEnabled()
 }
 } // namespace
 
-DirectX12App::DirectX12App(HINSTANCE mhAppInst, HWND mhMainWnd, InputDevice *inputDevice)
-    : m_hAppInst(mhAppInst), m_hMainWnd(mhMainWnd), m_cameraController(mhMainWnd, inputDevice)
+DirectX12App::DirectX12App(HWND mainWindow, InputDevice *inputDevice)
+    : m_hMainWnd(mainWindow), m_cameraController(mainWindow, inputDevice)
 {
 }
 

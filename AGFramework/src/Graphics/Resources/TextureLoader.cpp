@@ -193,7 +193,6 @@ TextureLoader::SceneTextureSource TextureLoader::LoadSceneTexture(const std::wst
 	if (HasExtension(filename, L".dds"))
 	{
 		result.SourceKind = SceneTextureSource::Kind::DdsFile;
-		result.HasMipChain = true;
 		return result;
 	}
 

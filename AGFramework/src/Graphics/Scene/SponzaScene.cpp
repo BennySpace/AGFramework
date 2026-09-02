@@ -230,11 +230,9 @@ void SponzaScene::BuildTextures(DirectX12Context &context)
 		}
 
 		auto texture = std::make_unique<Texture>();
-		texture->Name = textureKey;
 
 		if (useProceduralFallback)
 		{
-			texture->Filename = StringUtils::Utf8ToWide(fallbackKey);
 			ResourceUploader::UploadTexture2D(context, *texture, fallbackPixel.data(), 1, 1);
 		}
 		else

@@ -183,7 +183,6 @@ ResolvedTextureSlot ResolveTextureSlot(const TextureSlot &contractSlot, const st
 	if (contractSlot.IsExplicit())
 	{
 		resolved.Path = preferDds ? PreferDdsVariant(contractSlot.Path) : PreferExistingOptionalTexturePath(contractSlot.Path);
-		resolved.SourceValue = ResolvedTextureSlot::Source::Contract;
 		resolved.Exists = !resolved.Path.empty();
 		return resolved;
 	}
@@ -191,7 +190,6 @@ ResolvedTextureSlot ResolveTextureSlot(const TextureSlot &contractSlot, const st
 	if (!meshPath.empty())
 	{
 		resolved.Path = preferDds ? PreferDdsVariant(meshPath) : PreferExistingOptionalTexturePath(meshPath);
-		resolved.SourceValue = ResolvedTextureSlot::Source::Mesh;
 		resolved.Exists = !resolved.Path.empty();
 		if (resolved.Exists || !allowLegacyFallback)
 		{
@@ -202,7 +200,6 @@ ResolvedTextureSlot ResolveTextureSlot(const TextureSlot &contractSlot, const st
 	if (allowLegacyFallback)
 	{
 		resolved.Path = legacyFallbackPath;
-		resolved.SourceValue = resolved.Path.empty() ? ResolvedTextureSlot::Source::Missing : ResolvedTextureSlot::Source::LegacyFallback;
 		resolved.Exists = !resolved.Path.empty();
 	}
 
