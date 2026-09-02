@@ -101,7 +101,7 @@ class DirectX12Context
 	DXGI_FORMAT m_backBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 	DXGI_FORMAT m_depthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 
-	Microsoft::WRL::ComPtr<IDXGISwapChain> m_swapChain;
+	Microsoft::WRL::ComPtr<IDXGISwapChain3> m_swapChain;
 	Microsoft::WRL::ComPtr<IDXGIFactory4> m_dxgiFactory;
 	Microsoft::WRL::ComPtr<ID3D12Device> m_device;
 	std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_renderTargets;
@@ -116,7 +116,6 @@ class DirectX12Context
 	UINT m_rtvDescriptorSize = 0;
 	UINT m_dsvDescriptorSize = 0;
 	UINT m_cbvSrvUavDescriptorSize = 0;
-	int m_currBackBuffer = 0;
 	Microsoft::WRL::ComPtr<ID3D12Fence> m_fence;
 	UINT64 m_fenceValue = 0;
 	bool m_isShutdown = false;

@@ -90,8 +90,6 @@ void DirectX12Context::Resize(int clientWidth, int clientHeight)
 	ThrowIfFailed(m_swapChain->ResizeBuffers(m_swapChainBufferCount, m_clientWidth, m_clientHeight, m_backBufferFormat,
 	                                         DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH));
 
-	m_currBackBuffer = 0;
-
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHeapHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart());
 	for (UINT renderTargetIndex = 0; renderTargetIndex < m_swapChainBufferCount; ++renderTargetIndex)
 	{
@@ -192,17 +190,17 @@ void DirectX12Context::ExecuteCommandLists(UINT commandListCount, ID3D12CommandL
 void DirectX12Context::Present(UINT syncInterval, UINT flags)
 {
 	ThrowIfFailed(m_swapChain->Present(syncInterval, flags));
-	m_currBackBuffer = (m_currBackBuffer + 1) % static_cast<int>(m_swapChainBufferCount);
 }
 
 ID3D12Resource *DirectX12Context::CurrentBackBuffer() const
 {
-	return m_renderTargets[m_currBackBuffer].Get();
+	return m_renderTargets[m_swapChain->GetCurrentBackBufferIndex()].Get();
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE DirectX12Context::CurrentBackBufferView() const
 {
-	return CD3DX12_CPU_DESCRIPTOR_HANDLE(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), m_currBackBuffer, m_rtvDescriptorSize);
+	return CD3DX12_CPU_DESCRIPTOR_HANDLE(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(),
+	                                     static_cast<INT>(m_swapChain->GetCurrentBackBufferIndex()), m_rtvDescriptorSize);
 }
 
 D3D12_CPU_DESCRIPTOR_HANDLE DirectX12Context::DepthStencilView() const
@@ -228,6 +226,7 @@ void DirectX12Context::CreateCommandObjects()
 void DirectX12Context::CreateSwapChain()
 {
 	m_swapChain.Reset();
+	ComPtr<IDXGISwapChain> swapChain;
 
 	DXGI_SWAP_CHAIN_DESC sd;
 	sd.BufferDesc.Width = m_clientWidth;
@@ -246,7 +245,8 @@ void DirectX12Context::CreateSwapChain()
 	sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 	sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
-	ThrowIfFailed(m_dxgiFactory->CreateSwapChain(m_commandQueue.Get(), &sd, m_swapChain.GetAddressOf()));
+	ThrowIfFailed(m_dxgiFactory->CreateSwapChain(m_commandQueue.Get(), &sd, swapChain.GetAddressOf()));
+	ThrowIfFailed(swapChain.As(&m_swapChain));
 }
 
 void DirectX12Context::CreateRtvAndDsvDescriptorHeaps()
