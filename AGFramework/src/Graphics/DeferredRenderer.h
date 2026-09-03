@@ -35,7 +35,6 @@ class DeferredRenderer
 		RenderSettings::CascadedShadowData CascadedShadowData;
 		MaterialSystem::MaterialState Material;
 		LightSystem::LightingState LightState;
-		float TotalTime = 0.0f;
 	};
 
 	DeferredRenderer() = default;
@@ -172,7 +171,6 @@ class DeferredRenderer
 	RenderSettings::CascadedShadowData m_cascadedShadowData;
 	DirectX::XMFLOAT3 m_sceneCenter = {0.0f, 0.0f, 0.0f};
 	float m_sceneScale = 1.0f;
-	DirectX::XMFLOAT4X4 m_texTransform = MathHelper::Identity4x4();
 	UINT m_objectCBByteSize = 0;
 	UINT m_shadowPassCBStride = 0;
 	UINT m_shadowPassCBByteSize = 0;

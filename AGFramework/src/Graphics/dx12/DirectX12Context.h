@@ -23,10 +23,6 @@ class DirectX12Context
 	{
 		return m_device.Get();
 	}
-	IDXGIFactory4 *GetFactory() const
-	{
-		return m_dxgiFactory.Get();
-	}
 	ID3D12CommandAllocator *GetCommandAllocator() const
 	{
 		return m_commandAllocator.Get();
@@ -53,14 +49,6 @@ class DirectX12Context
 		return m_scissorRect;
 	}
 
-	UINT GetRtvDescriptorSize() const
-	{
-		return m_rtvDescriptorSize;
-	}
-	UINT GetDsvDescriptorSize() const
-	{
-		return m_dsvDescriptorSize;
-	}
 	UINT GetCbvSrvUavDescriptorSize() const
 	{
 		return m_cbvSrvUavDescriptorSize;

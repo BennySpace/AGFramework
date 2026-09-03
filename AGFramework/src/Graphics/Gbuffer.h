@@ -59,19 +59,6 @@ class Gbuffer
 	D3D12_CPU_DESCRIPTOR_HANDLE GetSrv(Target target) const;
 	D3D12_CPU_DESCRIPTOR_HANDLE GetDsv() const;
 
-	ID3D12DescriptorHeap *GetSrvHeap() const
-	{
-		return m_srvHeap.Get();
-	}
-	ID3D12DescriptorHeap *GetRtvHeap() const
-	{
-		return m_rtvHeap.Get();
-	}
-	ID3D12DescriptorHeap *GetDsvHeap() const
-	{
-		return m_dsvHeap.Get();
-	}
-
   private:
 	static constexpr UINT kTargetCount = static_cast<UINT>(Target::Count);
 

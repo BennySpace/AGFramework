@@ -1735,7 +1735,7 @@ static HRESULT CreateTextureFromDDS12(_In_ ID3D12Device *device, _In_opt_ ID3D12
 	if (SUCCEEDED(hr))
 	{
 		hr = CreateD3DResources12(device, cmdList, resDim, twidth, theight, tdepth, mipCount - skipMip, arraySize, format,
-		                          false, // forceSRGB
+		                          forceSRGB,
 		                          isCubeMap, initData.get(), texture, textureUploadHeap);
 	}
 
@@ -1782,7 +1782,7 @@ _Use_decl_annotations_ HRESULT DirectX::CreateDDSTextureFromMemory12(ID3D12Devic
                                                                      _In_reads_bytes_(ddsDataSize) const uint8_t *ddsData,
                                                                      _In_ size_t ddsDataSize, ComPtr<ID3D12Resource> &texture,
                                                                      ComPtr<ID3D12Resource> &textureUploadHeap, _In_ size_t maxsize,
-                                                                     _Out_opt_ DDS_ALPHA_MODE *alphaMode)
+                                                                     _Out_opt_ DDS_ALPHA_MODE *alphaMode, bool forceSRGB)
 {
 	if (alphaMode)
 		(*alphaMode) = DDS_ALPHA_MODE_UNKNOWN;
@@ -1822,7 +1822,7 @@ _Use_decl_annotations_ HRESULT DirectX::CreateDDSTextureFromMemory12(ID3D12Devic
 	ptrdiff_t offset = sizeof(uint32_t) + sizeof(DDS_HEADER) + (bDXT10Header ? sizeof(DDS_HEADER_DXT10) : 0);
 
 	HRESULT hr =
-	    CreateTextureFromDDS12(device, cmdList, header, ddsData + offset, ddsDataSize - offset, maxsize, false, texture, textureUploadHeap);
+	    CreateTextureFromDDS12(device, cmdList, header, ddsData + offset, ddsDataSize - offset, maxsize, forceSRGB, texture, textureUploadHeap);
 
 	if (SUCCEEDED(hr))
 	{
@@ -1944,7 +1944,7 @@ _Use_decl_annotations_ HRESULT DirectX::CreateDDSTextureFromFile(ID3D11Device *d
 HRESULT DirectX::CreateDDSTextureFromFile12(_In_ ID3D12Device *device, _In_ ID3D12GraphicsCommandList *cmdList,
                                             _In_z_ const wchar_t *szFileName, _Out_ ComPtr<ID3D12Resource> &texture,
                                             _Out_ ComPtr<ID3D12Resource> &textureUploadHeap, _In_ size_t maxsize,
-                                            _Out_opt_ DDS_ALPHA_MODE *alphaMode)
+                                            _Out_opt_ DDS_ALPHA_MODE *alphaMode, bool forceSRGB)
 {
 	if (texture)
 	{
@@ -1975,7 +1975,7 @@ HRESULT DirectX::CreateDDSTextureFromFile12(_In_ ID3D12Device *device, _In_ ID3D
 		return hr;
 	}
 
-	hr = CreateTextureFromDDS12(device, cmdList, header, bitData, bitSize, maxsize, false, texture, textureUploadHeap);
+	hr = CreateTextureFromDDS12(device, cmdList, header, bitData, bitSize, maxsize, forceSRGB, texture, textureUploadHeap);
 
 	if (SUCCEEDED(hr))
 	{

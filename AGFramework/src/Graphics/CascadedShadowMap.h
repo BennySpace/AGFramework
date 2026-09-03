@@ -29,10 +29,6 @@ class CascadedShadowMap
 	{
 		return m_shadowArray.Get();
 	}
-	ID3D12DescriptorHeap *GetSrvHeap() const
-	{
-		return m_srvHeap.Get();
-	}
 
 	D3D12_CPU_DESCRIPTOR_HANDLE GetDsv(std::uint32_t cascadeIndex) const;
 	D3D12_CPU_DESCRIPTOR_HANDLE GetSrv() const;

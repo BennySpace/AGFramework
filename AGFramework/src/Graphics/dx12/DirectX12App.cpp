@@ -317,7 +317,6 @@ void DirectX12App::UpdateMainPassCB(FrameResource &frameResource, const GameTime
 	frameDataInputs.ShadowSettings = m_renderSettings.GetShadowSettings();
 	frameDataInputs.LightState = m_lightSystem.GetLightingState();
 	frameDataInputs.Material = m_materialSystem.GetMaterialState();
-	frameDataInputs.TotalTime = gt.TotalTime();
 
 	const DeferredRenderer::FrameData frameData = FrameDataBuilder::BuildFrameData(frameDataInputs);
 	m_deferredRenderer.UpdateMainPassCB(frameResource, frameData);

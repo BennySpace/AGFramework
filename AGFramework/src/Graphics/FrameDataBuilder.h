@@ -19,7 +19,6 @@ class FrameDataBuilder
 		RenderSettings::ShadowSettings ShadowSettings;
 		LightSystem::LightingState LightState;
 		MaterialSystem::MaterialState Material;
-		float TotalTime = 0.0f;
 	};
 
 	static DirectX::XMFLOAT3 NormalizeLookDirection(const DirectX::XMFLOAT3 &lookDirection);

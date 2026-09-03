@@ -38,7 +38,7 @@ void ResourceUploader::UploadTexture2D(DirectX12Context &context, Texture &textu
 }
 
 void ResourceUploader::UploadSceneTexture(DirectX12Context &context, Texture &texture, const TextureLoader::SceneTextureSource &source,
-                                          DXGI_FORMAT format)
+                                          TextureUsage usage, DXGI_FORMAT format)
 {
 	if (source.SourceKind == TextureLoader::SceneTextureSource::Kind::DdsFile)
 	{
@@ -48,44 +48,15 @@ void ResourceUploader::UploadSceneTexture(DirectX12Context &context, Texture &te
 		}
 
 		ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(context.GetDevice(), context.GetCommandList(), source.Filename.c_str(),
-		                                                  texture.Resource, texture.UploadHeap));
+		                                                  texture.Resource, texture.UploadHeap, 0, nullptr,
+		                                                  usage == TextureUsage::Color));
 		return;
 	}
 
-	UploadTexture2D(context, texture, source.DecodedImage.Pixels.data(), source.DecodedImage.Width, source.DecodedImage.Height, format);
-}
-
-void ResourceUploader::UploadTextureCube(DirectX12Context &context, Texture &texture, const void *facePixelData, UINT faceWidth,
-                                         UINT faceHeight, DXGI_FORMAT format)
-{
-	const auto textureDesc = CD3DX12_RESOURCE_DESC::Tex2D(format, faceWidth, faceHeight, 6, 1);
-	const CD3DX12_HEAP_PROPERTIES defaultHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
-	const CD3DX12_HEAP_PROPERTIES uploadHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
-
-	ThrowIfFailed(context.GetDevice()->CreateCommittedResource(&defaultHeapProperties, D3D12_HEAP_FLAG_NONE, &textureDesc,
-	                                                           D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
-	                                                           IID_PPV_ARGS(&texture.Resource)));
-
-	const UINT64 uploadBufferSize = GetRequiredIntermediateSize(texture.Resource.Get(), 0, 6);
-	const auto uploadBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
-
-	ThrowIfFailed(context.GetDevice()->CreateCommittedResource(&uploadHeapProperties, D3D12_HEAP_FLAG_NONE, &uploadBufferDesc,
-	                                                           D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
-	                                                           IID_PPV_ARGS(&texture.UploadHeap)));
-
-	D3D12_SUBRESOURCE_DATA subresources[6] = {};
-	const UINT64 faceSlicePitch = static_cast<UINT64>(faceWidth) * faceHeight * 4;
-	const auto *faceBytes = static_cast<const std::uint8_t *>(facePixelData);
-	for (UINT faceIndex = 0; faceIndex < 6; ++faceIndex)
+	if (usage == TextureUsage::Color && format == DXGI_FORMAT_R8G8B8A8_UNORM)
 	{
-		subresources[faceIndex].pData = faceBytes + faceIndex * faceSlicePitch;
-		subresources[faceIndex].RowPitch = static_cast<LONG_PTR>(faceWidth * 4);
-		subresources[faceIndex].SlicePitch = subresources[faceIndex].RowPitch * faceHeight;
+		format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
 	}
 
-	UpdateSubresources(context.GetCommandList(), texture.Resource.Get(), texture.UploadHeap.Get(), 0, 0, 6, subresources);
-
-	auto transition = CD3DX12_RESOURCE_BARRIER::Transition(texture.Resource.Get(), D3D12_RESOURCE_STATE_COPY_DEST,
-	                                                       D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	context.GetCommandList()->ResourceBarrier(1, &transition);
+	UploadTexture2D(context, texture, source.DecodedImage.Pixels.data(), source.DecodedImage.Width, source.DecodedImage.Height, format);
 }

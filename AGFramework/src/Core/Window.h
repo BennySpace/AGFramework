@@ -21,19 +21,6 @@ class Window
 	{
 		return m_handle;
 	}
-	HINSTANCE GetInstanceHandle() const
-	{
-		return m_instance;
-	}
-
-	int GetWidth() const
-	{
-		return m_width;
-	}
-	int GetHeight() const
-	{
-		return m_height;
-	}
 
 #pragma region Delegates/Events
 	MulticastDelegate<int, int> OnResize;

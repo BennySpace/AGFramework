@@ -40,7 +40,6 @@ DeferredRenderer::FrameData FrameDataBuilder::BuildFrameData(const Inputs &input
 	frameData.CascadedShadowData = BuildCascadedShadowData(inputs);
 	frameData.Material = inputs.Material;
 	frameData.LightState = inputs.LightState;
-	frameData.TotalTime = inputs.TotalTime;
 	return frameData;
 }
 

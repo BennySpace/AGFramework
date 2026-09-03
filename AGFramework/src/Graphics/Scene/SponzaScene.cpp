@@ -202,7 +202,7 @@ void SponzaScene::BuildTextures(DirectX12Context &context)
 	std::unordered_map<std::string, UINT> textureIndices;
 
 	auto loadTexture = [&](const std::string &texturePath, const std::string &fallbackKey, const std::array<std::uint8_t, 4> &fallbackPixel,
-	                       bool useSharedDiffuseFallbacks = false) {
+	                       TextureUsage usage, bool useSharedDiffuseFallbacks = false) {
 		bool useProceduralFallback = false;
 		std::string resolvedTexturePath = texturePath;
 		if (resolvedTexturePath.empty())
@@ -222,7 +222,8 @@ void SponzaScene::BuildTextures(DirectX12Context &context)
 			resolvedTexturePath = errorTexturePath;
 		}
 
-		const std::string textureKey = useProceduralFallback ? fallbackKey : resolvedTexturePath;
+		const std::string textureKey = std::to_string(static_cast<int>(usage)) + ":" +
+		                               (useProceduralFallback ? fallbackKey : resolvedTexturePath);
 		const auto existing = textureIndices.find(textureKey);
 		if (existing != textureIndices.end())
 		{
@@ -233,7 +234,9 @@ void SponzaScene::BuildTextures(DirectX12Context &context)
 
 		if (useProceduralFallback)
 		{
-			ResourceUploader::UploadTexture2D(context, *texture, fallbackPixel.data(), 1, 1);
+			const DXGI_FORMAT format = usage == TextureUsage::Color ? DXGI_FORMAT_R8G8B8A8_UNORM_SRGB
+			                                                        : DXGI_FORMAT_R8G8B8A8_UNORM;
+			ResourceUploader::UploadTexture2D(context, *texture, fallbackPixel.data(), 1, 1, format);
 		}
 		else
 		{
@@ -241,7 +244,7 @@ void SponzaScene::BuildTextures(DirectX12Context &context)
 			{
 				const std::wstring wideTexturePath = StringUtils::Utf8ToWide(resolvedTexturePath);
 				const TextureLoader::SceneTextureSource textureSource = TextureLoader::LoadSceneTexture(wideTexturePath);
-				ResourceUploader::UploadSceneTexture(context, *texture, textureSource);
+				ResourceUploader::UploadSceneTexture(context, *texture, textureSource, usage);
 			}
 			catch (const std::exception &)
 			{
@@ -249,7 +252,7 @@ void SponzaScene::BuildTextures(DirectX12Context &context)
 				{
 					const std::wstring wideErrorTexturePath = StringUtils::Utf8ToWide(errorTexturePath);
 					const TextureLoader::SceneTextureSource textureSource = TextureLoader::LoadSceneTexture(wideErrorTexturePath);
-					ResourceUploader::UploadSceneTexture(context, *texture, textureSource);
+					ResourceUploader::UploadSceneTexture(context, *texture, textureSource, usage);
 				}
 				else
 				{
@@ -267,10 +270,13 @@ void SponzaScene::BuildTextures(DirectX12Context &context)
 
 	for (ModelDrawItem &drawItem : m_data.DrawItems)
 	{
-		drawItem.DiffuseSrvHeapIndex = loadTexture(drawItem.DiffuseTexturePath, "__default_white__", whitePixel, true);
-		drawItem.NormalSrvHeapIndex = loadTexture(drawItem.NormalTexturePath, "__default_normal__", defaultNormalPixel);
-		drawItem.OrmSrvHeapIndex = loadTexture(drawItem.OrmTexturePath, "__default_orm__", defaultOrmPixel);
-		drawItem.OpacitySrvHeapIndex = loadTexture(drawItem.OpacityTexturePath, "__default_opacity__", defaultOpacityPixel);
+		drawItem.DiffuseSrvHeapIndex =
+		    loadTexture(drawItem.DiffuseTexturePath, "__default_white__", whitePixel, TextureUsage::Color, true);
+		drawItem.NormalSrvHeapIndex =
+		    loadTexture(drawItem.NormalTexturePath, "__default_normal__", defaultNormalPixel, TextureUsage::Normal);
+		drawItem.OrmSrvHeapIndex = loadTexture(drawItem.OrmTexturePath, "__default_orm__", defaultOrmPixel, TextureUsage::Material);
+		drawItem.OpacitySrvHeapIndex =
+		    loadTexture(drawItem.OpacityTexturePath, "__default_opacity__", defaultOpacityPixel, TextureUsage::Opacity);
 	}
 }
 
