@@ -161,8 +161,8 @@ RenderSettings::CascadedShadowData FrameDataBuilder::BuildCascadedShadowData(con
 		}
 		cascadeRadius = ceilf(cascadeRadius * 16.0f) / 16.0f;
 
-		const XMVECTOR lightPosition = cascadeCenter - lightDirection * (cascadeRadius * 2.0f + 50.0f);
-		const XMMATRIX lightView = XMMatrixLookAtLH(lightPosition, cascadeCenter, lightUp);
+		const XMVECTOR lightPosition = -lightDirection * (cascadeRadius * 2.0f + 50.0f);
+		const XMMATRIX lightView = XMMatrixLookAtLH(lightPosition, XMVectorZero(), lightUp);
 
 		const XMVECTOR cascadeCenterLightSpace = XMVector3TransformCoord(cascadeCenter, lightView);
 		XMFLOAT3 cascadeCenterLight;
