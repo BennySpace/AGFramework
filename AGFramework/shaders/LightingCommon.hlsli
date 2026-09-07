@@ -251,8 +251,8 @@ float DistributionGGX(float3 normalW, float3 halfwayVector, float roughness)
 	const float a2 = a * a;
 	const float ndoth = saturate(dot(normalW, halfwayVector));
 	const float ndoth2 = ndoth * ndoth;
-	const float denominator = ndoth2 * (a2 - 1.0f) + 1.0f;
-	return a2 / max(PI * denominator * denominator, 0.0001f);
+	const float denominator = (1.0f - ndoth2) + ndoth2 * a2;
+	return a2 / max(PI * denominator * denominator, 1.0e-12f);
 }
 
 float GeometrySchlickGGX(float ndotv, float roughness)
