@@ -378,6 +378,7 @@ void DebugOverlay::DrawSidebarWindow(const FrameContext &frameContext, RenderSet
 
 	DrawDemoSection(renderSettings, demoSettings, showcaseSession);
 	DrawViewSection();
+	DrawTexturesSection(renderSettings);
 	DrawAdvancedSection(frameContext.Camera, materialSystem, demoSettings);
 	DrawLightingSection(materialSystem, renderSettings, demoSettings, lightEditSession);
 	ImGui::End();
@@ -412,6 +413,31 @@ void DebugOverlay::DrawDemoSection(RenderSettings &renderSettings, RenderSetting
 		}
 		ImGui::TextUnformatted("Changes apply on the next frame.");
 		ImGui::TreePop();
+	}
+}
+
+void DebugOverlay::DrawTexturesSection(RenderSettings &renderSettings)
+{
+	if (!ImGui::CollapsingHeader("Textures"))
+	{
+		return;
+	}
+
+	auto settings = renderSettings.GetTextureAnimationSettings();
+	bool changed = ImGui::Checkbox("Enable texture animation", &settings.Enabled);
+	ImGui::BeginDisabled(!settings.Enabled);
+	changed |= ImGui::SliderFloat2("Tiling (U/V)", &settings.Tiling.x, 0.25f, 8.0f, "%.2f");
+	changed |= ImGui::SliderFloat("Animation speed", &settings.Speed, 0.0f, 4.0f, "%.2fx");
+	ImGui::EndDisabled();
+	ImGui::TextWrapped("Applies to all scene textures. Set speed to zero for static tiling. Disable to restore original UVs.");
+	if (ImGui::Button("Reset texture animation"))
+	{
+		settings = RenderSettings::TextureAnimationSettings{};
+		changed = true;
+	}
+	if (changed)
+	{
+		renderSettings.SetTextureAnimationSettings(settings);
 	}
 }
 

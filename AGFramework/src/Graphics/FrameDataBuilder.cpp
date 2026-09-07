@@ -1,6 +1,7 @@
 #include "FrameDataBuilder.h"
 
 #include <cfloat>
+#include <cmath>
 
 using namespace DirectX;
 
@@ -34,6 +35,15 @@ DeferredRenderer::FrameData FrameDataBuilder::BuildFrameData(const Inputs &input
 	frameData.SceneScale = inputs.SceneScale;
 	frameData.CameraNearPlane = inputs.CameraNearPlane;
 	frameData.Projection = inputs.Projection;
+	if (inputs.TextureAnimation.Enabled)
+	{
+		const float scrollU = static_cast<float>(std::fmod(0.05 * inputs.TextureAnimationTime, 1.0));
+		const float scrollV = static_cast<float>(0.02 * std::sin(0.5 * inputs.TextureAnimationTime));
+		const XMMATRIX texTransform =
+		    XMMatrixScaling(inputs.TextureAnimation.Tiling.x, inputs.TextureAnimation.Tiling.y, 1.0f) *
+		    XMMatrixTranslation(scrollU, scrollV, 0.0f);
+		XMStoreFloat4x4(&frameData.TexTransform, texTransform);
+	}
 	frameData.LightingSettings = inputs.LightingSettings;
 	frameData.ImageBasedLightingSettings = inputs.ImageBasedLightingSettings;
 	frameData.ShadowSettings = inputs.ShadowSettings;

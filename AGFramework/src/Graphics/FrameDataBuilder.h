@@ -14,6 +14,8 @@ class FrameDataBuilder
 		float CameraNearPlane = 1.0f;
 		float CameraFarPlane = 1000.0f;
 		DirectX::XMFLOAT4X4 Projection = MathHelper::Identity4x4();
+		RenderSettings::TextureAnimationSettings TextureAnimation;
+		double TextureAnimationTime = 0.0;
 		RenderSettings::LightingSettings LightingSettings;
 		RenderSettings::ImageBasedLightingSettings ImageBasedLightingSettings;
 		RenderSettings::ShadowSettings ShadowSettings;

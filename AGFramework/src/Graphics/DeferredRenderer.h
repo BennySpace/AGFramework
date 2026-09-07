@@ -29,6 +29,7 @@ class DeferredRenderer
 		float SceneScale = 1.0f;
 		float CameraNearPlane = 1.0f;
 		DirectX::XMFLOAT4X4 Projection = MathHelper::Identity4x4();
+		DirectX::XMFLOAT4X4 TexTransform = MathHelper::Identity4x4();
 		RenderSettings::LightingSettings LightingSettings;
 		RenderSettings::ImageBasedLightingSettings ImageBasedLightingSettings;
 		RenderSettings::ShadowSettings ShadowSettings;
@@ -171,6 +172,7 @@ class DeferredRenderer
 	RenderSettings::CascadedShadowData m_cascadedShadowData;
 	DirectX::XMFLOAT3 m_sceneCenter = {0.0f, 0.0f, 0.0f};
 	float m_sceneScale = 1.0f;
+	DirectX::XMFLOAT4X4 m_texTransform = MathHelper::Identity4x4();
 	UINT m_objectCBByteSize = 0;
 	UINT m_shadowPassCBStride = 0;
 	UINT m_shadowPassCBByteSize = 0;

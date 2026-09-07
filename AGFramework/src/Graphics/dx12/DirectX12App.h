@@ -70,6 +70,7 @@ class DirectX12App
 	Demo::DemoSceneRuntime m_demoSceneRuntime;
 	MaterialSystem m_materialSystem;
 	RenderSettings m_renderSettings;
+	double m_textureAnimationTime = 0.0;
 
 	DirectX::XMFLOAT4X4 m_proj = MathHelper::Identity4x4();
 	float m_cameraFieldOfViewY = 0.25f * DirectX::XM_PI;

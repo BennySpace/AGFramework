@@ -147,7 +147,8 @@ bool DemoLightingController::MatchesRecommendedLook(const MaterialSystem &materi
 	const RenderSettings::ShadowSettings recommendedShadowSettings = BuildRecommendedShadowSettings();
 	const RecommendedLightPreset recommendedLightPreset = BuildRecommendedLightPreset();
 
-	return NearlyEqual(materialState.DiffuseAlbedo, recommendedMaterialState.DiffuseAlbedo) &&
+	return !renderSettings.GetTextureAnimationSettings().Enabled &&
+	       NearlyEqual(materialState.DiffuseAlbedo, recommendedMaterialState.DiffuseAlbedo) &&
 	       NearlyEqual(materialState.PbrParams, recommendedMaterialState.PbrParams) &&
 	       NearlyEqual(lightingSettings.AmbientLight, recommendedLightingSettings.AmbientLight) &&
 	       NearlyEqual(lightingSettings.BackgroundColor, recommendedLightingSettings.BackgroundColor) &&

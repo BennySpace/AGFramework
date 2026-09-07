@@ -61,6 +61,7 @@ void DeferredRenderer::UpdateMainPassCB(FrameResource &frameResource, const Fram
 	m_cascadedShadowData = frameData.CascadedShadowData;
 	m_sceneCenter = frameData.SceneCenter;
 	m_sceneScale = frameData.SceneScale;
+	m_texTransform = frameData.TexTransform;
 
 	const ObjectConstants objectConstants = BuildObjectConstants(frameData);
 	memcpy(frameResource.MappedObjectConstantBuffer(), &objectConstants, sizeof(objectConstants));
@@ -70,7 +71,7 @@ DeferredRenderer::ObjectConstants DeferredRenderer::BuildObjectConstants(const F
 {
 	XMMATRIX world = XMMatrixTranslation(-frameData.SceneCenter.x, -frameData.SceneCenter.y, -frameData.SceneCenter.z) *
 	                 XMMatrixScaling(frameData.SceneScale, frameData.SceneScale, frameData.SceneScale);
-	XMMATRIX texTransform = XMMatrixIdentity();
+	const XMMATRIX texTransform = XMLoadFloat4x4(&frameData.TexTransform);
 
 	const XMVECTOR eyePos = XMLoadFloat3(&frameData.EyePos);
 	const XMVECTOR lookDirection = XMLoadFloat3(&frameData.LookDirection);
@@ -402,7 +403,7 @@ void DeferredRenderer::RenderShadowMapPass(DirectX12Context &context, FrameResou
 
 	const XMMATRIX world = XMMatrixTranslation(-m_sceneCenter.x, -m_sceneCenter.y, -m_sceneCenter.z) *
 	                       XMMatrixScaling(m_sceneScale, m_sceneScale, m_sceneScale);
-	const XMMATRIX texTransform = XMMatrixIdentity();
+	const XMMATRIX texTransform = XMLoadFloat4x4(&m_texTransform);
 
 	const std::uint32_t cascadeCount = (std::min)(m_shadowSettings.CascadeCount, RenderSettings::MaxShadowCascadeCount);
 	for (std::uint32_t cascadeIndex = 0; cascadeIndex < cascadeCount; ++cascadeIndex)

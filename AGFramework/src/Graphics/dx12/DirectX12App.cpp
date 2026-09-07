@@ -87,6 +87,15 @@ void DirectX12App::Update(const GameTimer &gt)
 	ReloadSceneIfNeeded();
 	ReloadShadowSettingsIfNeeded();
 	RuntimeSettingsCoordinator::ApplyFrameState(m_demoSceneRuntime, m_renderSettings);
+	const auto &textureAnimation = m_renderSettings.GetTextureAnimationSettings();
+	if (textureAnimation.Enabled)
+	{
+		m_textureAnimationTime += static_cast<double>(gt.DeltaTime()) * textureAnimation.Speed;
+	}
+	else
+	{
+		m_textureAnimationTime = 0.0;
+	}
 	m_cameraController.Update(gt);
 }
 
@@ -312,6 +321,8 @@ void DirectX12App::UpdateMainPassCB(FrameResource &frameResource, const GameTime
 	frameDataInputs.CameraNearPlane = m_cameraNearPlane;
 	frameDataInputs.CameraFarPlane = m_cameraFarPlane;
 	frameDataInputs.Projection = m_proj;
+	frameDataInputs.TextureAnimation = m_renderSettings.GetTextureAnimationSettings();
+	frameDataInputs.TextureAnimationTime = m_textureAnimationTime;
 	frameDataInputs.LightingSettings = m_renderSettings.GetLightingSettings();
 	frameDataInputs.ImageBasedLightingSettings = m_renderSettings.GetImageBasedLightingSettings();
 	frameDataInputs.ShadowSettings = m_renderSettings.GetShadowSettings();

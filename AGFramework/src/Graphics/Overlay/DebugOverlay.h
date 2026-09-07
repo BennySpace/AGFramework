@@ -70,6 +70,7 @@ class DebugOverlay
 	void DrawDemoSection(RenderSettings &renderSettings, RenderSettings::DemoSettings &demoSettings,
 	                     Demo::DemoShowcaseSession &showcaseSession);
 	void DrawViewSection();
+	void DrawTexturesSection(RenderSettings &renderSettings);
 	void DrawAdvancedSection(const CameraState &cameraState, MaterialSystem &materialSystem,
 	                         const RenderSettings::DemoSettings &demoSettings);
 	void DrawLightingSection(MaterialSystem &materialSystem, RenderSettings &renderSettings,

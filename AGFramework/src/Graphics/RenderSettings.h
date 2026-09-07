@@ -31,6 +31,13 @@ class RenderSettings
 		float Exposure = 1.0f;
 	};
 
+	struct TextureAnimationSettings
+	{
+		bool Enabled = false;
+		DirectX::XMFLOAT2 Tiling = {2.0f, 2.0f};
+		float Speed = 1.0f;
+	};
+
 	struct ShadowSettings
 	{
 		bool EnableDirectionalShadows = true;
@@ -85,6 +92,17 @@ class RenderSettings
 	void SetImageBasedLightingSettings(const ImageBasedLightingSettings &imageBasedLightingSettings)
 	{
 		m_imageBasedLightingSettings = imageBasedLightingSettings;
+	}
+	const TextureAnimationSettings &GetTextureAnimationSettings() const
+	{
+		return m_textureAnimationSettings;
+	}
+	void SetTextureAnimationSettings(const TextureAnimationSettings &settings)
+	{
+		m_textureAnimationSettings = settings;
+		m_textureAnimationSettings.Tiling.x = NormalizeFiniteFloat(settings.Tiling.x, 0.25f, 8.0f, 2.0f);
+		m_textureAnimationSettings.Tiling.y = NormalizeFiniteFloat(settings.Tiling.y, 0.25f, 8.0f, 2.0f);
+		m_textureAnimationSettings.Speed = NormalizeFiniteFloat(settings.Speed, 0.0f, 4.0f, 1.0f);
 	}
 	const ShadowSettings &GetShadowSettings() const
 	{
@@ -143,6 +161,7 @@ class RenderSettings
 
 	LightingSettings m_lightingSettings;
 	ImageBasedLightingSettings m_imageBasedLightingSettings;
+	TextureAnimationSettings m_textureAnimationSettings;
 	ShadowSettings m_shadowSettings;
 	DemoSettings m_demoSettings;
 };
