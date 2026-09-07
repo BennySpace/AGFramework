@@ -284,11 +284,6 @@ float3 ComputeMaterialF0(float3 albedo, float metallic)
 	return lerp(ComputeDielectricF0(), albedo, metallic);
 }
 
-float3 ComputeDiffuseColor(float3 albedo, float metallic)
-{
-	return albedo * (1.0f - metallic);
-}
-
 float3 FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
 {
 	const float3 oneMinusRoughness = float3(1.0f - roughness, 1.0f - roughness, 1.0f - roughness);
@@ -314,8 +309,7 @@ float3 ComputeCookTorranceLighting(float3 albedo, float4 pbrParams, float3 norma
 	const float3 specular = (NDF * G * F) / max(4.0f * ndotv * ndotl, 0.0001f);
 	const float3 kS = F;
 	const float3 kD = (1.0f.xxx - kS) * (1.0f - metallic);
-	const float3 diffuseColor = ComputeDiffuseColor(albedo, metallic);
-	return (kD * diffuseColor / PI + specular) * radiance * ndotl;
+	return (kD * albedo / PI + specular) * radiance * ndotl;
 }
 
 float3 ApplyDirectionalLight(float3 albedo, float4 pbrParams, float3 normalW, float3 toEye, DirectionalLightData lightData)

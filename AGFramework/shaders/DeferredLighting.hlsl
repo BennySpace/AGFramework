@@ -144,7 +144,6 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
 	const float metallic = GetMetallic(pbrParams);
 	const float ambientOcclusion = GetAmbientOcclusion(pbrParams);
 	const float iblIntensity = GetIblIntensity(pbrParams);
-	const float3 diffuseColor = ComputeDiffuseColor(albedoSample.rgb, metallic);
 	const float3 F0 = ComputeMaterialF0(albedoSample.rgb, metallic);
 	const float NdotV = saturate(dot(normalW, toEye));
 	const float3 F = FresnelSchlickRoughness(NdotV, F0, roughness);
@@ -153,7 +152,7 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
 	const float3 irradiance = DecodeImageBasedLightingSample(gIrradianceMap.Sample(gsamLinearClamp, normalW));
 	const float diffuseIblStrength = max(gImageBasedLightingWeights.x, 0.0f);
 	const float specularIblStrength = max(gImageBasedLightingWeights.y, 0.0f);
-	const float3 diffuseIBL = irradiance * diffuseColor * diffuseIblStrength;
+	const float3 diffuseIBL = irradiance * albedoSample.rgb * diffuseIblStrength;
 	const float3 reflectionVector = reflect(-toEye, normalW);
 	const float maxReflectionLod = max(gImageBasedLightingSettings.x, 0.0f);
 	const float3 prefilteredColor =
@@ -162,7 +161,7 @@ float4 DeferredLightingPS(FullscreenVertexOut pin) : SV_Target
 	const float3 specularIBL = prefilteredColor * (F * brdf.x + brdf.y) * iblIntensity * specularIblStrength;
 	const float3 ambientDiffuse = kD * diffuseIBL;
 	const float3 ambientSpecular = specularIBL;
-	const float3 ambientFloor = gAmbientFloor.rgb * max(gAmbientFloor.w, 0.0f) * diffuseColor * (1.0f - metallic);
+	const float3 ambientFloor = gAmbientFloor.rgb * max(gAmbientFloor.w, 0.0f) * albedoSample.rgb * (1.0f - metallic);
 	float3 ambient = (gAmbientLight.rgb * gAmbientLight.w * ambientDiffuse + gAmbientLight.w * ambientSpecular + ambientFloor) *
 	                 ambientOcclusion;
 	float3 directionalLighting = 0.0f;
