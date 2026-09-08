@@ -187,7 +187,8 @@ void DeferredRenderer::BindGeometryDrawSettings(ID3D12GraphicsCommandList *comma
 	textureSettings.HasOpacityMap = drawItem.TextureFlags.z;
 	commandList->SetGraphicsRoot32BitConstants(2, 4, &drawSettings, 0);
 	commandList->SetGraphicsRoot32BitConstants(3, 4, &drawItem.PositionOffset, 0);
-	commandList->SetGraphicsRoot32BitConstants(4, 4, &drawItem.PbrParams, 0);
+	commandList->SetGraphicsRoot32BitConstants(4, 4, &drawItem.DiffuseAlbedo, 0);
+	commandList->SetGraphicsRoot32BitConstants(4, 4, &drawItem.PbrParams, 4);
 	commandList->SetGraphicsRoot32BitConstants(5, 4, &textureSettings, 0);
 }
 
@@ -613,7 +614,7 @@ void DeferredRenderer::BuildRootSignature(DirectX12Context &context)
 	geometryRootParameters[1].InitAsDescriptorTable(1, &geometryTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
 	geometryRootParameters[2].InitAsConstants(4, 1);
 	geometryRootParameters[3].InitAsConstants(4, 2);
-	geometryRootParameters[4].InitAsConstants(4, 3);
+	geometryRootParameters[4].InitAsConstants(8, 3);
 	geometryRootParameters[5].InitAsConstants(4, 4);
 	geometryRootParameters[6].InitAsDescriptorTable(1, &geometryNormalTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
 	geometryRootParameters[7].InitAsDescriptorTable(1, &geometryOrmTexTable, D3D12_SHADER_VISIBILITY_PIXEL);

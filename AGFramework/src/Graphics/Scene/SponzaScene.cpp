@@ -104,6 +104,7 @@ void SponzaScene::BuildGeometry(DirectX12Context &context, const RenderSettings:
 		drawItem.NormalTexturePath = resolvedTextures.Normal.Path;
 		drawItem.OrmTexturePath = resolvedTextures.Orm.Path;
 		drawItem.OpacityTexturePath = resolvedTextures.Opacity.Path;
+		drawItem.DiffuseAlbedo = mesh.DiffuseAlbedo;
 		Demo::DemoSceneComposer::ApplyDemoMaterialDefaults(mesh, drawItem);
 		if (!drawItem.IsDemoPbrGrid && resolvedMaterialContract.HasPbrParams)
 		{
@@ -112,7 +113,7 @@ void SponzaScene::BuildGeometry(DirectX12Context &context, const RenderSettings:
 		drawItem.TextureFlags.x = resolvedTextures.HasNormalMap ? 1.0f : 0.0f;
 		drawItem.TextureFlags.y = resolvedTextures.HasOrmMap ? 1.0f : 0.0f;
 		drawItem.TextureFlags.z = resolvedTextures.HasOpacityMap ? 1.0f : 0.0f;
-		drawItem.HasAlphaCutout = resolvedTextures.HasAlphaCutout;
+		drawItem.HasAlphaCutout = resolvedTextures.HasAlphaCutout || mesh.HasAlphaCutout;
 		drawItem.CastShadows = !drawItem.IsDemoPbrGrid;
 		m_data.DrawItems.push_back(std::move(drawItem));
 	}

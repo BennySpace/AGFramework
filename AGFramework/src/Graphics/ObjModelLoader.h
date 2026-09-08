@@ -16,6 +16,7 @@ class ObjModelLoader
 		std::string NormalTexturePath;
 		std::string OrmTexturePath;
 		std::string OpacityTexturePath;
+		DirectX::XMFLOAT4 DiffuseAlbedo = {1.0f, 1.0f, 1.0f, 1.0f};
 		bool HasAlphaCutout = false;
 	};
 

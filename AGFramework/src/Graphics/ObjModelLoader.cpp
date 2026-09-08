@@ -12,6 +12,7 @@
 #pragma warning(pop)
 
 #include <DirectXMath.h>
+#include <algorithm>
 #include <cstdio>
 #include <stdexcept>
 
@@ -232,7 +233,18 @@ std::vector<ObjModelLoader::MeshData> ObjModelLoader::Load(const std::string &fi
 			}
 			meshData.OrmTexturePath = GetTexturePath(material, aiTextureType_UNKNOWN, basePath);
 			meshData.OpacityTexturePath = GetTexturePath(material, aiTextureType_OPACITY, basePath);
-			meshData.HasAlphaCutout = !meshData.OpacityTexturePath.empty();
+			aiColor4D diffuseAlbedo;
+			if (material->Get(AI_MATKEY_COLOR_DIFFUSE, diffuseAlbedo) == aiReturn_SUCCESS)
+			{
+				meshData.DiffuseAlbedo = XMFLOAT4(diffuseAlbedo.r, diffuseAlbedo.g, diffuseAlbedo.b, diffuseAlbedo.a);
+			}
+
+			float opacity = 1.0f;
+			if (material->Get(AI_MATKEY_OPACITY, opacity) == aiReturn_SUCCESS)
+			{
+				meshData.DiffuseAlbedo.w *= std::clamp(opacity, 0.0f, 1.0f);
+			}
+			meshData.HasAlphaCutout = !meshData.OpacityTexturePath.empty() || meshData.DiffuseAlbedo.w < 1.0f;
 		}
 
 		for (unsigned int vertexIndex = 0; vertexIndex < sourceMesh->mNumVertices; ++vertexIndex)

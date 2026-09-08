@@ -7,6 +7,7 @@ cbuffer GeometryInstanceSettings : register(b2)
 
 cbuffer GeometryMaterialSettings : register(b3)
 {
+	float4 gDrawDiffuseAlbedo;
 	float4 gDrawPbrParams;
 }
 
@@ -66,7 +67,7 @@ GeometryVertexOut GeometryVS(VertexIn vin)
 GBufferOutput GeometryPS(GeometryVertexOut pin)
 {
 	float4 texColor = gTexture0.Sample(gsamLinearWrap, pin.TexC);
-	float opacity = texColor.a;
+	float opacity = texColor.a * gDrawDiffuseAlbedo.a;
 	if (gTextureFlags.z > 0.5f)
 	{
 		opacity *= ResolveOpacityMask(gOpacityTexture.Sample(gsamLinearWrap, pin.TexC));
@@ -103,7 +104,7 @@ GBufferOutput GeometryPS(GeometryVertexOut pin)
 	materialParams.w = max(materialParams.w * iblIntensityScale, 0.0f);
 
 	GBufferOutput output;
-	output.Albedo = float4(texColor.rgb * gDiffuseAlbedo.rgb, opacity * gDiffuseAlbedo.a);
+	output.Albedo = float4(texColor.rgb * gDiffuseAlbedo.rgb * gDrawDiffuseAlbedo.rgb, opacity * gDiffuseAlbedo.a);
 	output.Normal = float4(normalW * 0.5f + 0.5f, (gTextureFlags.x > 0.5f ? 1.0f : 0.0f) + (gTextureFlags.y > 0.5f ? 2.0f : 0.0f));
 	output.Material = materialParams;
 	return output;
