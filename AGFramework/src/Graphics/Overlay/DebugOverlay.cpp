@@ -701,9 +701,13 @@ void DebugOverlay::DrawLightingSection(MaterialSystem &materialSystem, RenderSet
 		return;
 	}
 
-	ImGui::Checkbox("Show light markers", &m_showLightMarkers);
-	ImGui::Checkbox("Show light bounds", &m_showLightBounds);
-	ImGui::SliderFloat("Marker scale", &m_lightMarkerScale, 0.5f, 2.5f, "%.2f");
+	if (ImGui::TreeNode("Gizmos"))
+	{
+		ImGui::Checkbox("Show light markers", &m_showLightMarkers);
+		ImGui::Checkbox("Show light bounds", &m_showLightBounds);
+		ImGui::SliderFloat("Marker scale", &m_lightMarkerScale, 0.5f, 2.5f, "%.2f");
+		ImGui::TreePop();
+	}
 	if (ImGui::Button("Reset light positions"))
 	{
 		Demo::DemoLightingController::ResetRecommendedLightPositions(lightEditSession);
