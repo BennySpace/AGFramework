@@ -244,7 +244,10 @@ std::vector<ObjModelLoader::MeshData> ObjModelLoader::Load(const std::string &fi
 			{
 				meshData.DiffuseAlbedo.w *= std::clamp(opacity, 0.0f, 1.0f);
 			}
-			meshData.HasAlphaCutout = !meshData.OpacityTexturePath.empty() || meshData.DiffuseAlbedo.w < 1.0f;
+			const bool hasPartialOpacity = meshData.DiffuseAlbedo.w > 0.001f && meshData.DiffuseAlbedo.w < 0.999f;
+			meshData.IsTransparent = hasPartialOpacity && meshData.OpacityTexturePath.empty();
+			meshData.HasAlphaCutout = !meshData.IsTransparent &&
+			                         (!meshData.OpacityTexturePath.empty() || meshData.DiffuseAlbedo.w < 0.999f);
 		}
 
 		for (unsigned int vertexIndex = 0; vertexIndex < sourceMesh->mNumVertices; ++vertexIndex)

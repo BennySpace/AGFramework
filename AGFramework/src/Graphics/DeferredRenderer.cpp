@@ -60,6 +60,7 @@ void DeferredRenderer::UpdateMainPassCB(FrameResource &frameResource, const Fram
 	m_shadowSettings = frameData.ShadowSettings;
 	m_cascadedShadowData = frameData.CascadedShadowData;
 	m_sceneCenter = frameData.SceneCenter;
+	m_eyePosition = frameData.EyePos;
 	m_sceneScale = frameData.SceneScale;
 	m_texTransform = frameData.TexTransform;
 
@@ -177,6 +178,15 @@ void DeferredRenderer::BindGeometryTextures(ID3D12GraphicsCommandList *commandLi
 	commandList->SetGraphicsRootDescriptorTable(8, opacityTextureHandle);
 }
 
+void DeferredRenderer::BindForwardTextures(ID3D12GraphicsCommandList *commandList, const ModelDrawItem &drawItem) const
+{
+	commandList->SetGraphicsRootDescriptorTable(1, m_forwardSrvHeap.GpuHandleAt(drawItem.DiffuseSrvHeapIndex));
+	commandList->SetGraphicsRootDescriptorTable(6, m_forwardSrvHeap.GpuHandleAt(drawItem.NormalSrvHeapIndex));
+	commandList->SetGraphicsRootDescriptorTable(7, m_forwardSrvHeap.GpuHandleAt(drawItem.OrmSrvHeapIndex));
+	commandList->SetGraphicsRootDescriptorTable(8, m_forwardSrvHeap.GpuHandleAt(drawItem.OpacitySrvHeapIndex));
+	commandList->SetGraphicsRootDescriptorTable(9, m_forwardSrvHeap.GpuHandleAt(m_forwardSourceSrvHeapCount));
+}
+
 void DeferredRenderer::BindGeometryDrawSettings(ID3D12GraphicsCommandList *commandList, const ModelDrawItem &drawItem) const
 {
 	DrawSettings drawSettings;
@@ -246,6 +256,7 @@ void DeferredRenderer::BuildCascadedShadowMap(DirectX12Context &context)
 
 	m_cascadedShadowMapState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
 	m_lightingSrvHeapDirty = true;
+	m_forwardSrvHeapDirty = true;
 }
 
 void DeferredRenderer::BuildImageBasedLightingTextures(DirectX12Context &context)
@@ -277,6 +288,7 @@ void DeferredRenderer::BuildImageBasedLightingTextures(DirectX12Context &context
 	LoadRequiredDdsTexture(context, *m_environmentMapTexture, environmentPath);
 	LoadRequiredDdsTexture(context, *m_brdfLutTexture, brdfLutPath);
 	m_lightingSrvHeapDirty = true;
+	m_forwardSrvHeapDirty = true;
 }
 
 void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context &context)
@@ -374,6 +386,45 @@ void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context &context)
 	depthSrvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 	context.GetDevice()->CreateShaderResourceView(m_gbuffer->GetDepthResource(), &depthSrvDesc, m_lightingSrvHeap.Allocate().CpuHandle);
 	m_lightingSrvHeapDirty = false;
+	m_forwardSrvHeapDirty = true;
+}
+
+void DeferredRenderer::BuildForwardSrvHeap(DirectX12Context &context, ID3D12DescriptorHeap *sceneSrvDescriptorHeap)
+{
+	if (sceneSrvDescriptorHeap == nullptr || !m_lightingSrvHeap.IsValid())
+	{
+		return;
+	}
+
+	const UINT sceneDescriptorCount = sceneSrvDescriptorHeap->GetDesc().NumDescriptors;
+	const bool sourceChanged = m_forwardSourceSrvHeap != sceneSrvDescriptorHeap ||
+	                           m_forwardSourceSrvHeapCount != sceneDescriptorCount;
+	if (m_forwardSrvHeap.IsValid() && !m_forwardSrvHeapDirty && !sourceChanged)
+	{
+		return;
+	}
+
+	constexpr UINT lightingDescriptorOffset = 3;
+	constexpr UINT lightingDescriptorCount = 5;
+	m_forwardSrvHeap.Initialize(context.GetDevice(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+	                            sceneDescriptorCount + lightingDescriptorCount, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+	for (UINT descriptorIndex = 0; descriptorIndex < sceneDescriptorCount; ++descriptorIndex)
+	{
+		const CD3DX12_CPU_DESCRIPTOR_HANDLE sceneDescriptorHandle(
+		    sceneSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), descriptorIndex, context.GetCbvSrvUavDescriptorSize());
+		context.GetDevice()->CopyDescriptorsSimple(1, m_forwardSrvHeap.Allocate().CpuHandle, sceneDescriptorHandle,
+		                                           D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	}
+	for (UINT descriptorIndex = 0; descriptorIndex < lightingDescriptorCount; ++descriptorIndex)
+	{
+		context.GetDevice()->CopyDescriptorsSimple(1, m_forwardSrvHeap.Allocate().CpuHandle,
+		                                           m_lightingSrvHeap.CpuHandleAt(lightingDescriptorOffset + descriptorIndex),
+		                                           D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	}
+
+	m_forwardSourceSrvHeap = sceneSrvDescriptorHeap;
+	m_forwardSourceSrvHeapCount = sceneDescriptorCount;
+	m_forwardSrvHeapDirty = false;
 }
 
 void DeferredRenderer::RenderShadowMapPass(DirectX12Context &context, FrameResource &frameResource,
@@ -420,7 +471,7 @@ void DeferredRenderer::RenderShadowMapPass(DirectX12Context &context, FrameResou
 
 		for (const ModelDrawItem &drawItem : drawItems)
 		{
-			if (!drawItem.CastShadows)
+			if (!drawItem.CastShadows || drawItem.IsTransparent)
 			{
 				continue;
 			}
@@ -472,6 +523,11 @@ void DeferredRenderer::RenderOpaqueGeometryStage(DirectX12Context &context, Fram
 
 	for (const ModelDrawItem &drawItem : drawItems)
 	{
+		if (drawItem.IsTransparent)
+		{
+			continue;
+		}
+
 		BindGeometryTextures(context.GetCommandList(), srvDescriptorHeap, cbvSrvUavDescriptorSize, drawItem);
 		BindGeometryDrawSettings(context.GetCommandList(), drawItem);
 
@@ -502,6 +558,89 @@ void DeferredRenderer::RenderLightingStage(DirectX12Context &context, FrameResou
 	context.GetCommandList()->SetGraphicsRoot32BitConstants(2, 4, &debugSettings, 0);
 	context.GetCommandList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	context.GetCommandList()->DrawInstanced(3, 1, 0, 0);
+}
+
+void DeferredRenderer::RenderTransparentGeometryStage(DirectX12Context &context, FrameResource &frameResource,
+                                                      ID3D12DescriptorHeap *sceneSrvDescriptorHeap,
+                                                      const MeshGeometry &sceneGeometry,
+                                                      const std::vector<ModelDrawItem> &drawItems,
+                                                      RenderSettings::LightingModel lightingModel)
+{
+	struct TransparentDraw
+	{
+		const ModelDrawItem *Item = nullptr;
+		float DistanceSquared = 0.0f;
+	};
+
+	const XMMATRIX world = XMMatrixTranslation(-m_sceneCenter.x, -m_sceneCenter.y, -m_sceneCenter.z) *
+	                       XMMatrixScaling(m_sceneScale, m_sceneScale, m_sceneScale);
+	const XMVECTOR eyePosition = XMLoadFloat3(&m_eyePosition);
+	std::vector<TransparentDraw> transparentDraws;
+	transparentDraws.reserve(drawItems.size());
+	for (const ModelDrawItem &drawItem : drawItems)
+	{
+		if (!drawItem.IsTransparent)
+		{
+			continue;
+		}
+
+		const XMVECTOR localCenter = XMVectorSet(drawItem.SortCenter.x + drawItem.PositionOffset.x,
+		                                         drawItem.SortCenter.y + drawItem.PositionOffset.y,
+		                                         drawItem.SortCenter.z + drawItem.PositionOffset.z, 1.0f);
+		const XMVECTOR worldCenter = XMVector3TransformCoord(localCenter, world);
+		const float distanceSquared = XMVectorGetX(XMVector3LengthSq(worldCenter - eyePosition));
+		transparentDraws.push_back({&drawItem, distanceSquared});
+	}
+
+	if (transparentDraws.empty())
+	{
+		return;
+	}
+
+	std::sort(transparentDraws.begin(), transparentDraws.end(),
+	          [](const TransparentDraw &left, const TransparentDraw &right) { return left.DistanceSquared > right.DistanceSquared; });
+
+	BuildLightingSrvHeap(context);
+	BuildForwardSrvHeap(context, sceneSrvDescriptorHeap);
+	if (!m_forwardSrvHeap.IsValid())
+	{
+		throw std::runtime_error("Failed to prepare descriptors for transparent geometry.");
+	}
+
+	ID3D12GraphicsCommandList *commandList = context.GetCommandList();
+	const D3D12_RESOURCE_BARRIER depthToDsv = CD3DX12_RESOURCE_BARRIER::Transition(
+	    m_gbuffer->GetDepthResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+	commandList->ResourceBarrier(1, &depthToDsv);
+
+	const D3D12_CPU_DESCRIPTOR_HANDLE backBufferRtv = context.CurrentBackBufferView();
+	const D3D12_CPU_DESCRIPTOR_HANDLE gbufferDsv = m_gbuffer->GetDsv();
+	commandList->OMSetRenderTargets(1, &backBufferRtv, true, &gbufferDsv);
+	commandList->SetGraphicsRootSignature(m_transparentRootSignature.Get());
+	commandList->SetPipelineState(lightingModel == RenderSettings::LightingModel::Phong ? m_transparentPhongPSO.Get()
+	                                                                                     : m_transparentPSO.Get());
+
+	ID3D12DescriptorHeap *descriptorHeaps[] = {m_forwardSrvHeap.Get()};
+	commandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
+	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	const D3D12_VERTEX_BUFFER_VIEW vertexBufferView = sceneGeometry.VertexBufferView();
+	const D3D12_INDEX_BUFFER_VIEW indexBufferView = sceneGeometry.IndexBufferView();
+	commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
+	commandList->IASetIndexBuffer(&indexBufferView);
+	commandList->SetGraphicsRootConstantBufferView(0, frameResource.ObjectConstantBuffer()->GetGPUVirtualAddress());
+
+	for (const TransparentDraw &transparentDraw : transparentDraws)
+	{
+		const ModelDrawItem &drawItem = *transparentDraw.Item;
+		BindForwardTextures(commandList, drawItem);
+		BindGeometryDrawSettings(commandList, drawItem);
+
+		const auto &submesh = sceneGeometry.DrawArgs.at(drawItem.DrawName);
+		commandList->DrawIndexedInstanced(submesh.IndexCount, 1, submesh.StartIndexLocation, submesh.BaseVertexLocation, 0);
+	}
+
+	const D3D12_RESOURCE_BARRIER depthToSrv = CD3DX12_RESOURCE_BARRIER::Transition(
+	    m_gbuffer->GetDepthResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	commandList->ResourceBarrier(1, &depthToSrv);
 }
 
 void DeferredRenderer::TransitionCascadedShadowMap(DirectX12Context &context, D3D12_RESOURCE_STATES beforeState,
@@ -543,6 +682,12 @@ void DeferredRenderer::BuildShadersAndInputLayout()
 	    d3dUtil::CompileShader(AssetPathUtils::ResolveRequiredPath(L"shaders\\GeometryPass.hlsl"), nullptr, "GeometryVS", "vs_5_1");
 	m_shaders["gbufferPS"] =
 	    d3dUtil::CompileShader(AssetPathUtils::ResolveRequiredPath(L"shaders\\GeometryPass.hlsl"), nullptr, "GeometryPS", "ps_5_1");
+	m_shaders["transparentVS"] =
+	    d3dUtil::CompileShader(AssetPathUtils::ResolveRequiredPath(L"shaders\\GeometryPass.hlsl"), nullptr, "TransparentVS", "vs_5_1");
+	m_shaders["transparentPS"] =
+	    d3dUtil::CompileShader(AssetPathUtils::ResolveRequiredPath(L"shaders\\GeometryPass.hlsl"), nullptr, "TransparentPS", "ps_5_1");
+	m_shaders["transparentPhongPS"] = d3dUtil::CompileShader(AssetPathUtils::ResolveRequiredPath(L"shaders\\GeometryPass.hlsl"),
+	                                                          nullptr, "TransparentPhongPS", "ps_5_1");
 	m_shaders["fullscreenVS"] =
 	    d3dUtil::CompileShader(AssetPathUtils::ResolveRequiredPath(L"shaders\\DeferredLighting.hlsl"), nullptr, "FullscreenVS", "vs_5_1");
 	m_shaders["deferredLightingPS"] =
@@ -592,6 +737,7 @@ void DeferredRenderer::BuildGbuffer(DirectX12Context &context)
 	}
 	m_gbufferState = D3D12_RESOURCE_STATE_RENDER_TARGET;
 	m_lightingSrvHeapDirty = true;
+	m_forwardSrvHeapDirty = true;
 }
 
 void DeferredRenderer::BuildRootSignature(DirectX12Context &context)
@@ -635,6 +781,31 @@ void DeferredRenderer::BuildRootSignature(DirectX12Context &context)
 
 	ThrowIfFailed(context.GetDevice()->CreateRootSignature(0, serializedRootSig->GetBufferPointer(), serializedRootSig->GetBufferSize(),
 	                                                       IID_PPV_ARGS(m_geometryRootSignature.GetAddressOf())));
+
+	CD3DX12_DESCRIPTOR_RANGE transparentLightingTexTable;
+	transparentLightingTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 5, 3);
+	CD3DX12_ROOT_PARAMETER transparentRootParameters[10];
+	transparentRootParameters[0].InitAsConstantBufferView(0);
+	transparentRootParameters[1].InitAsDescriptorTable(1, &geometryTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
+	transparentRootParameters[2].InitAsConstants(4, 1);
+	transparentRootParameters[3].InitAsConstants(4, 2);
+	transparentRootParameters[4].InitAsConstants(8, 3);
+	transparentRootParameters[5].InitAsConstants(4, 4);
+	transparentRootParameters[6].InitAsDescriptorTable(1, &geometryNormalTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
+	transparentRootParameters[7].InitAsDescriptorTable(1, &geometryOrmTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
+	transparentRootParameters[8].InitAsDescriptorTable(1, &geometryOpacityTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
+	transparentRootParameters[9].InitAsDescriptorTable(1, &transparentLightingTexTable, D3D12_SHADER_VISIBILITY_PIXEL);
+
+	CD3DX12_ROOT_SIGNATURE_DESC transparentRootSigDesc(
+	    _countof(transparentRootParameters), transparentRootParameters, _countof(lightingStaticSamplers), lightingStaticSamplers,
+	    D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
+	serializedRootSig.Reset();
+	errorBlob.Reset();
+	ThrowIfFailed(D3D12SerializeRootSignature(&transparentRootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1,
+	                                          serializedRootSig.GetAddressOf(), errorBlob.GetAddressOf()));
+	ThrowIfFailed(context.GetDevice()->CreateRootSignature(0, serializedRootSig->GetBufferPointer(), serializedRootSig->GetBufferSize(),
+	                                                       IID_PPV_ARGS(m_transparentRootSignature.GetAddressOf())));
 
 	CD3DX12_DESCRIPTOR_RANGE lightingTexTable;
 	lightingTexTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 9, 0);
@@ -701,6 +872,38 @@ void DeferredRenderer::BuildPSO(DirectX12Context &context)
 	geometryPsoDesc.DSVFormat = context.GetDepthStencilFormat();
 
 	ThrowIfFailed(context.GetDevice()->CreateGraphicsPipelineState(&geometryPsoDesc, IID_PPV_ARGS(&m_geometryPSO)));
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC transparentPsoDesc = {};
+	transparentPsoDesc.InputLayout = {m_inputLayout.data(), static_cast<UINT>(m_inputLayout.size())};
+	transparentPsoDesc.pRootSignature = m_transparentRootSignature.Get();
+	transparentPsoDesc.VS = {reinterpret_cast<BYTE *>(m_shaders["transparentVS"]->GetBufferPointer()),
+	                         m_shaders["transparentVS"]->GetBufferSize()};
+	transparentPsoDesc.PS = {reinterpret_cast<BYTE *>(m_shaders["transparentPS"]->GetBufferPointer()),
+	                         m_shaders["transparentPS"]->GetBufferSize()};
+	transparentPsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	transparentPsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	D3D12_RENDER_TARGET_BLEND_DESC &transparentBlend = transparentPsoDesc.BlendState.RenderTarget[0];
+	transparentBlend.BlendEnable = TRUE;
+	transparentBlend.SrcBlend = D3D12_BLEND_SRC_ALPHA;
+	transparentBlend.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+	transparentBlend.BlendOp = D3D12_BLEND_OP_ADD;
+	transparentBlend.SrcBlendAlpha = D3D12_BLEND_ONE;
+	transparentBlend.DestBlendAlpha = D3D12_BLEND_INV_SRC_ALPHA;
+	transparentBlend.BlendOpAlpha = D3D12_BLEND_OP_ADD;
+	transparentPsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+	transparentPsoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+	transparentPsoDesc.SampleMask = UINT_MAX;
+	transparentPsoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	transparentPsoDesc.NumRenderTargets = 1;
+	transparentPsoDesc.RTVFormats[0] = context.GetBackBufferFormat();
+	transparentPsoDesc.DSVFormat = context.GetDepthStencilFormat();
+	transparentPsoDesc.SampleDesc.Count = 1;
+	transparentPsoDesc.SampleDesc.Quality = 0;
+	ThrowIfFailed(context.GetDevice()->CreateGraphicsPipelineState(&transparentPsoDesc, IID_PPV_ARGS(&m_transparentPSO)));
+
+	transparentPsoDesc.PS = {reinterpret_cast<BYTE *>(m_shaders["transparentPhongPS"]->GetBufferPointer()),
+	                         m_shaders["transparentPhongPS"]->GetBufferSize()};
+	ThrowIfFailed(context.GetDevice()->CreateGraphicsPipelineState(&transparentPsoDesc, IID_PPV_ARGS(&m_transparentPhongPSO)));
 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC lightingPsoDesc = {};
 	lightingPsoDesc.InputLayout = {nullptr, 0};

@@ -357,3 +357,65 @@ float3 ApplySpotLight(float3 albedo, float4 pbrParams, float3 normalW, float3 to
 	const float attenuation = pow(saturate(1.0f - distanceToLight / range), max(lightData.Params.w, 1.0f));
 	return ComputeCookTorranceLighting(albedo, pbrParams, normalW, toEye, lightVector, attenuation * spotFactor * lightData.Color.rgb);
 }
+
+float3 ApplyOutputTransform(float3 color)
+{
+	const float exposure = max(gImageBasedLightingWeights.w, 0.001f);
+	const float3 toneMapped = 1.0f.xxx - exp(-max(color, 0.0f.xxx) * exposure);
+	return pow(saturate(toneMapped), 1.0f / 2.2f);
+}
+
+float3 ComputePhongLighting(float3 albedo, float3 normalW, float3 toEye, float3 lightVector, float3 radiance,
+                            float roughness, float metallic)
+{
+	const float ndotl = saturate(dot(normalW, lightVector));
+	const float3 diffuse = albedo * ndotl;
+	const float3 reflectionVector = reflect(-lightVector, normalW);
+	const float shininess = lerp(128.0f, 4.0f, saturate(roughness));
+	const float specularFactor = pow(saturate(dot(reflectionVector, toEye)), shininess);
+	const float3 specularColor = lerp(0.04f.xxx, albedo, saturate(metallic));
+	return (diffuse + specularColor * specularFactor) * radiance;
+}
+
+float3 ApplyPhongDirectionalLight(float3 albedo, float3 normalW, float3 toEye, float roughness, float metallic,
+                                  DirectionalLightData lightData)
+{
+	return ComputePhongLighting(albedo, normalW, toEye, normalize(-lightData.Direction.xyz), lightData.Color.rgb, roughness, metallic);
+}
+
+float3 ApplyPhongPointLight(float3 albedo, float3 normalW, float3 toEye, float3 posW, float roughness, float metallic,
+                            PointLightData lightData)
+{
+	const float3 toLight = lightData.Position.xyz - posW;
+	const float distanceToLight = length(toLight);
+	const float range = max(lightData.Params.x, 0.001f);
+	if (distanceToLight >= range)
+	{
+		return 0.0f;
+	}
+	const float attenuation = pow(saturate(1.0f - distanceToLight / range), max(lightData.Params.y, 1.0f));
+	return ComputePhongLighting(albedo, normalW, toEye, toLight / max(distanceToLight, 0.001f), attenuation * lightData.Color.rgb,
+	                            roughness, metallic);
+}
+
+float3 ApplyPhongSpotLight(float3 albedo, float3 normalW, float3 toEye, float3 posW, float roughness, float metallic,
+                           SpotLightData lightData)
+{
+	const float3 toLight = lightData.Position.xyz - posW;
+	const float distanceToLight = length(toLight);
+	const float range = max(lightData.Params.x, 0.001f);
+	if (distanceToLight >= range)
+	{
+		return 0.0f;
+	}
+	const float3 lightVector = toLight / max(distanceToLight, 0.001f);
+	const float outerCone = lightData.Params.z;
+	const float spotFactor = saturate((dot(lightVector, normalize(-lightData.Direction.xyz)) - outerCone) /
+	                                  (max(lightData.Params.y, outerCone + 0.0001f) - outerCone));
+	if (spotFactor <= 0.0f)
+	{
+		return 0.0f;
+	}
+	const float attenuation = pow(saturate(1.0f - distanceToLight / range), max(lightData.Params.w, 1.0f));
+	return ComputePhongLighting(albedo, normalW, toEye, lightVector, attenuation * spotFactor * lightData.Color.rgb, roughness, metallic);
+}

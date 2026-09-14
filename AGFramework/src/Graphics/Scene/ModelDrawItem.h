@@ -13,6 +13,7 @@ struct ModelDrawItem
 	std::string OrmTexturePath;
 	std::string OpacityTexturePath;
 	DirectX::XMFLOAT4 PositionOffset = {0.0f, 0.0f, 0.0f, 0.0f};
+	DirectX::XMFLOAT3 SortCenter = {0.0f, 0.0f, 0.0f};
 	DirectX::XMFLOAT4 DiffuseAlbedo = {1.0f, 1.0f, 1.0f, 1.0f};
 	DirectX::XMFLOAT4 PbrParams = {0.0f, 0.58f, 1.0f, 0.95f};
 	std::uint32_t DiffuseSrvHeapIndex = 0;
@@ -21,6 +22,7 @@ struct ModelDrawItem
 	std::uint32_t OpacitySrvHeapIndex = 0;
 	DirectX::XMFLOAT4 TextureFlags = {0.0f, 0.0f, 0.0f, 0.0f};
 	bool HasAlphaCutout = false;
+	bool IsTransparent = false;
 	bool CastShadows = true;
 	bool IsDemoPbrGrid = false;
 };

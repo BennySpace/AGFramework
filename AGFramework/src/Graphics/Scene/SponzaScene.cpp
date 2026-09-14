@@ -105,6 +105,19 @@ void SponzaScene::BuildGeometry(DirectX12Context &context, const RenderSettings:
 		drawItem.OrmTexturePath = resolvedTextures.Orm.Path;
 		drawItem.OpacityTexturePath = resolvedTextures.Opacity.Path;
 		drawItem.DiffuseAlbedo = mesh.DiffuseAlbedo;
+		if (!mesh.Vertices.empty())
+		{
+			XMFLOAT3 meshMin((std::numeric_limits<float>::max)(), (std::numeric_limits<float>::max)(),
+		                 (std::numeric_limits<float>::max)());
+			XMFLOAT3 meshMax(-(std::numeric_limits<float>::max)(), -(std::numeric_limits<float>::max)(),
+		                 -(std::numeric_limits<float>::max)());
+			for (const GeometryGenerator::Vertex &vertex : mesh.Vertices)
+			{
+				UpdateBounds(vertex, meshMin, meshMax);
+			}
+			drawItem.SortCenter = XMFLOAT3(0.5f * (meshMin.x + meshMax.x), 0.5f * (meshMin.y + meshMax.y),
+			                              0.5f * (meshMin.z + meshMax.z));
+		}
 		Demo::DemoSceneComposer::ApplyDemoMaterialDefaults(mesh, drawItem);
 		if (!drawItem.IsDemoPbrGrid && resolvedMaterialContract.HasPbrParams)
 		{
@@ -114,6 +127,7 @@ void SponzaScene::BuildGeometry(DirectX12Context &context, const RenderSettings:
 		drawItem.TextureFlags.y = resolvedTextures.HasOrmMap ? 1.0f : 0.0f;
 		drawItem.TextureFlags.z = resolvedTextures.HasOpacityMap ? 1.0f : 0.0f;
 		drawItem.HasAlphaCutout = resolvedTextures.HasAlphaCutout || mesh.HasAlphaCutout;
+		drawItem.IsTransparent = mesh.IsTransparent && !drawItem.HasAlphaCutout;
 		drawItem.CastShadows = !drawItem.IsDemoPbrGrid;
 		m_data.DrawItems.push_back(std::move(drawItem));
 	}

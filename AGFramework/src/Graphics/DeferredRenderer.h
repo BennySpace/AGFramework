@@ -54,6 +54,9 @@ class DeferredRenderer
 	                               const std::vector<ModelDrawItem> &drawItems);
 	void RenderLightingStage(DirectX12Context &context, FrameResource &frameResource, DebugOverlay::DebugViewMode debugViewMode,
 	                         RenderSettings::LightingModel lightingModel);
+	void RenderTransparentGeometryStage(DirectX12Context &context, FrameResource &frameResource,
+	                                   ID3D12DescriptorHeap *sceneSrvDescriptorHeap, const MeshGeometry &sceneGeometry,
+	                                   const std::vector<ModelDrawItem> &drawItems, RenderSettings::LightingModel lightingModel);
 	void TransitionCascadedShadowMap(DirectX12Context &context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
 	void TransitionGbuffer(DirectX12Context &context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
 
@@ -89,6 +92,7 @@ class DeferredRenderer
 	void BuildCascadedShadowMap(DirectX12Context &context);
 	void BuildImageBasedLightingTextures(DirectX12Context &context);
 	void BuildLightingSrvHeap(DirectX12Context &context);
+	void BuildForwardSrvHeap(DirectX12Context &context, ID3D12DescriptorHeap *sceneSrvDescriptorHeap);
 	void BuildRootSignature(DirectX12Context &context);
 	void BuildPSO(DirectX12Context &context);
 	void BuildShadowPSOs(DirectX12Context &context);
@@ -149,6 +153,7 @@ class DeferredRenderer
 	                              const DirectX::XMMATRIX &texTransform) const;
 	void BindGeometryTextures(ID3D12GraphicsCommandList *commandList, ID3D12DescriptorHeap *srvDescriptorHeap,
 	                          UINT cbvSrvUavDescriptorSize, const ModelDrawItem &drawItem) const;
+	void BindForwardTextures(ID3D12GraphicsCommandList *commandList, const ModelDrawItem &drawItem) const;
 	void BindGeometryDrawSettings(ID3D12GraphicsCommandList *commandList, const ModelDrawItem &drawItem) const;
 	void BindShadowAlphaCutoutState(ID3D12GraphicsCommandList *commandList, ID3D12DescriptorHeap *srvDescriptorHeap,
 	                                UINT cbvSrvUavDescriptorSize, const ModelDrawItem &drawItem) const;
@@ -156,13 +161,17 @@ class DeferredRenderer
 
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_geometryRootSignature;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_lightingRootSignature;
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_transparentRootSignature;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_shadowRootSignature;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_geometryPSO;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_lightingPSO;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_phongLightingPSO;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_transparentPSO;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_transparentPhongPSO;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_directionalShadowOpaquePSO;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_directionalShadowAlphaCutoutPSO;
 	DescriptorHeap m_lightingSrvHeap;
+	DescriptorHeap m_forwardSrvHeap;
 	std::unique_ptr<CascadedShadowMap> m_cascadedShadowMap;
 	std::unique_ptr<Gbuffer> m_gbuffer;
 	D3D12_RESOURCE_STATES m_cascadedShadowMapState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
@@ -173,12 +182,16 @@ class DeferredRenderer
 	RenderSettings::ShadowSettings m_directionalShadowPsoSettings;
 	RenderSettings::CascadedShadowData m_cascadedShadowData;
 	DirectX::XMFLOAT3 m_sceneCenter = {0.0f, 0.0f, 0.0f};
+	DirectX::XMFLOAT3 m_eyePosition = {0.0f, 0.0f, 0.0f};
 	float m_sceneScale = 1.0f;
 	DirectX::XMFLOAT4X4 m_texTransform = MathHelper::Identity4x4();
 	UINT m_objectCBByteSize = 0;
 	UINT m_shadowPassCBStride = 0;
 	UINT m_shadowPassCBByteSize = 0;
 	bool m_lightingSrvHeapDirty = true;
+	bool m_forwardSrvHeapDirty = true;
+	ID3D12DescriptorHeap *m_forwardSourceSrvHeap = nullptr;
+	UINT m_forwardSourceSrvHeapCount = 0;
 	std::unique_ptr<Texture> m_irradianceMapTexture;
 	std::unique_ptr<Texture> m_prefilterMapTexture;
 	std::unique_ptr<Texture> m_environmentMapTexture;

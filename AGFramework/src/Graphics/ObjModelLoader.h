@@ -18,6 +18,7 @@ class ObjModelLoader
 		std::string OpacityTexturePath;
 		DirectX::XMFLOAT4 DiffuseAlbedo = {1.0f, 1.0f, 1.0f, 1.0f};
 		bool HasAlphaCutout = false;
+		bool IsTransparent = false;
 	};
 
 	std::vector<MeshData> Load(const std::string &filename) const;
