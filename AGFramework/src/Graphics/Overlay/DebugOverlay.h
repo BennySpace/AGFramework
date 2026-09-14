@@ -88,4 +88,7 @@ class DebugOverlay
 	bool m_showLightBounds = false;
 	float m_lightMarkerScale = 1.0f;
 	float m_sidebarWidth = 348.0f;
+	RenderSettings::ShadowSettings m_shadowSettingsDraft;
+	bool m_hasShadowSettingsDraft = false;
+	bool m_shadowSettingsDirty = false;
 };

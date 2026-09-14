@@ -571,7 +571,12 @@ void DebugOverlay::DrawLightingSection(MaterialSystem &materialSystem, RenderSet
 	RenderSettings::LightingSettings lightingSettings = renderSettings.GetLightingSettings();
 	RenderSettings::LightingModel lightingModel = renderSettings.GetLightingModel();
 	RenderSettings::ImageBasedLightingSettings imageBasedLightingSettings = renderSettings.GetImageBasedLightingSettings();
-	RenderSettings::ShadowSettings shadowSettings = renderSettings.GetShadowSettings();
+	if (!m_hasShadowSettingsDraft || !m_shadowSettingsDirty)
+	{
+		m_shadowSettingsDraft = renderSettings.GetShadowSettings();
+		m_hasShadowSettingsDraft = true;
+	}
+	RenderSettings::ShadowSettings &shadowSettings = m_shadowSettingsDraft;
 	Demo::DemoLightEditState lightEditState = lightEditSession.GetState();
 	if (ImGui::Button("Apply recommended look"))
 	{
@@ -580,6 +585,7 @@ void DebugOverlay::DrawLightingSection(MaterialSystem &materialSystem, RenderSet
 		lightingModel = renderSettings.GetLightingModel();
 		imageBasedLightingSettings = renderSettings.GetImageBasedLightingSettings();
 		shadowSettings = renderSettings.GetShadowSettings();
+		m_shadowSettingsDirty = false;
 		lightEditState = lightEditSession.GetState();
 	}
 	if (ImGui::ColorEdit3("Ambient", &lightingSettings.AmbientLight.x))
@@ -644,7 +650,13 @@ void DebugOverlay::DrawLightingSection(MaterialSystem &materialSystem, RenderSet
 		ImGui::SeparatorText("Shadows");
 		if (ImGui::Checkbox("Enable directional shadows", &shadowSettings.EnableDirectionalShadows))
 		{
+			m_shadowSettingsDirty = true;
+		}
+		if (ImGui::Button("Apply shadow settings"))
+		{
 			renderSettings.SetShadowSettings(shadowSettings);
+			shadowSettings = renderSettings.GetShadowSettings();
+			m_shadowSettingsDirty = false;
 		}
 		ImGui::TextUnformatted("Advanced shadow and light controls are available in Demo mode.");
 		return;
@@ -653,63 +665,79 @@ void DebugOverlay::DrawLightingSection(MaterialSystem &materialSystem, RenderSet
 	if (ImGui::TreeNode("Shadows"))
 	{
 		ImGui::TextUnformatted("Current scope: directional light only.");
+		bool shadowSettingsChanged = false;
 		if (ImGui::Checkbox("Enable directional shadows", &shadowSettings.EnableDirectionalShadows))
 		{
-			renderSettings.SetShadowSettings(shadowSettings);
+			shadowSettingsChanged = true;
 		}
 		int cascadeCount = static_cast<int>(shadowSettings.CascadeCount);
 		if (ImGui::SliderInt("Cascade count", &cascadeCount, 1, 4))
 		{
 			shadowSettings.CascadeCount = static_cast<std::uint32_t>(cascadeCount);
-			renderSettings.SetShadowSettings(shadowSettings);
+			shadowSettingsChanged = true;
 		}
-		int shadowMapSize = static_cast<int>(shadowSettings.ShadowMapSize);
-		if (ImGui::SliderInt("Shadow map size", &shadowMapSize, 512, 4096))
+		constexpr std::uint32_t shadowMapSizes[] = {512, 1024, 2048, 4096};
+		const char *shadowMapSizeLabels[] = {"512", "1024", "2048", "4096"};
+		int shadowMapSizeIndex = 0;
+		for (int index = 0; index < IM_ARRAYSIZE(shadowMapSizes); ++index)
 		{
-			shadowMapSize = (std::max)(512, shadowMapSize);
-			shadowMapSize = ((shadowMapSize + 255) / 256) * 256;
-			shadowSettings.ShadowMapSize = static_cast<std::uint32_t>(shadowMapSize);
-			renderSettings.SetShadowSettings(shadowSettings);
+			if (shadowSettings.ShadowMapSize == shadowMapSizes[index])
+			{
+				shadowMapSizeIndex = index;
+				break;
+			}
+		}
+		if (ImGui::Combo("Shadow map size", &shadowMapSizeIndex, shadowMapSizeLabels, IM_ARRAYSIZE(shadowMapSizeLabels)))
+		{
+			shadowSettings.ShadowMapSize = shadowMapSizes[shadowMapSizeIndex];
+			shadowSettingsChanged = true;
 		}
 		if (ImGui::SliderFloat("Cascade split lambda", &shadowSettings.CascadeSplitLambda, 0.0f, 1.0f, "%.2f"))
 		{
-			renderSettings.SetShadowSettings(shadowSettings);
+			shadowSettingsChanged = true;
 		}
 		if (ImGui::SliderFloat("Max shadow distance", &shadowSettings.MaxShadowDistance, 25.0f, 500.0f, "%.1f"))
 		{
-			renderSettings.SetShadowSettings(shadowSettings);
+			shadowSettingsChanged = true;
 		}
 		if (ImGui::SliderFloat("Depth bias", &shadowSettings.DepthBias, 0.0f, 10000.0f, "%.0f"))
 		{
-			renderSettings.SetShadowSettings(shadowSettings);
+			shadowSettingsChanged = true;
 		}
 		if (ImGui::SliderFloat("Slope bias", &shadowSettings.SlopeScaledDepthBias, 0.0f, 8.0f, "%.2f"))
 		{
-			renderSettings.SetShadowSettings(shadowSettings);
+			shadowSettingsChanged = true;
 		}
 		if (ImGui::SliderFloat("Bias clamp", &shadowSettings.DepthBiasClamp, 0.0f, 10.0f, "%.3f"))
 		{
-			renderSettings.SetShadowSettings(shadowSettings);
+			shadowSettingsChanged = true;
 		}
 		if (ImGui::SliderFloat("PCF kernel radius", &shadowSettings.PcfRadius, 0.0f, 3.0f, "%.2f"))
 		{
-			renderSettings.SetShadowSettings(shadowSettings);
+			shadowSettingsChanged = true;
 		}
 		if (ImGui::SliderFloat("Shadow strength", &shadowSettings.ShadowStrength, 0.0f, 1.0f, "%.2f"))
 		{
-			renderSettings.SetShadowSettings(shadowSettings);
+			shadowSettingsChanged = true;
 		}
 		if (ImGui::SliderFloat("Receiver bias min", &shadowSettings.ReceiverBiasMin, 0.00001f, 0.001f, "%.5f"))
 		{
-			renderSettings.SetShadowSettings(shadowSettings);
+			shadowSettingsChanged = true;
 		}
 		if (ImGui::SliderFloat("Receiver bias slope", &shadowSettings.ReceiverBiasSlopeScale, 0.0f, 0.005f, "%.5f"))
 		{
-			renderSettings.SetShadowSettings(shadowSettings);
+			shadowSettingsChanged = true;
 		}
 		if (ImGui::SliderFloat("Receiver bias texel", &shadowSettings.ReceiverBiasTexelFactor, 0.0f, 4.0f, "%.2f"))
 		{
+			shadowSettingsChanged = true;
+		}
+		m_shadowSettingsDirty = m_shadowSettingsDirty || shadowSettingsChanged;
+		if (ImGui::Button("Apply shadow settings"))
+		{
 			renderSettings.SetShadowSettings(shadowSettings);
+			shadowSettings = renderSettings.GetShadowSettings();
+			m_shadowSettingsDirty = false;
 		}
 		ImGui::TreePop();
 	}
