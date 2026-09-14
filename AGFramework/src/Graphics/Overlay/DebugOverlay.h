@@ -86,6 +86,7 @@ class DebugOverlay
 	DebugViewMode m_debugViewMode = DebugViewMode::Final;
 	bool m_showLightMarkers = false;
 	bool m_showLightBounds = false;
+	int m_selectedPointLightIndex = 0;
 	float m_lightMarkerScale = 1.0f;
 	float m_sidebarWidth = 348.0f;
 	RenderSettings::ShadowSettings m_shadowSettingsDraft;

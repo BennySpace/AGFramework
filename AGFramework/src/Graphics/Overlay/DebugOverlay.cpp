@@ -741,31 +741,45 @@ void DebugOverlay::DrawLightingSection(MaterialSystem &materialSystem, RenderSet
 
 	if (ImGui::TreeNode("Point"))
 	{
-		for (int lightIndex = 0; lightIndex < static_cast<int>(LightSystem::PointLightCount); ++lightIndex)
+		const int pointLightCount = static_cast<int>(LightSystem::PointLightCount);
+		m_selectedPointLightIndex = (std::clamp)(m_selectedPointLightIndex, 0, pointLightCount - 1);
+		const std::string selectedPointLightLabel = "Point " + std::to_string(m_selectedPointLightIndex);
+		if (ImGui::BeginCombo("Active point light", selectedPointLightLabel.c_str()))
 		{
-			bool isEnabled = lightEditState.EnableState.PointLights[lightIndex];
-			std::string label = "Point " + std::to_string(lightIndex);
-			if (ImGui::Checkbox(label.c_str(), &isEnabled))
+			for (int lightIndex = 0; lightIndex < pointLightCount; ++lightIndex)
 			{
-				lightEditState.EnableState.PointLights[lightIndex] = isEnabled;
-				lightEditSession.SetState(lightEditState);
+				const std::string pointLightLabel = "Point " + std::to_string(lightIndex);
+				const bool isSelected = lightIndex == m_selectedPointLightIndex;
+				if (ImGui::Selectable(pointLightLabel.c_str(), isSelected))
+				{
+					m_selectedPointLightIndex = lightIndex;
+				}
+				if (isSelected)
+				{
+					ImGui::SetItemDefaultFocus();
+				}
 			}
-			ImGui::SameLine();
-			std::string colorLabel = "Color##Point" + std::to_string(lightIndex);
-			if (ImGui::ColorEdit3(colorLabel.c_str(), &lightEditState.ColorState.PointLights[lightIndex].x))
-			{
-				lightEditSession.SetState(lightEditState);
-			}
-			std::string intensityLabel = "Intensity##Point" + std::to_string(lightIndex);
-			if (ImGui::SliderFloat(intensityLabel.c_str(), &lightEditState.IntensityState.PointLights[lightIndex], 0.0f, 20.0f, "%.2f"))
-			{
-				lightEditSession.SetState(lightEditState);
-			}
-			std::string positionLabel = "Position##Point" + std::to_string(lightIndex);
-			if (ImGui::DragFloat3(positionLabel.c_str(), &lightEditState.PositionState.PointLights[lightIndex].x, 0.1f))
-			{
-				lightEditSession.SetState(lightEditState);
-			}
+			ImGui::EndCombo();
+		}
+
+		const int lightIndex = m_selectedPointLightIndex;
+		bool isEnabled = lightEditState.EnableState.PointLights[lightIndex];
+		if (ImGui::Checkbox("Enabled", &isEnabled))
+		{
+			lightEditState.EnableState.PointLights[lightIndex] = isEnabled;
+			lightEditSession.SetState(lightEditState);
+		}
+		if (ImGui::ColorEdit3("Color", &lightEditState.ColorState.PointLights[lightIndex].x))
+		{
+			lightEditSession.SetState(lightEditState);
+		}
+		if (ImGui::SliderFloat("Intensity", &lightEditState.IntensityState.PointLights[lightIndex], 0.0f, 20.0f, "%.2f"))
+		{
+			lightEditSession.SetState(lightEditState);
+		}
+		if (ImGui::DragFloat3("Position", &lightEditState.PositionState.PointLights[lightIndex].x, 0.1f))
+		{
+			lightEditSession.SetState(lightEditState);
 		}
 		ImGui::TreePop();
 	}
