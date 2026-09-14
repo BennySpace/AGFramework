@@ -180,10 +180,9 @@ DebugOverlay::FrameContext DirectX12App::BuildDebugOverlayFrameContext(const Gam
 {
 	DebugOverlay::FrameContext frameContext;
 	frameContext.Timer = &gt;
+	frameContext.Camera.Controller = &m_cameraController;
 	frameContext.Camera.EyePosition = &m_cameraController.GetEyePosition();
 	frameContext.Camera.LookDirection = &m_cameraController.GetLookDirection();
-	frameContext.Camera.Yaw = &m_cameraController.GetYaw();
-	frameContext.Camera.Pitch = &m_cameraController.GetPitch();
 	frameContext.Camera.MoveSpeed = &m_cameraController.GetMoveSpeed();
 	frameContext.Camera.MouseSensitivity = &m_cameraController.GetMouseSensitivity();
 	frameContext.Material = &m_materialSystem;

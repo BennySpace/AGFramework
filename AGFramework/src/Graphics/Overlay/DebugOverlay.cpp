@@ -1,6 +1,7 @@
 #include "DebugOverlay.h"
 
 #include "../../Core/GameTimer.h"
+#include "../CameraController.h"
 #include "../Demo/DemoLightEditSession.h"
 #include "../Demo/DemoLightingController.h"
 #include "../Demo/DemoShowcaseSession.h"
@@ -480,28 +481,25 @@ void DebugOverlay::DrawAdvancedSection(const CameraState &cameraState, MaterialS
 
 	XMFLOAT3 &eyePosition = *cameraState.EyePosition;
 	XMFLOAT3 &lookDirection = *cameraState.LookDirection;
-	float &yaw = *cameraState.Yaw;
-	float &pitch = *cameraState.Pitch;
 	float &cameraMoveSpeed = *cameraState.MoveSpeed;
 	float &cameraMouseSensitivity = *cameraState.MouseSensitivity;
 
 	if (ImGui::TreeNode("Camera"))
 	{
 		ImGui::DragFloat3("Position", &eyePosition.x, 0.1f);
-		ImGui::DragFloat3("Look direction", &lookDirection.x, 0.01f);
+		if (ImGui::DragFloat3("Look direction", &lookDirection.x, 0.01f))
+		{
+			cameraState.Controller->SetLookDirection(lookDirection);
+		}
 		if (ImGui::Button("Reset look forward"))
 		{
-			lookDirection = XMFLOAT3(0.0f, 0.0f, 1.0f);
-			yaw = 0.0f;
-			pitch = 0.0f;
+			cameraState.Controller->SetLookDirection(XMFLOAT3(0.0f, 0.0f, 1.0f));
 		}
 		ImGui::SameLine();
 		if (ImGui::Button("Reset camera"))
 		{
 			eyePosition = XMFLOAT3(0.0f, 0.0f, 0.0f);
-			lookDirection = XMFLOAT3(0.0f, 0.0f, 1.0f);
-			yaw = 0.0f;
-			pitch = 0.0f;
+			cameraState.Controller->SetLookDirection(XMFLOAT3(0.0f, 0.0f, 1.0f));
 		}
 		ImGui::SliderFloat("Move speed", &cameraMoveSpeed, 1.0f, 50.0f);
 		const float minMouseSensitivity = 0.0005f;

@@ -4,6 +4,7 @@
 #include "../RenderSettings.h"
 
 class GameTimer;
+class CameraController;
 struct ImDrawList;
 struct ImVec2;
 namespace Demo
@@ -19,10 +20,9 @@ class DebugOverlay
   public:
 	struct CameraState
 	{
+		CameraController *Controller = nullptr;
 		DirectX::XMFLOAT3 *EyePosition = nullptr;
 		DirectX::XMFLOAT3 *LookDirection = nullptr;
-		float *Yaw = nullptr;
-		float *Pitch = nullptr;
 		float *MoveSpeed = nullptr;
 		float *MouseSensitivity = nullptr;
 	};

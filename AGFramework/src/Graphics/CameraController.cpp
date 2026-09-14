@@ -3,6 +3,9 @@
 #include "../Core/GameTimer.h"
 #include "../Core/InputDevice.h"
 
+#include <algorithm>
+#include <cmath>
+
 using namespace DirectX;
 
 namespace
@@ -48,9 +51,20 @@ CameraController::CameraController(HWND windowHandle, InputDevice *inputDevice) 
 void CameraController::ApplyCameraStart(const SceneData::CameraStart &cameraStart)
 {
 	m_eyePos = cameraStart.EyePos;
-	m_lookDirection = cameraStart.LookDirection;
-	m_yaw = cameraStart.Yaw;
-	m_pitch = cameraStart.Pitch;
+	SetLookDirection(cameraStart.LookDirection);
+}
+
+void CameraController::SetLookDirection(const XMFLOAT3 &lookDirection)
+{
+	XMFLOAT3 normalizedDirection;
+	XMStoreFloat3(&normalizedDirection, GetSafeNormalizedDirection(lookDirection));
+
+	m_yaw = atan2f(normalizedDirection.x, normalizedDirection.z);
+	m_pitch = -asinf((std::clamp)(normalizedDirection.y, -1.0f, 1.0f));
+	m_pitch = (std::clamp)(m_pitch, -1.45f, 1.45f);
+
+	const float cosPitch = cosf(m_pitch);
+	m_lookDirection = XMFLOAT3(sinf(m_yaw) * cosPitch, -sinf(m_pitch), cosf(m_yaw) * cosPitch);
 }
 
 void CameraController::Update(const GameTimer &gameTimer)

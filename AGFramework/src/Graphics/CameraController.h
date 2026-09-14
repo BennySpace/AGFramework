@@ -12,6 +12,7 @@ class CameraController
 	CameraController(HWND windowHandle, InputDevice *inputDevice);
 
 	void ApplyCameraStart(const SceneData::CameraStart &cameraStart);
+	void SetLookDirection(const DirectX::XMFLOAT3 &lookDirection);
 	void Update(const GameTimer &gameTimer);
 	void ReleaseMouseCapture();
 
