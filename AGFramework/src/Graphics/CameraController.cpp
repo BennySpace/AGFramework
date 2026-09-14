@@ -50,8 +50,14 @@ CameraController::CameraController(HWND windowHandle, InputDevice *inputDevice) 
 
 void CameraController::ApplyCameraStart(const SceneData::CameraStart &cameraStart)
 {
-	m_eyePos = cameraStart.EyePos;
-	SetLookDirection(cameraStart.LookDirection);
+	m_startCamera = cameraStart;
+	ResetToStart();
+}
+
+void CameraController::ResetToStart()
+{
+	m_eyePos = m_startCamera.EyePos;
+	SetLookDirection(m_startCamera.LookDirection);
 }
 
 void CameraController::SetLookDirection(const XMFLOAT3 &lookDirection)

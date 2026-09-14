@@ -12,6 +12,7 @@ class CameraController
 	CameraController(HWND windowHandle, InputDevice *inputDevice);
 
 	void ApplyCameraStart(const SceneData::CameraStart &cameraStart);
+	void ResetToStart();
 	void SetLookDirection(const DirectX::XMFLOAT3 &lookDirection);
 	void Update(const GameTimer &gameTimer);
 	void ReleaseMouseCapture();
@@ -73,6 +74,7 @@ class CameraController
 
 	HWND m_windowHandle = nullptr;
 	InputDevice *m_inputDevice = nullptr;
+	SceneData::CameraStart m_startCamera;
 	DirectX::XMFLOAT3 m_eyePos = {0.0f, 8.0f, -30.0f};
 	DirectX::XMFLOAT3 m_lookDirection = {0.0f, 0.0f, 1.0f};
 	float m_yaw = 0.0f;

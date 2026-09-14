@@ -496,10 +496,9 @@ void DebugOverlay::DrawAdvancedSection(const CameraState &cameraState, MaterialS
 			cameraState.Controller->SetLookDirection(XMFLOAT3(0.0f, 0.0f, 1.0f));
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("Reset camera"))
+		if (ImGui::Button("Reset camera to scene start"))
 		{
-			eyePosition = XMFLOAT3(0.0f, 0.0f, 0.0f);
-			cameraState.Controller->SetLookDirection(XMFLOAT3(0.0f, 0.0f, 1.0f));
+			cameraState.Controller->ResetToStart();
 		}
 		ImGui::SliderFloat("Move speed", &cameraMoveSpeed, 1.0f, 50.0f);
 		const float minMouseSensitivity = 0.0005f;
