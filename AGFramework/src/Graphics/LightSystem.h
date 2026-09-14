@@ -65,6 +65,16 @@ class LightSystem
 		std::array<float, SpotLightCount> SpotLights = {8.0f, 6.0f};
 	};
 
+	struct PointLightRangeState
+	{
+		std::array<float, PointLightCount> PointLights = {12.0f, 12.0f, 12.0f, 12.0f, 12.0f, 12.0f};
+	};
+
+	struct PointLightFalloffState
+	{
+		std::array<float, PointLightCount> PointLights = {1.35f, 1.35f, 1.35f, 1.35f, 1.35f, 1.35f};
+	};
+
 	struct LightDirectionState
 	{
 		std::array<DirectX::XMFLOAT3, DirectionalLightCount> DirectionalLights = {DirectX::XMFLOAT3(-0.577f, -0.577f, 0.577f)};
@@ -86,6 +96,8 @@ class LightSystem
 		LightEnableState EnableState;
 		LightColorState ColorState;
 		LightIntensityState IntensityState;
+		PointLightRangeState PointLightRanges;
+		PointLightFalloffState PointLightFalloffs;
 		LightDirectionState DirectionState;
 		LightPositionState PositionState;
 	};

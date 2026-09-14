@@ -781,6 +781,14 @@ void DebugOverlay::DrawLightingSection(MaterialSystem &materialSystem, RenderSet
 		{
 			lightEditSession.SetState(lightEditState);
 		}
+		if (ImGui::SliderFloat("Range", &lightEditState.PointLightRanges.PointLights[lightIndex], 1.0f, 50.0f, "%.1f"))
+		{
+			lightEditSession.SetState(lightEditState);
+		}
+		if (ImGui::SliderFloat("Falloff", &lightEditState.PointLightFalloffs.PointLights[lightIndex], 1.0f, 4.0f, "%.2f"))
+		{
+			lightEditSession.SetState(lightEditState);
+		}
 		if (ImGui::DragFloat3("Position", &lightEditState.PositionState.PointLights[lightIndex].x, 0.1f))
 		{
 			lightEditSession.SetState(lightEditState);

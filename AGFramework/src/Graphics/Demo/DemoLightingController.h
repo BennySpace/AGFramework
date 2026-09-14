@@ -15,6 +15,8 @@ struct RecommendedLightPreset
 	LightSystem::LightEnableState EnableState;
 	LightSystem::LightColorState ColorState;
 	LightSystem::LightIntensityState IntensityState;
+	LightSystem::PointLightRangeState PointLightRanges;
+	LightSystem::PointLightFalloffState PointLightFalloffs;
 	LightSystem::LightDirectionState DirectionState;
 	LightSystem::LightPositionState PositionState;
 };

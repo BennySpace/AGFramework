@@ -103,6 +103,8 @@ void DemoLightingController::ApplyRecommendedLightPreset(DemoLightEditSession &l
 	lightEditState.EnableState = preset.EnableState;
 	lightEditState.ColorState = preset.ColorState;
 	lightEditState.IntensityState = preset.IntensityState;
+	lightEditState.PointLightRanges = preset.PointLightRanges;
+	lightEditState.PointLightFalloffs = preset.PointLightFalloffs;
 	lightEditState.DirectionState = preset.DirectionState;
 	lightEditState.PositionState = preset.PositionState;
 	lightEditSession.SetState(lightEditState);
@@ -182,6 +184,8 @@ bool DemoLightingController::MatchesRecommendedLook(const MaterialSystem &materi
 	       NearlyEqualArray(lightEditState.IntensityState.DirectionalLights, recommendedLightPreset.IntensityState.DirectionalLights) &&
 	       NearlyEqualArray(lightEditState.IntensityState.PointLights, recommendedLightPreset.IntensityState.PointLights) &&
 	       NearlyEqualArray(lightEditState.IntensityState.SpotLights, recommendedLightPreset.IntensityState.SpotLights) &&
+	       NearlyEqualArray(lightEditState.PointLightRanges.PointLights, recommendedLightPreset.PointLightRanges.PointLights) &&
+	       NearlyEqualArray(lightEditState.PointLightFalloffs.PointLights, recommendedLightPreset.PointLightFalloffs.PointLights) &&
 	       NearlyEqualArray(lightEditState.DirectionState.DirectionalLights, recommendedLightPreset.DirectionState.DirectionalLights) &&
 	       NearlyEqualArray(lightEditState.PositionState.PointLights, recommendedLightPreset.PositionState.PointLights) &&
 	       NearlyEqual(lightEditState.PositionState.SecondarySpotLight, recommendedLightPreset.PositionState.SecondarySpotLight);

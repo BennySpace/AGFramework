@@ -1,11 +1,12 @@
 #include "LightSystem.h"
 
+#include <algorithm>
+
 using namespace DirectX;
 
 namespace
 {
 constexpr XMFLOAT3 kDefaultDirectionalDirection = XMFLOAT3(-0.577f, -0.577f, 0.577f);
-constexpr XMFLOAT4 kPointLightParams = XMFLOAT4(12.0f, 1.35f, 0.0f, 1.0f);
 constexpr XMFLOAT4 kPrimarySpotLightParams = XMFLOAT4(48.0f, 0.96f, 0.88f, 3.25f);
 constexpr XMFLOAT3 kSecondarySpotLightDirection = XMFLOAT3(0.0f, -0.45f, 1.0f);
 constexpr XMFLOAT4 kSecondarySpotLightParams = XMFLOAT4(24.0f, 0.95f, 0.82f, 2.2f);
@@ -47,7 +48,9 @@ void LightSystem::Update(const XMFLOAT3 &eyePosition, const XMFLOAT3 &lookDirect
 		    editState.EnableState.PointLights[lightIndex]
 		        ? ScaleLightColor(editState.ColorState.PointLights[lightIndex], editState.IntensityState.PointLights[lightIndex])
 		        : XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
-		m_lightingState.PointLights[lightIndex].Params = kPointLightParams;
+		const float range = (std::max)(editState.PointLightRanges.PointLights[lightIndex], 0.1f);
+		const float falloff = (std::max)(editState.PointLightFalloffs.PointLights[lightIndex], 1.0f);
+		m_lightingState.PointLights[lightIndex].Params = XMFLOAT4(range, falloff, 0.0f, 1.0f);
 	}
 
 	const XMFLOAT3 primarySpotDirection = NormalizeOrFallback(lookDirection, XMFLOAT3(0.0f, 0.0f, 1.0f));
