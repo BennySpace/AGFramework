@@ -531,7 +531,7 @@ void DebugOverlay::DrawAdvancedSection(const CameraState &cameraState, MaterialS
 		{
 			materialSystem.SetMaterialState(materialState);
 		}
-		if (ImGui::SliderFloat("Opacity multiplier", &materialState.DiffuseAlbedo.w, 0.0f, 1.0f))
+		if (ImGui::SliderFloat("Global alpha multiplier", &materialState.DiffuseAlbedo.w, 0.0f, 1.0f))
 		{
 			materialSystem.SetMaterialState(materialState);
 		}
