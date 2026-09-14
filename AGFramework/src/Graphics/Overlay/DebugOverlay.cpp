@@ -595,15 +595,6 @@ void DebugOverlay::DrawLightingSection(MaterialSystem &materialSystem, RenderSet
 	{
 		renderSettings.SetLightingSettings(lightingSettings);
 	}
-	if (ImGui::ColorEdit3("Ambient floor", &lightingSettings.AmbientFloor.x))
-	{
-		renderSettings.SetLightingSettings(lightingSettings);
-	}
-	if (ImGui::SliderFloat("Ambient floor intensity", &lightingSettings.AmbientFloor.w, 0.0f, 3.0f))
-	{
-		renderSettings.SetLightingSettings(lightingSettings);
-	}
-
 	const char *lightingModelLabels[] = {"PBR (Cook-Torrance)", "Phong"};
 	int lightingModelIndex = lightingModel == RenderSettings::LightingModel::Phong ? 1 : 0;
 	if (ImGui::Combo("Lighting model", &lightingModelIndex, lightingModelLabels, IM_ARRAYSIZE(lightingModelLabels)))
@@ -687,43 +678,11 @@ void DebugOverlay::DrawLightingSection(MaterialSystem &materialSystem, RenderSet
 			shadowSettings.ShadowMapSize = shadowMapSizes[shadowMapSizeIndex];
 			shadowSettingsChanged = true;
 		}
-		if (ImGui::SliderFloat("Cascade split lambda", &shadowSettings.CascadeSplitLambda, 0.0f, 1.0f, "%.2f"))
-		{
-			shadowSettingsChanged = true;
-		}
-		if (ImGui::SliderFloat("Max shadow distance", &shadowSettings.MaxShadowDistance, 25.0f, 500.0f, "%.1f"))
-		{
-			shadowSettingsChanged = true;
-		}
-		if (ImGui::SliderFloat("Depth bias", &shadowSettings.DepthBias, 0.0f, 10000.0f, "%.0f"))
-		{
-			shadowSettingsChanged = true;
-		}
-		if (ImGui::SliderFloat("Slope bias", &shadowSettings.SlopeScaledDepthBias, 0.0f, 8.0f, "%.2f"))
-		{
-			shadowSettingsChanged = true;
-		}
-		if (ImGui::SliderFloat("Bias clamp", &shadowSettings.DepthBiasClamp, 0.0f, 10.0f, "%.3f"))
+		if (ImGui::SliderFloat("Bias", &shadowSettings.DepthBias, 0.0f, 10000.0f, "%.0f"))
 		{
 			shadowSettingsChanged = true;
 		}
 		if (ImGui::SliderFloat("PCF kernel radius", &shadowSettings.PcfRadius, 0.0f, 3.0f, "%.2f"))
-		{
-			shadowSettingsChanged = true;
-		}
-		if (ImGui::SliderFloat("Shadow strength", &shadowSettings.ShadowStrength, 0.0f, 1.0f, "%.2f"))
-		{
-			shadowSettingsChanged = true;
-		}
-		if (ImGui::SliderFloat("Receiver bias min", &shadowSettings.ReceiverBiasMin, 0.00001f, 0.001f, "%.5f"))
-		{
-			shadowSettingsChanged = true;
-		}
-		if (ImGui::SliderFloat("Receiver bias slope", &shadowSettings.ReceiverBiasSlopeScale, 0.0f, 0.005f, "%.5f"))
-		{
-			shadowSettingsChanged = true;
-		}
-		if (ImGui::SliderFloat("Receiver bias texel", &shadowSettings.ReceiverBiasTexelFactor, 0.0f, 4.0f, "%.2f"))
 		{
 			shadowSettingsChanged = true;
 		}
