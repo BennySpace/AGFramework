@@ -126,6 +126,7 @@ void DemoLightingController::ApplyRecommendedLook(MaterialSystem &materialSystem
                                                   DemoLightEditSession &lightEditSession)
 {
 	materialSystem.SetMaterialState(BuildRecommendedMaterialState());
+	renderSettings.SetLightingModel(RenderSettings::LightingModel::Pbr);
 	renderSettings.SetLightingSettings(BuildRecommendedLightingSettings());
 	renderSettings.SetImageBasedLightingSettings(BuildRecommendedImageBasedLightingSettings());
 	renderSettings.SetShadowSettings(BuildRecommendedShadowSettings());
@@ -148,6 +149,7 @@ bool DemoLightingController::MatchesRecommendedLook(const MaterialSystem &materi
 	const RecommendedLightPreset recommendedLightPreset = BuildRecommendedLightPreset();
 
 	return !renderSettings.GetTextureAnimationSettings().Enabled &&
+	       renderSettings.GetLightingModel() == RenderSettings::LightingModel::Pbr &&
 	       NearlyEqual(materialState.DiffuseAlbedo, recommendedMaterialState.DiffuseAlbedo) &&
 	       NearlyEqual(materialState.PbrParams, recommendedMaterialState.PbrParams) &&
 	       NearlyEqual(lightingSettings.AmbientLight, recommendedLightingSettings.AmbientLight) &&

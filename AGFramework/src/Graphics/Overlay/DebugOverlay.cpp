@@ -572,6 +572,7 @@ void DebugOverlay::DrawLightingSection(MaterialSystem &materialSystem, RenderSet
 	}
 
 	RenderSettings::LightingSettings lightingSettings = renderSettings.GetLightingSettings();
+	RenderSettings::LightingModel lightingModel = renderSettings.GetLightingModel();
 	RenderSettings::ImageBasedLightingSettings imageBasedLightingSettings = renderSettings.GetImageBasedLightingSettings();
 	RenderSettings::ShadowSettings shadowSettings = renderSettings.GetShadowSettings();
 	Demo::DemoLightEditState lightEditState = lightEditSession.GetState();
@@ -579,6 +580,7 @@ void DebugOverlay::DrawLightingSection(MaterialSystem &materialSystem, RenderSet
 	{
 		Demo::DemoLightingController::ApplyRecommendedLook(materialSystem, renderSettings, lightEditSession);
 		lightingSettings = renderSettings.GetLightingSettings();
+		lightingModel = renderSettings.GetLightingModel();
 		imageBasedLightingSettings = renderSettings.GetImageBasedLightingSettings();
 		shadowSettings = renderSettings.GetShadowSettings();
 		lightEditState = lightEditSession.GetState();
@@ -604,7 +606,16 @@ void DebugOverlay::DrawLightingSection(MaterialSystem &materialSystem, RenderSet
 		renderSettings.SetLightingSettings(lightingSettings);
 	}
 
+	const char *lightingModelLabels[] = {"PBR (Cook-Torrance)", "Phong"};
+	int lightingModelIndex = lightingModel == RenderSettings::LightingModel::Phong ? 1 : 0;
+	if (ImGui::Combo("Lighting model", &lightingModelIndex, lightingModelLabels, IM_ARRAYSIZE(lightingModelLabels)))
+	{
+		lightingModel = lightingModelIndex == 1 ? RenderSettings::LightingModel::Phong : RenderSettings::LightingModel::Pbr;
+		renderSettings.SetLightingModel(lightingModel);
+	}
+
 	ImGui::SeparatorText("IBL");
+	ImGui::BeginDisabled(lightingModel == RenderSettings::LightingModel::Phong);
 	if (ImGui::Checkbox("Show skybox", &imageBasedLightingSettings.ShowSkybox))
 	{
 		renderSettings.SetImageBasedLightingSettings(imageBasedLightingSettings);
@@ -624,6 +635,11 @@ void DebugOverlay::DrawLightingSection(MaterialSystem &materialSystem, RenderSet
 	if (ImGui::SliderFloat("Exposure", &imageBasedLightingSettings.Exposure, 0.25f, 5.0f, "%.2f"))
 	{
 		renderSettings.SetImageBasedLightingSettings(imageBasedLightingSettings);
+	}
+	ImGui::EndDisabled();
+	if (lightingModel == RenderSettings::LightingModel::Phong)
+	{
+		ImGui::TextUnformatted("Phong uses direct lights and ambient settings; IBL only supplies the skybox.");
 	}
 
 	if (!demoSettings.EnableDemoControls)

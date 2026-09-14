@@ -15,6 +15,12 @@ class RenderSettings
 	static constexpr std::uint32_t MaxShadowMapSize = 4096;
 	static constexpr std::uint32_t ShadowMapSizeAlignment = 256;
 
+	enum class LightingModel : std::uint8_t
+	{
+		Pbr,
+		Phong
+	};
+
 	struct LightingSettings
 	{
 		DirectX::XMFLOAT4 AmbientLight = {1.0f, 1.0f, 1.0f, 0.05f};
@@ -84,6 +90,14 @@ class RenderSettings
 	void SetLightingSettings(const LightingSettings &lightingSettings)
 	{
 		m_lightingSettings = lightingSettings;
+	}
+	LightingModel GetLightingModel() const
+	{
+		return m_lightingModel;
+	}
+	void SetLightingModel(LightingModel lightingModel)
+	{
+		m_lightingModel = lightingModel;
 	}
 	const ImageBasedLightingSettings &GetImageBasedLightingSettings() const
 	{
@@ -160,6 +174,7 @@ class RenderSettings
 	}
 
 	LightingSettings m_lightingSettings;
+	LightingModel m_lightingModel = LightingModel::Pbr;
 	ImageBasedLightingSettings m_imageBasedLightingSettings;
 	TextureAnimationSettings m_textureAnimationSettings;
 	ShadowSettings m_shadowSettings;

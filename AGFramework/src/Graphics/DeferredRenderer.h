@@ -52,7 +52,8 @@ class DeferredRenderer
 	void RenderOpaqueGeometryStage(DirectX12Context &context, FrameResource &frameResource, ID3D12DescriptorHeap *srvDescriptorHeap,
 	                               UINT cbvSrvUavDescriptorSize, const MeshGeometry &sceneGeometry,
 	                               const std::vector<ModelDrawItem> &drawItems);
-	void RenderLightingStage(DirectX12Context &context, FrameResource &frameResource, DebugOverlay::DebugViewMode debugViewMode);
+	void RenderLightingStage(DirectX12Context &context, FrameResource &frameResource, DebugOverlay::DebugViewMode debugViewMode,
+	                         RenderSettings::LightingModel lightingModel);
 	void TransitionCascadedShadowMap(DirectX12Context &context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
 	void TransitionGbuffer(DirectX12Context &context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
 
@@ -158,6 +159,7 @@ class DeferredRenderer
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_shadowRootSignature;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_geometryPSO;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_lightingPSO;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_phongLightingPSO;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_directionalShadowOpaquePSO;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_directionalShadowAlphaCutoutPSO;
 	DescriptorHeap m_lightingSrvHeap;

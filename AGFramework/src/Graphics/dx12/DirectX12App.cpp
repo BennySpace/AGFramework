@@ -166,7 +166,7 @@ void DirectX12App::RenderLightingAndOverlay(FrameResource &frameResource, const 
 	{
 		debugViewMode = m_debugOverlay.ResolveDebugViewMode();
 	}
-	m_deferredRenderer.RenderLightingStage(m_context, frameResource, debugViewMode);
+	m_deferredRenderer.RenderLightingStage(m_context, frameResource, debugViewMode, m_renderSettings.GetLightingModel());
 	if (IsDebugOverlayEnabled())
 	{
 		m_debugOverlay.Draw(m_context.GetCommandList(), BuildDebugOverlayFrameContext(gt));

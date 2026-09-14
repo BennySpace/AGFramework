@@ -481,11 +481,14 @@ void DeferredRenderer::RenderOpaqueGeometryStage(DirectX12Context &context, Fram
 }
 
 void DeferredRenderer::RenderLightingStage(DirectX12Context &context, FrameResource &frameResource,
-                                           DebugOverlay::DebugViewMode debugViewMode)
+                                           DebugOverlay::DebugViewMode debugViewMode,
+                                           RenderSettings::LightingModel lightingModel)
 {
 	const D3D12_CPU_DESCRIPTOR_HANDLE currentBackBufferView = context.CurrentBackBufferView();
 	context.GetCommandList()->OMSetRenderTargets(1, &currentBackBufferView, true, nullptr);
-	context.GetCommandList()->SetPipelineState(m_lightingPSO.Get());
+	ID3D12PipelineState *lightingPSO =
+	    lightingModel == RenderSettings::LightingModel::Phong ? m_phongLightingPSO.Get() : m_lightingPSO.Get();
+	context.GetCommandList()->SetPipelineState(lightingPSO);
 	context.GetCommandList()->SetGraphicsRootSignature(m_lightingRootSignature.Get());
 
 	BuildLightingSrvHeap(context);
@@ -544,6 +547,8 @@ void DeferredRenderer::BuildShadersAndInputLayout()
 	    d3dUtil::CompileShader(AssetPathUtils::ResolveRequiredPath(L"shaders\\DeferredLighting.hlsl"), nullptr, "FullscreenVS", "vs_5_1");
 	m_shaders["deferredLightingPS"] =
 	    d3dUtil::CompileShader(AssetPathUtils::ResolveRequiredPath(L"shaders\\DeferredLighting.hlsl"), nullptr, "DeferredLightingPS", "ps_5_1");
+	m_shaders["phongLightingPS"] =
+	    d3dUtil::CompileShader(AssetPathUtils::ResolveRequiredPath(L"shaders\\DeferredLighting.hlsl"), nullptr, "PhongLightingPS", "ps_5_1");
 	m_shaders["shadowVS"] =
 	    d3dUtil::CompileShader(AssetPathUtils::ResolveRequiredPath(L"shaders\\ShadowMap.hlsl"), nullptr, "ShadowVS", "vs_5_1");
 	m_shaders["shadowAlphaCutoutPS"] =
@@ -717,6 +722,10 @@ void DeferredRenderer::BuildPSO(DirectX12Context &context)
 	lightingPsoDesc.SampleDesc.Quality = 0;
 
 	ThrowIfFailed(context.GetDevice()->CreateGraphicsPipelineState(&lightingPsoDesc, IID_PPV_ARGS(&m_lightingPSO)));
+
+	lightingPsoDesc.PS = {reinterpret_cast<BYTE *>(m_shaders["phongLightingPS"]->GetBufferPointer()),
+	                      m_shaders["phongLightingPS"]->GetBufferSize()};
+	ThrowIfFailed(context.GetDevice()->CreateGraphicsPipelineState(&lightingPsoDesc, IID_PPV_ARGS(&m_phongLightingPSO)));
 	BuildShadowPSOs(context);
 }
 
