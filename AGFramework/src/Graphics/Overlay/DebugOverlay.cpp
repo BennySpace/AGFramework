@@ -362,6 +362,7 @@ void DebugOverlay::DrawSidebarWindow(const FrameContext &frameContext, RenderSet
 	RenderSettings &renderSettings = *frameContext.Render;
 	Demo::DemoShowcaseSession &showcaseSession = *frameContext.Showcase;
 	Demo::DemoLightEditSession &lightEditSession = *frameContext.LightEdit;
+	const RenderStatistics &renderStats = *frameContext.RenderStats;
 
 	ImGuiIO &io = ImGui::GetIO();
 	ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
@@ -370,8 +371,13 @@ void DebugOverlay::DrawSidebarWindow(const FrameContext &frameContext, RenderSet
 	ImGui::Begin("Debug", nullptr, debugWindowFlags);
 	ImGui::Text("Renderer: DirectX 12 + Dear ImGui");
 	ImGui::Separator();
-	ImGui::Text("FPS: %.1f", gameTimer.DeltaTime() > 0.0 ? (1.0 / gameTimer.DeltaTime()) : 0.0);
-	ImGui::Text("Frame time: %.3f ms", gameTimer.DeltaTime() * 1000.0);
+	const char *lightingModelLabel =
+	    renderSettings.GetLightingModel() == RenderSettings::LightingModel::Phong ? "Phong" : "PBR";
+	ImGui::Text("Render: %.0f x %.0f | %s", io.DisplaySize.x, io.DisplaySize.y, lightingModelLabel);
+	ImGui::Text("Draw calls: %llu | Triangles: %llu", static_cast<unsigned long long>(renderStats.DrawCallCount),
+	            static_cast<unsigned long long>(renderStats.TriangleCount));
+	ImGui::Text("Frame: %.3f ms | FPS: %.1f", gameTimer.DeltaTime() * 1000.0,
+	            gameTimer.DeltaTime() > 0.0 ? (1.0 / gameTimer.DeltaTime()) : 0.0);
 
 	const bool matchesRecommendedLook = Demo::DemoLightingController::MatchesRecommendedLook(materialSystem, renderSettings, lightEditSession);
 	const ImVec4 lookStatusColor = matchesRecommendedLook ? ImVec4(0.55f, 0.88f, 0.62f, 1.0f) : ImVec4(0.95f, 0.78f, 0.42f, 1.0f);

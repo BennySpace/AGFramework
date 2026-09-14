@@ -57,6 +57,11 @@ class DeferredRenderer
 	void RenderTransparentGeometryStage(DirectX12Context &context, FrameResource &frameResource,
 	                                   ID3D12DescriptorHeap *sceneSrvDescriptorHeap, const MeshGeometry &sceneGeometry,
 	                                   const std::vector<ModelDrawItem> &drawItems, RenderSettings::LightingModel lightingModel);
+	void ResetRenderStatistics();
+	const DebugOverlay::RenderStatistics &GetRenderStatistics() const
+	{
+		return m_renderStatistics;
+	}
 	void TransitionCascadedShadowMap(DirectX12Context &context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
 	void TransitionGbuffer(DirectX12Context &context, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState);
 
@@ -158,6 +163,7 @@ class DeferredRenderer
 	void BindShadowAlphaCutoutState(ID3D12GraphicsCommandList *commandList, ID3D12DescriptorHeap *srvDescriptorHeap,
 	                                UINT cbvSrvUavDescriptorSize, const ModelDrawItem &drawItem) const;
 	void BindShadowDrawSettings(ID3D12GraphicsCommandList *commandList, const ModelDrawItem &drawItem) const;
+	void RecordDraw(UINT indexCount);
 
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_geometryRootSignature;
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_lightingRootSignature;
@@ -197,4 +203,5 @@ class DeferredRenderer
 	std::unique_ptr<Texture> m_environmentMapTexture;
 	std::unique_ptr<Texture> m_brdfLutTexture;
 	bool m_hasEnvironmentMapTexture = false;
+	DebugOverlay::RenderStatistics m_renderStatistics;
 };

@@ -3,6 +3,8 @@
 #include "../dx12/d3dUtil.h"
 #include "../RenderSettings.h"
 
+#include <cstdint>
+
 class GameTimer;
 class CameraController;
 struct ImDrawList;
@@ -18,6 +20,12 @@ class LightSystem;
 class DebugOverlay
 {
   public:
+	struct RenderStatistics
+	{
+		std::uint64_t DrawCallCount = 0;
+		std::uint64_t TriangleCount = 0;
+	};
+
 	struct CameraState
 	{
 		CameraController *Controller = nullptr;
@@ -33,6 +41,7 @@ class DebugOverlay
 		CameraState Camera;
 		MaterialSystem *Material = nullptr;
 		RenderSettings *Render = nullptr;
+		const RenderStatistics *RenderStats = nullptr;
 		LightSystem *Light = nullptr;
 		Demo::DemoShowcaseSession *Showcase = nullptr;
 		Demo::DemoLightEditSession *LightEdit = nullptr;

@@ -102,6 +102,7 @@ void DirectX12App::Update(const GameTimer &gt)
 void DirectX12App::Draw(const GameTimer &gt)
 {
 	FrameResource &frameResource = AdvanceFrameResource();
+	m_deferredRenderer.ResetRenderStatistics();
 	UpdateMainPassCB(frameResource, gt);
 	BeginFrameRendering(frameResource);
 	RenderShadowStage(frameResource);
@@ -187,6 +188,7 @@ DebugOverlay::FrameContext DirectX12App::BuildDebugOverlayFrameContext(const Gam
 	frameContext.Camera.MouseSensitivity = &m_cameraController.GetMouseSensitivity();
 	frameContext.Material = &m_materialSystem;
 	frameContext.Render = &m_renderSettings;
+	frameContext.RenderStats = &m_deferredRenderer.GetRenderStatistics();
 	frameContext.Light = &m_lightSystem;
 	frameContext.Showcase = &m_demoSceneRuntime.GetShowcaseSession();
 	frameContext.LightEdit = &m_demoSceneRuntime.GetLightEditSession();

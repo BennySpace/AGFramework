@@ -489,6 +489,7 @@ void DeferredRenderer::RenderShadowMapPass(DirectX12Context &context, FrameResou
 
 			const auto &submesh = sceneGeometry.DrawArgs.at(drawItem.DrawName);
 			commandList->DrawIndexedInstanced(submesh.IndexCount, 1, submesh.StartIndexLocation, submesh.BaseVertexLocation, 0);
+			RecordDraw(submesh.IndexCount);
 		}
 	}
 
@@ -533,6 +534,7 @@ void DeferredRenderer::RenderOpaqueGeometryStage(DirectX12Context &context, Fram
 
 		const auto &submesh = sceneGeometry.DrawArgs.at(drawItem.DrawName);
 		context.GetCommandList()->DrawIndexedInstanced(submesh.IndexCount, 1, submesh.StartIndexLocation, submesh.BaseVertexLocation, 0);
+		RecordDraw(submesh.IndexCount);
 	}
 }
 
@@ -558,6 +560,7 @@ void DeferredRenderer::RenderLightingStage(DirectX12Context &context, FrameResou
 	context.GetCommandList()->SetGraphicsRoot32BitConstants(2, 4, &debugSettings, 0);
 	context.GetCommandList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	context.GetCommandList()->DrawInstanced(3, 1, 0, 0);
+	RecordDraw(3);
 }
 
 void DeferredRenderer::RenderTransparentGeometryStage(DirectX12Context &context, FrameResource &frameResource,
@@ -636,11 +639,23 @@ void DeferredRenderer::RenderTransparentGeometryStage(DirectX12Context &context,
 
 		const auto &submesh = sceneGeometry.DrawArgs.at(drawItem.DrawName);
 		commandList->DrawIndexedInstanced(submesh.IndexCount, 1, submesh.StartIndexLocation, submesh.BaseVertexLocation, 0);
+		RecordDraw(submesh.IndexCount);
 	}
 
 	const D3D12_RESOURCE_BARRIER depthToSrv = CD3DX12_RESOURCE_BARRIER::Transition(
 	    m_gbuffer->GetDepthResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	commandList->ResourceBarrier(1, &depthToSrv);
+}
+
+void DeferredRenderer::ResetRenderStatistics()
+{
+	m_renderStatistics = {};
+}
+
+void DeferredRenderer::RecordDraw(UINT indexCount)
+{
+	++m_renderStatistics.DrawCallCount;
+	m_renderStatistics.TriangleCount += indexCount / 3;
 }
 
 void DeferredRenderer::TransitionCascadedShadowMap(DirectX12Context &context, D3D12_RESOURCE_STATES beforeState,
