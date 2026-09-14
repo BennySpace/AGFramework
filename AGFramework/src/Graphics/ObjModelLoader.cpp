@@ -240,7 +240,9 @@ std::vector<ObjModelLoader::MeshData> ObjModelLoader::Load(const std::string &fi
 			}
 
 			float opacity = 1.0f;
-			if (material->Get(AI_MATKEY_OPACITY, opacity) == aiReturn_SUCCESS)
+			// The bundled Crytek Sponza MTL stores d 0 for most opaque materials.
+			// Treat that exporter sentinel as opaque; actual cutout materials provide an opacity map.
+			if (material->Get(AI_MATKEY_OPACITY, opacity) == aiReturn_SUCCESS && opacity > 0.001f)
 			{
 				meshData.DiffuseAlbedo.w *= std::clamp(opacity, 0.0f, 1.0f);
 			}
