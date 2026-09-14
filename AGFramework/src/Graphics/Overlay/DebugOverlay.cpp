@@ -517,36 +517,37 @@ void DebugOverlay::DrawAdvancedSection(const CameraState &cameraState, MaterialS
 		ImGui::TreePop();
 	}
 
-	if (ImGui::TreeNode("Material"))
+	if (ImGui::TreeNode("Global material override"))
 	{
+		ImGui::TextUnformatted("Applies to every scene material; imported assets are unchanged.");
 		MaterialSystem::MaterialState materialState = materialSystem.GetMaterialState();
-		if (ImGui::Button("Apply recommended material"))
+		if (ImGui::Button("Apply recommended global override"))
 		{
 			materialState = Demo::DemoLightingController::BuildRecommendedMaterialState();
 			materialSystem.SetMaterialState(materialState);
 			materialState = materialSystem.GetMaterialState();
 		}
-		if (ImGui::ColorEdit3("Base color", &materialState.DiffuseAlbedo.x))
+		if (ImGui::ColorEdit3("Base color multiplier", &materialState.DiffuseAlbedo.x))
 		{
 			materialSystem.SetMaterialState(materialState);
 		}
-		if (ImGui::SliderFloat("Opacity", &materialState.DiffuseAlbedo.w, 0.0f, 1.0f))
+		if (ImGui::SliderFloat("Opacity multiplier", &materialState.DiffuseAlbedo.w, 0.0f, 1.0f))
 		{
 			materialSystem.SetMaterialState(materialState);
 		}
-		if (ImGui::SliderFloat("Metallic", &materialState.PbrParams.x, 0.0f, 1.0f))
+		if (ImGui::SliderFloat("Metallic override", &materialState.PbrParams.x, 0.0f, 1.0f))
 		{
 			materialSystem.SetMaterialState(materialState);
 		}
-		if (ImGui::SliderFloat("Roughness", &materialState.PbrParams.y, 0.04f, 1.0f))
+		if (ImGui::SliderFloat("Roughness multiplier", &materialState.PbrParams.y, 0.04f, 1.0f))
 		{
 			materialSystem.SetMaterialState(materialState);
 		}
-		if (ImGui::SliderFloat("Ambient occlusion", &materialState.PbrParams.z, 0.0f, 1.0f))
+		if (ImGui::SliderFloat("Ambient occlusion multiplier", &materialState.PbrParams.z, 0.0f, 1.0f))
 		{
 			materialSystem.SetMaterialState(materialState);
 		}
-		if (ImGui::SliderFloat("IBL intensity", &materialState.PbrParams.w, 0.0f, 2.0f))
+		if (ImGui::SliderFloat("IBL intensity multiplier", &materialState.PbrParams.w, 0.0f, 2.0f))
 		{
 			materialSystem.SetMaterialState(materialState);
 		}
