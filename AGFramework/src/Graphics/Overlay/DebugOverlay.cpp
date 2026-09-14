@@ -526,12 +526,6 @@ void DebugOverlay::DrawAdvancedSection(const CameraState &cameraState, MaterialS
 			materialSystem.SetMaterialState(materialState);
 			materialState = materialSystem.GetMaterialState();
 		}
-		ImGui::SameLine();
-		if (ImGui::Button("Reset material"))
-		{
-			materialState = Demo::DemoLightingController::BuildRecommendedMaterialState();
-			materialSystem.SetMaterialState(materialState);
-		}
 		if (ImGui::ColorEdit3("Base color", &materialState.DiffuseAlbedo.x))
 		{
 			materialSystem.SetMaterialState(materialState);
