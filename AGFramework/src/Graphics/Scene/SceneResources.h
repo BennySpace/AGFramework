@@ -14,6 +14,7 @@ struct SceneResources
 	std::unordered_map<std::string, std::unique_ptr<Texture>> Textures;
 	std::vector<Texture *> OrderedTextures;
 	DescriptorHeap SrvDescriptorHeap;
+	DescriptorHeap CpuSrvDescriptorHeap;
 
 	void DisposeUploaders()
 	{

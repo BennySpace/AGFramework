@@ -169,7 +169,7 @@ void DirectX12App::RenderLightingAndOverlay(FrameResource &frameResource, const 
 	}
 	m_deferredRenderer.RenderLightingStage(m_context, frameResource, debugViewMode, m_renderSettings.GetLightingModel());
 	m_deferredRenderer.RenderTransparentGeometryStage(
-	    m_context, frameResource, m_demoSceneRuntime.GetScene().GetSrvDescriptorHeap(), m_demoSceneRuntime.GetScene().GetGeometry(),
+	    m_context, frameResource, m_demoSceneRuntime.GetScene().GetCpuSrvDescriptorHeap(), m_demoSceneRuntime.GetScene().GetGeometry(),
 	    m_demoSceneRuntime.GetScene().GetDrawItems(), m_renderSettings.GetLightingModel());
 	if (IsDebugOverlayEnabled())
 	{

@@ -307,6 +307,9 @@ void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context &context)
 
 	m_lightingSrvHeap.Initialize(context.GetDevice(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 9,
 	                             D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+	// Descriptor copies must read from a non-shader-visible heap.
+	m_lightingCpuSrvHeap.Initialize(context.GetDevice(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 9,
+	                                D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
 	const DXGI_FORMAT gbufferFormats[] = {m_gbuffer->GetFormat(Gbuffer::Target::Albedo), m_gbuffer->GetFormat(Gbuffer::Target::Normal),
 	                                      m_gbuffer->GetFormat(Gbuffer::Target::Material)};
 	ID3D12Resource *gbufferResources[] = {m_gbuffer->GetResource(Gbuffer::Target::Albedo), m_gbuffer->GetResource(Gbuffer::Target::Normal),
@@ -321,7 +324,7 @@ void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context &context)
 		srvDesc.Texture2D.MostDetailedMip = 0;
 		srvDesc.Texture2D.MipLevels = 1;
 		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-		context.GetDevice()->CreateShaderResourceView(gbufferResources[targetIndex], &srvDesc, m_lightingSrvHeap.Allocate().CpuHandle);
+		context.GetDevice()->CreateShaderResourceView(gbufferResources[targetIndex], &srvDesc, m_lightingCpuSrvHeap.Allocate().CpuHandle);
 	}
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC shadowSrvDesc = {};
@@ -335,7 +338,7 @@ void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context &context)
 	shadowSrvDesc.Texture2DArray.PlaneSlice = 0;
 	shadowSrvDesc.Texture2DArray.ResourceMinLODClamp = 0.0f;
 	context.GetDevice()->CreateShaderResourceView(m_cascadedShadowMap->GetResource(), &shadowSrvDesc,
-	                                              m_lightingSrvHeap.Allocate().CpuHandle);
+	                                              m_lightingCpuSrvHeap.Allocate().CpuHandle);
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC irradianceSrvDesc = {};
 	irradianceSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -345,7 +348,7 @@ void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context &context)
 	irradianceSrvDesc.TextureCube.MipLevels = m_irradianceMapTexture->Resource->GetDesc().MipLevels;
 	irradianceSrvDesc.TextureCube.ResourceMinLODClamp = 0.0f;
 	context.GetDevice()->CreateShaderResourceView(m_irradianceMapTexture->Resource.Get(), &irradianceSrvDesc,
-	                                              m_lightingSrvHeap.Allocate().CpuHandle);
+	                                              m_lightingCpuSrvHeap.Allocate().CpuHandle);
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC prefilterSrvDesc = {};
 	prefilterSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -355,7 +358,7 @@ void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context &context)
 	prefilterSrvDesc.TextureCube.MipLevels = m_prefilterMapTexture->Resource->GetDesc().MipLevels;
 	prefilterSrvDesc.TextureCube.ResourceMinLODClamp = 0.0f;
 	context.GetDevice()->CreateShaderResourceView(m_prefilterMapTexture->Resource.Get(), &prefilterSrvDesc,
-	                                              m_lightingSrvHeap.Allocate().CpuHandle);
+	                                              m_lightingCpuSrvHeap.Allocate().CpuHandle);
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC environmentSrvDesc = {};
 	environmentSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -365,7 +368,7 @@ void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context &context)
 	environmentSrvDesc.TextureCube.MipLevels = m_environmentMapTexture->Resource->GetDesc().MipLevels;
 	environmentSrvDesc.TextureCube.ResourceMinLODClamp = 0.0f;
 	context.GetDevice()->CreateShaderResourceView(m_environmentMapTexture->Resource.Get(), &environmentSrvDesc,
-	                                              m_lightingSrvHeap.Allocate().CpuHandle);
+	                                              m_lightingCpuSrvHeap.Allocate().CpuHandle);
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC brdfLutSrvDesc = {};
 	brdfLutSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -375,7 +378,7 @@ void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context &context)
 	brdfLutSrvDesc.Texture2D.MipLevels = m_brdfLutTexture->Resource->GetDesc().MipLevels;
 	brdfLutSrvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 	context.GetDevice()->CreateShaderResourceView(m_brdfLutTexture->Resource.Get(), &brdfLutSrvDesc,
-	                                              m_lightingSrvHeap.Allocate().CpuHandle);
+	                                              m_lightingCpuSrvHeap.Allocate().CpuHandle);
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC depthSrvDesc = {};
 	depthSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -384,20 +387,27 @@ void DeferredRenderer::BuildLightingSrvHeap(DirectX12Context &context)
 	depthSrvDesc.Texture2D.MostDetailedMip = 0;
 	depthSrvDesc.Texture2D.MipLevels = 1;
 	depthSrvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-	context.GetDevice()->CreateShaderResourceView(m_gbuffer->GetDepthResource(), &depthSrvDesc, m_lightingSrvHeap.Allocate().CpuHandle);
+	context.GetDevice()->CreateShaderResourceView(m_gbuffer->GetDepthResource(), &depthSrvDesc, m_lightingCpuSrvHeap.Allocate().CpuHandle);
+	context.GetDevice()->CopyDescriptorsSimple(9, m_lightingSrvHeap.Allocate(9).CpuHandle,
+	                                           m_lightingCpuSrvHeap.CpuHandleAt(0), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	m_lightingSrvHeapDirty = false;
 	m_forwardSrvHeapDirty = true;
 }
 
-void DeferredRenderer::BuildForwardSrvHeap(DirectX12Context &context, ID3D12DescriptorHeap *sceneSrvDescriptorHeap)
+void DeferredRenderer::BuildForwardSrvHeap(DirectX12Context &context, ID3D12DescriptorHeap *sceneCpuSrvDescriptorHeap)
 {
-	if (sceneSrvDescriptorHeap == nullptr || !m_lightingSrvHeap.IsValid())
+	if (sceneCpuSrvDescriptorHeap == nullptr || !m_lightingSrvHeap.IsValid())
 	{
 		return;
 	}
 
-	const UINT sceneDescriptorCount = sceneSrvDescriptorHeap->GetDesc().NumDescriptors;
-	const bool sourceChanged = m_forwardSourceSrvHeap != sceneSrvDescriptorHeap ||
+	if ((sceneCpuSrvDescriptorHeap->GetDesc().Flags & D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE) != 0)
+	{
+		throw std::invalid_argument("Forward descriptor copies require a non-shader-visible source heap.");
+	}
+
+	const UINT sceneDescriptorCount = sceneCpuSrvDescriptorHeap->GetDesc().NumDescriptors;
+	const bool sourceChanged = m_forwardSourceSrvHeap != sceneCpuSrvDescriptorHeap ||
 	                           m_forwardSourceSrvHeapCount != sceneDescriptorCount;
 	if (m_forwardSrvHeap.IsValid() && !m_forwardSrvHeapDirty && !sourceChanged)
 	{
@@ -411,18 +421,18 @@ void DeferredRenderer::BuildForwardSrvHeap(DirectX12Context &context, ID3D12Desc
 	for (UINT descriptorIndex = 0; descriptorIndex < sceneDescriptorCount; ++descriptorIndex)
 	{
 		const CD3DX12_CPU_DESCRIPTOR_HANDLE sceneDescriptorHandle(
-		    sceneSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), descriptorIndex, context.GetCbvSrvUavDescriptorSize());
+		    sceneCpuSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), descriptorIndex, context.GetCbvSrvUavDescriptorSize());
 		context.GetDevice()->CopyDescriptorsSimple(1, m_forwardSrvHeap.Allocate().CpuHandle, sceneDescriptorHandle,
 		                                           D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	}
 	for (UINT descriptorIndex = 0; descriptorIndex < lightingDescriptorCount; ++descriptorIndex)
 	{
 		context.GetDevice()->CopyDescriptorsSimple(1, m_forwardSrvHeap.Allocate().CpuHandle,
-		                                           m_lightingSrvHeap.CpuHandleAt(lightingDescriptorOffset + descriptorIndex),
+		                                           m_lightingCpuSrvHeap.CpuHandleAt(lightingDescriptorOffset + descriptorIndex),
 		                                           D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	}
 
-	m_forwardSourceSrvHeap = sceneSrvDescriptorHeap;
+	m_forwardSourceSrvHeap = sceneCpuSrvDescriptorHeap;
 	m_forwardSourceSrvHeapCount = sceneDescriptorCount;
 	m_forwardSrvHeapDirty = false;
 }
@@ -564,7 +574,7 @@ void DeferredRenderer::RenderLightingStage(DirectX12Context &context, FrameResou
 }
 
 void DeferredRenderer::RenderTransparentGeometryStage(DirectX12Context &context, FrameResource &frameResource,
-                                                      ID3D12DescriptorHeap *sceneSrvDescriptorHeap,
+                                                      ID3D12DescriptorHeap *sceneCpuSrvDescriptorHeap,
                                                       const MeshGeometry &sceneGeometry,
                                                       const std::vector<ModelDrawItem> &drawItems,
                                                       RenderSettings::LightingModel lightingModel)
@@ -604,7 +614,7 @@ void DeferredRenderer::RenderTransparentGeometryStage(DirectX12Context &context,
 	          [](const TransparentDraw &left, const TransparentDraw &right) { return left.DistanceSquared > right.DistanceSquared; });
 
 	BuildLightingSrvHeap(context);
-	BuildForwardSrvHeap(context, sceneSrvDescriptorHeap);
+	BuildForwardSrvHeap(context, sceneCpuSrvDescriptorHeap);
 	if (!m_forwardSrvHeap.IsValid())
 	{
 		throw std::runtime_error("Failed to prepare descriptors for transparent geometry.");

@@ -20,6 +20,10 @@ class SponzaScene
 	{
 		return m_resources.SrvDescriptorHeap.Get();
 	}
+	ID3D12DescriptorHeap *GetCpuSrvDescriptorHeap() const
+	{
+		return m_resources.CpuSrvDescriptorHeap.Get();
+	}
 	const std::vector<ModelDrawItem> &GetDrawItems() const
 	{
 		return m_data.DrawItems;

@@ -55,7 +55,7 @@ class DeferredRenderer
 	void RenderLightingStage(DirectX12Context &context, FrameResource &frameResource, DebugOverlay::DebugViewMode debugViewMode,
 	                         RenderSettings::LightingModel lightingModel);
 	void RenderTransparentGeometryStage(DirectX12Context &context, FrameResource &frameResource,
-	                                   ID3D12DescriptorHeap *sceneSrvDescriptorHeap, const MeshGeometry &sceneGeometry,
+	                                   ID3D12DescriptorHeap *sceneCpuSrvDescriptorHeap, const MeshGeometry &sceneGeometry,
 	                                   const std::vector<ModelDrawItem> &drawItems, RenderSettings::LightingModel lightingModel);
 	void ResetRenderStatistics();
 	const DebugOverlay::RenderStatistics &GetRenderStatistics() const
@@ -97,7 +97,7 @@ class DeferredRenderer
 	void BuildCascadedShadowMap(DirectX12Context &context);
 	void BuildImageBasedLightingTextures(DirectX12Context &context);
 	void BuildLightingSrvHeap(DirectX12Context &context);
-	void BuildForwardSrvHeap(DirectX12Context &context, ID3D12DescriptorHeap *sceneSrvDescriptorHeap);
+	void BuildForwardSrvHeap(DirectX12Context &context, ID3D12DescriptorHeap *sceneCpuSrvDescriptorHeap);
 	void BuildRootSignature(DirectX12Context &context);
 	void BuildPSO(DirectX12Context &context);
 	void BuildShadowPSOs(DirectX12Context &context);
@@ -177,6 +177,7 @@ class DeferredRenderer
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_directionalShadowOpaquePSO;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_directionalShadowAlphaCutoutPSO;
 	DescriptorHeap m_lightingSrvHeap;
+	DescriptorHeap m_lightingCpuSrvHeap;
 	DescriptorHeap m_forwardSrvHeap;
 	std::unique_ptr<CascadedShadowMap> m_cascadedShadowMap;
 	std::unique_ptr<Gbuffer> m_gbuffer;

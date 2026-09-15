@@ -300,6 +300,9 @@ void SponzaScene::BuildDescriptorHeap(DirectX12Context &context)
 	m_resources.SrvDescriptorHeap.Initialize(context.GetDevice(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
 	                                         static_cast<UINT>(m_resources.OrderedTextures.size()),
 	                                         D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+	m_resources.CpuSrvDescriptorHeap.Initialize(context.GetDevice(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+	                                            static_cast<UINT>(m_resources.OrderedTextures.size()),
+	                                            D3D12_DESCRIPTOR_HEAP_FLAG_NONE);
 	for (Texture *texture : m_resources.OrderedTextures)
 	{
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
@@ -310,7 +313,9 @@ void SponzaScene::BuildDescriptorHeap(DirectX12Context &context)
 		srvDesc.Texture2D.MipLevels = static_cast<UINT>(texture->Resource->GetDesc().MipLevels);
 		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
-		context.GetDevice()->CreateShaderResourceView(texture->Resource.Get(), &srvDesc,
-		                                              m_resources.SrvDescriptorHeap.Allocate().CpuHandle);
+		const auto source = m_resources.CpuSrvDescriptorHeap.Allocate();
+		context.GetDevice()->CreateShaderResourceView(texture->Resource.Get(), &srvDesc, source.CpuHandle);
+		context.GetDevice()->CopyDescriptorsSimple(1, m_resources.SrvDescriptorHeap.Allocate().CpuHandle, source.CpuHandle,
+		                                           D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	}
 }
