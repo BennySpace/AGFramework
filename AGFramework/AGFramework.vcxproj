@@ -115,9 +115,6 @@
     <ClInclude Include="src\Core\Window.h" />
   </ItemGroup>
   <ItemGroup>
-    <Natvis Include="src\Utils\Delegates.natvis" />
-  </ItemGroup>
-  <ItemGroup>
     <ResourceCompile Include="AGFramework.rc" />
   </ItemGroup>
   <ItemGroup>

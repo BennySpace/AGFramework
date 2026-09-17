@@ -302,11 +302,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Natvis Include="src\Utils\Delegates.natvis">
-      <Filter>src\Utils</Filter>
-    </Natvis>
-  </ItemGroup>
-  <ItemGroup>
     <ResourceCompile Include="AGFramework.rc" />
   </ItemGroup>
   <ItemGroup>
