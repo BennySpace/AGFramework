@@ -1,18 +1,17 @@
-![AGFramework Banner](Assets/readme/banner.jpg)
-
-# AGFramework
+# ![AGFramework Banner](Assets/readme/banner.jpg)
 
 A small **DirectX 12** rendering framework for experimenting with modern real-time rendering techniques on Windows.
 
 Implemented features:
-- custom window, message loop, and input handling;
-- core DX12 setup: device, swap chain, command queue, and descriptor heaps;
-- `obj` model loading with textures and materials;
-- deferred rendering with a `GBuffer`;
-- directional, point, and spot lighting;
-- cascaded shadow maps with PCF;
-- PBR lighting with image-based lighting;
-- `Sponza` demo scene.
+
+- WinAPI window, message loop, and raw-input handling;
+- DirectX 12 device, swap chain, command queue, and descriptor heaps;
+- OBJ model loading with textures and materials;
+- deferred rendering with a GBuffer;
+- directional, point, and spot lights;
+- cascaded shadow maps with PCF filtering;
+- physically based rendering (PBR) with image-based lighting (IBL);
+- a Sponza demo scene and a Dear ImGui debug overlay for inspecting and adjusting renderer settings.
 
 ## Screenshots
 
@@ -20,66 +19,50 @@ Implemented features:
 ![Screenshot 2](Assets/readme/screenshots/02.png)
 ![Screenshot 3](Assets/readme/screenshots/03.png)
 
-## Completed ITMO Computer Graphics Course Tasks
+## Requirements
 
-### DirectX 12 Part 1 Overview
+- Windows 10 or later with DirectX 12 support;
+- Visual Studio with the MSVC v145 toolset and a Windows SDK installed;
+- NuGet package restore for the native dependencies: Assimp and DirectXTK12.
 
-- [x] Implemented a custom message loop.
-- [x] Implemented a `WndProc` window procedure.
-- [x] Created a window class that encapsulates WinAPI window management.
-- [x] Refactored input into a dedicated `InputDevice` with raw input handling.
+## Build and Run
 
-### DirectX 12 Part 2 Device and Resources
+1. Open [AGFramework.slnx](AGFramework/AGFramework.slnx) in Visual Studio.
+2. Restore the NuGet packages if Visual Studio does not do so automatically.
+3. Select the `x64` platform and either the `Debug` or `Release` configuration.
+4. Build and run the `AGFramework` project.
 
-- [x] Built the application framework and timer.
-- [x] Initialized the `Device`, `SwapChain`, and required base resources.
-- [x] Implemented back buffer and depth buffer clearing.
+To perform a one-frame rendering smoke test without showing a window, run the built executable with `--smoke-test`.
 
-### DirectX 12 Part 3 Rendering
+## Controls
 
-- [x] Added HLSL shader compilation and loading.
-- [x] Created constant buffers, root signatures, and PSOs.
+- `W`, `A`, `S`, `D` - move the camera;
+- `Shift` - move faster;
+- hold the right mouse button inside the window - capture the mouse and look around.
 
-### Textures
+## Architecture
 
-- [x] Added texture loading.
-- [x] Added `obj` model rendering with materials.
+The framework is organized around a small orchestration layer and focused rendering subsystems:
 
-### Rendering
-
-- [x] Implemented the main rendering system.
-- [x] Implemented the `GBuffer`.
-- [x] Implemented deferred rendering.
-- [x] Added `Directional`, `Point`, and `Spot` lights.
-- [x] Added the `Sponza` scene with multiple light sources.
-
-### Shadows
-
-- [x] Added cascaded shadow maps.
-- [x] Added PCF shadow filtering.
-
-### Physically Based Rendering
-
-- [x] Switched lighting to PBR.
-- [x] Added IBL lighting and reflections.
-- [x] Added support for `irradiance map`, `BRDF integration map`, and `prefiltered environment map`.
-
-## Goal
-
-AGFramework is organized as a small rendering framework rather than a full game engine. Its current architecture aims to keep rendering responsibilities separated into practical modules while staying simple enough to evolve incrementally.
-
-## Architectural Style
-
-The framework does not follow one strict high-level pattern such as MVC or ECS. Instead, it currently uses a combination of:
-- layered architecture
-- subsystem decomposition
-- facade-style entry points
-- composition over inheritance
+- `AGFramework` owns the window, input device, frame loop, and renderer lifetime.
+- `DirectX12App` coordinates per-frame updates, GPU synchronization, scene state, and rendering passes.
+- `DirectX12Context` encapsulates DirectX 12 device, command-list, swap-chain, and descriptor-heap management.
+- `DeferredRenderer` owns GPU resources and pipeline states for shadow, geometry, deferred-lighting, and transparent passes.
+- Scene, asset, lighting, material, camera, and debug-overlay modules provide data and controls to the renderer.
 
 ## Project Structure
 
-- `AGFramework/src/Core` - window, timer, and input systems.
-- `AGFramework/src/Graphics/dx12` - core DirectX 12 context and helper classes.
-- `AGFramework/src/Graphics` - deferred renderer, lighting, shadows, materials, and scene code.
-- `AGFramework/shaders` - HLSL shaders.
-- `Assets` - models, textures, and demo materials.
+- `AGFramework/src/App` — application startup, frame loop, and subsystem lifetime.
+- `AGFramework/src/Core` — WinAPI window, message dispatch, timer, and raw input.
+- `AGFramework/src/Graphics/dx12` — DirectX 12 device, swap chain, command resources, descriptor heaps, and DX12 utilities.
+- `AGFramework/src/Graphics` — rendering systems and shared rendering state.
+  - `Assets`, `Resources`, `Scene` — asset paths, loading, GPU upload, and scene data.
+  - `Demo` — Sponza demo composition and runtime controls.
+  - `Overlay` — Dear ImGui debug UI and render diagnostics.
+- `AGFramework/shaders` — HLSL shaders for geometry, lighting, and shadow passes.
+- `AGFramework/external/imgui` — bundled Dear ImGui sources and platform/rendering backends.
+- `Assets` — runtime assets: Sponza model, textures, IBL maps, shared materials, and icons.
+
+## Academic Attribution
+
+This project is developed as part of the Computer Graphics course laboratory works at the School of Video Game Development, ITMO University.
