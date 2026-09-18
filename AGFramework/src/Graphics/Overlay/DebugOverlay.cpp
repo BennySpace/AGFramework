@@ -84,6 +84,82 @@ ImU32 ToImColor(const XMFLOAT4 &color, bool isEnabled, float enabledAlpha = 1.0f
 	return ImGui::ColorConvertFloat4ToU32(ImVec4(color.x, color.y, color.z, isEnabled ? enabledAlpha : disabledAlpha));
 }
 
+constexpr float DebugControlMinimumWidth = 120.0f;
+
+bool ShouldWrapDebugControlLabel(const char *label)
+{
+	return ImGui::CalcTextSize(label).x + ImGui::GetStyle().ItemInnerSpacing.x + DebugControlMinimumWidth >
+	       ImGui::GetContentRegionAvail().x;
+}
+
+void DrawDebugControlLabel(const char *label, bool wrapToNextLine)
+{
+	if (wrapToNextLine)
+	{
+		ImGui::TextWrapped("%s", label);
+	}
+	else
+	{
+		ImGui::SameLine();
+		ImGui::TextUnformatted(label);
+	}
+}
+
+bool DebugSliderFloat(const char *id, const char *label, float *value, float minimum, float maximum, const char *format)
+{
+	const bool wrapToNextLine = ShouldWrapDebugControlLabel(label);
+	if (!wrapToNextLine)
+	{
+		const float width = ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(label).x - ImGui::GetStyle().ItemInnerSpacing.x;
+		ImGui::SetNextItemWidth((std::max)(DebugControlMinimumWidth, width));
+	}
+	const bool changed = ImGui::SliderFloat(id, value, minimum, maximum, format);
+	DrawDebugControlLabel(label, wrapToNextLine);
+	return changed;
+}
+
+bool DebugSliderInt(const char *id, const char *label, int *value, int minimum, int maximum)
+{
+	const bool wrapToNextLine = ShouldWrapDebugControlLabel(label);
+	if (!wrapToNextLine)
+	{
+		const float width = ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(label).x - ImGui::GetStyle().ItemInnerSpacing.x;
+		ImGui::SetNextItemWidth((std::max)(DebugControlMinimumWidth, width));
+	}
+	const bool changed = ImGui::SliderInt(id, value, minimum, maximum);
+	DrawDebugControlLabel(label, wrapToNextLine);
+	return changed;
+}
+
+bool DebugColorEdit3(const char *id, const char *label, float *color)
+{
+	const bool wrapToNextLine = ShouldWrapDebugControlLabel(label);
+	const bool changed = ImGui::ColorEdit3(id, color);
+	DrawDebugControlLabel(label, wrapToNextLine);
+	return changed;
+}
+
+bool DebugCheckbox(const char *id, const char *label, bool *value)
+{
+	const bool wrapToNextLine = ShouldWrapDebugControlLabel(label);
+	const bool changed = ImGui::Checkbox(id, value);
+	DrawDebugControlLabel(label, wrapToNextLine);
+	return changed;
+}
+
+bool DebugCombo(const char *id, const char *label, int *currentItem, const char *const items[], int itemCount)
+{
+	const bool wrapToNextLine = ShouldWrapDebugControlLabel(label);
+	if (!wrapToNextLine)
+	{
+		const float width = ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(label).x - ImGui::GetStyle().ItemInnerSpacing.x;
+		ImGui::SetNextItemWidth((std::max)(DebugControlMinimumWidth, width));
+	}
+	const bool changed = ImGui::Combo(id, currentItem, items, itemCount);
+	DrawDebugControlLabel(label, wrapToNextLine);
+	return changed;
+}
+
 void DrawProjectedSegment(ImDrawList *drawList, const XMFLOAT3 &a, const XMFLOAT3 &b, const XMMATRIX &viewProj, const ImVec2 &displaySize,
                           ImU32 color, float thickness)
 {
@@ -418,7 +494,7 @@ void DebugOverlay::DrawDemoSection(RenderSettings &renderSettings, RenderSetting
 		{
 			Demo::DemoLightingController::ResetRecommendedPbrGridOffset(showcaseSession);
 		}
-		ImGui::TextUnformatted("Changes apply on the next frame.");
+		ImGui::TextWrapped("Changes apply on the next frame.");
 		ImGui::TreePop();
 	}
 }
@@ -525,7 +601,7 @@ void DebugOverlay::DrawAdvancedSection(const CameraState &cameraState, MaterialS
 
 	if (ImGui::TreeNode("Global material override"))
 	{
-		ImGui::TextUnformatted("Applies to every scene material; imported assets are unchanged.");
+		ImGui::TextWrapped("Applies to every scene material; imported assets are unchanged.");
 		MaterialSystem::MaterialState materialState = materialSystem.GetMaterialState();
 		if (ImGui::Button("Apply recommended global override"))
 		{
@@ -589,21 +665,21 @@ void DebugOverlay::DrawLightingSection(MaterialSystem &materialSystem, RenderSet
 		m_shadowSettingsDirty = false;
 		lightEditState = lightEditSession.GetState();
 	}
-	if (ImGui::ColorEdit3("Ambient", &lightingSettings.AmbientLight.x))
+	if (DebugColorEdit3("##Ambient", "Ambient", &lightingSettings.AmbientLight.x))
 	{
 		renderSettings.SetLightingSettings(lightingSettings);
 	}
-	if (ImGui::SliderFloat("Ambient intensity", &lightingSettings.AmbientLight.w, 0.0f, 2.0f))
+	if (DebugSliderFloat("##AmbientIntensity", "Ambient intensity", &lightingSettings.AmbientLight.w, 0.0f, 2.0f, "%.3f"))
 	{
 		renderSettings.SetLightingSettings(lightingSettings);
 	}
-	if (ImGui::ColorEdit3("Background", &lightingSettings.BackgroundColor.x))
+	if (DebugColorEdit3("##Background", "Background", &lightingSettings.BackgroundColor.x))
 	{
 		renderSettings.SetLightingSettings(lightingSettings);
 	}
 	const char *lightingModelLabels[] = {"PBR (Cook-Torrance)", "Phong"};
 	int lightingModelIndex = lightingModel == RenderSettings::LightingModel::Phong ? 1 : 0;
-	if (ImGui::Combo("Lighting model", &lightingModelIndex, lightingModelLabels, IM_ARRAYSIZE(lightingModelLabels)))
+	if (DebugCombo("##LightingModel", "Lighting model", &lightingModelIndex, lightingModelLabels, IM_ARRAYSIZE(lightingModelLabels)))
 	{
 		lightingModel = lightingModelIndex == 1 ? RenderSettings::LightingModel::Phong : RenderSettings::LightingModel::Pbr;
 		renderSettings.SetLightingModel(lightingModel);
@@ -611,36 +687,36 @@ void DebugOverlay::DrawLightingSection(MaterialSystem &materialSystem, RenderSet
 
 	ImGui::SeparatorText("IBL");
 	ImGui::BeginDisabled(lightingModel == RenderSettings::LightingModel::Phong);
-	if (ImGui::Checkbox("Show skybox", &imageBasedLightingSettings.ShowSkybox))
+	if (DebugCheckbox("##ShowSkybox", "Show skybox", &imageBasedLightingSettings.ShowSkybox))
 	{
 		renderSettings.SetImageBasedLightingSettings(imageBasedLightingSettings);
 	}
-	if (ImGui::SliderFloat("Diffuse IBL", &imageBasedLightingSettings.DiffuseStrength, 0.0f, 2.0f, "%.2f"))
+	if (DebugSliderFloat("##DiffuseIbl", "Diffuse IBL", &imageBasedLightingSettings.DiffuseStrength, 0.0f, 2.0f, "%.2f"))
 	{
 		renderSettings.SetImageBasedLightingSettings(imageBasedLightingSettings);
 	}
-	if (ImGui::SliderFloat("Specular IBL", &imageBasedLightingSettings.SpecularStrength, 0.0f, 2.0f, "%.2f"))
+	if (DebugSliderFloat("##SpecularIbl", "Specular IBL", &imageBasedLightingSettings.SpecularStrength, 0.0f, 2.0f, "%.2f"))
 	{
 		renderSettings.SetImageBasedLightingSettings(imageBasedLightingSettings);
 	}
-	if (ImGui::SliderFloat("Skybox intensity", &imageBasedLightingSettings.SkyboxIntensity, 0.0f, 5.0f, "%.2f"))
+	if (DebugSliderFloat("##SkyboxIntensity", "Skybox intensity", &imageBasedLightingSettings.SkyboxIntensity, 0.0f, 5.0f, "%.2f"))
 	{
 		renderSettings.SetImageBasedLightingSettings(imageBasedLightingSettings);
 	}
-	if (ImGui::SliderFloat("Exposure", &imageBasedLightingSettings.Exposure, 0.25f, 5.0f, "%.2f"))
+	if (DebugSliderFloat("##Exposure", "Exposure", &imageBasedLightingSettings.Exposure, 0.25f, 5.0f, "%.2f"))
 	{
 		renderSettings.SetImageBasedLightingSettings(imageBasedLightingSettings);
 	}
 	ImGui::EndDisabled();
 	if (lightingModel == RenderSettings::LightingModel::Phong)
 	{
-		ImGui::TextUnformatted("Phong uses direct lights and ambient settings; IBL only supplies the skybox.");
+		ImGui::TextWrapped("Phong uses direct lights and ambient settings; IBL only supplies the skybox.");
 	}
 
 	if (!demoSettings.EnableDemoControls)
 	{
 		ImGui::SeparatorText("Shadows");
-		if (ImGui::Checkbox("Enable directional shadows", &shadowSettings.EnableDirectionalShadows))
+		if (DebugCheckbox("##EnableDirectionalShadows", "Enable directional shadows", &shadowSettings.EnableDirectionalShadows))
 		{
 			m_shadowSettingsDirty = true;
 		}
@@ -650,20 +726,20 @@ void DebugOverlay::DrawLightingSection(MaterialSystem &materialSystem, RenderSet
 			shadowSettings = renderSettings.GetShadowSettings();
 			m_shadowSettingsDirty = false;
 		}
-		ImGui::TextUnformatted("Advanced shadow and light controls are available in Demo mode.");
+		ImGui::TextWrapped("Advanced shadow and light controls are available in Demo mode.");
 		return;
 	}
 
 	if (ImGui::TreeNode("Shadows"))
 	{
-		ImGui::TextUnformatted("Current scope: directional light only.");
+		ImGui::TextWrapped("Current scope: directional light only.");
 		bool shadowSettingsChanged = false;
-		if (ImGui::Checkbox("Enable directional shadows", &shadowSettings.EnableDirectionalShadows))
+		if (DebugCheckbox("##EnableDirectionalShadows", "Enable directional shadows", &shadowSettings.EnableDirectionalShadows))
 		{
 			shadowSettingsChanged = true;
 		}
 		int cascadeCount = static_cast<int>(shadowSettings.CascadeCount);
-		if (ImGui::SliderInt("Cascade count", &cascadeCount, 1, 4))
+		if (DebugSliderInt("##CascadeCount", "Cascade count", &cascadeCount, 1, 4))
 		{
 			shadowSettings.CascadeCount = static_cast<std::uint32_t>(cascadeCount);
 			shadowSettingsChanged = true;
@@ -679,16 +755,17 @@ void DebugOverlay::DrawLightingSection(MaterialSystem &materialSystem, RenderSet
 				break;
 			}
 		}
-		if (ImGui::Combo("Shadow map size", &shadowMapSizeIndex, shadowMapSizeLabels, IM_ARRAYSIZE(shadowMapSizeLabels)))
+		if (DebugCombo("##ShadowMapSize", "Shadow map size", &shadowMapSizeIndex, shadowMapSizeLabels,
+		               IM_ARRAYSIZE(shadowMapSizeLabels)))
 		{
 			shadowSettings.ShadowMapSize = shadowMapSizes[shadowMapSizeIndex];
 			shadowSettingsChanged = true;
 		}
-		if (ImGui::SliderFloat("Bias", &shadowSettings.DepthBias, 0.0f, 10000.0f, "%.0f"))
+		if (DebugSliderFloat("##ShadowBias", "Bias", &shadowSettings.DepthBias, 0.0f, 10000.0f, "%.0f"))
 		{
 			shadowSettingsChanged = true;
 		}
-		if (ImGui::SliderFloat("PCF kernel radius", &shadowSettings.PcfRadius, 0.0f, 3.0f, "%.2f"))
+		if (DebugSliderFloat("##PcfKernelRadius", "PCF kernel radius", &shadowSettings.PcfRadius, 0.0f, 3.0f, "%.2f"))
 		{
 			shadowSettingsChanged = true;
 		}
@@ -804,7 +881,7 @@ void DebugOverlay::DrawLightingSection(MaterialSystem &materialSystem, RenderSet
 
 	if (ImGui::TreeNode("Spot"))
 	{
-		ImGui::TextUnformatted("Spot 0 follows the camera.");
+		ImGui::TextWrapped("Spot 0 follows the camera.");
 		for (int lightIndex = 0; lightIndex < static_cast<int>(LightSystem::SpotLightCount); ++lightIndex)
 		{
 			bool isEnabled = lightEditState.EnableState.SpotLights[lightIndex];
